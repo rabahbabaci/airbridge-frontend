@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, Plane, MapPin, Calendar, Shield, Zap, AlertCircle, ChevronDown, ArrowRight, Car, Users, Footprints, Timer } from 'lucide-react';
+import { Clock, Plane, MapPin, Calendar as CalendarIcon, Shield, Zap, AlertCircle, ChevronDown, ArrowRight, Car, Users, Footprints, Timer } from 'lucide-react';
 import { Input } from "@/components/ui/input";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { format } from "date-fns";
 
 const confidenceProfiles = [
     { 
@@ -59,12 +62,19 @@ const calculateTimes = (airport, profile) => {
     };
 };
 
+const mockFlights = [
+    'UA 452', 'AA 1234', 'DL 567', 'UA 890', 'AA 223', 'SW 456',
+    'B6 789', 'AS 321', 'NK 654', 'F9 987'
+];
+
 export default function DepartureEngineDemo() {
     const [selectedProfile, setSelectedProfile] = useState('sweet');
     const [viewMode, setViewMode] = useState('breakdown');
     const [airport, setAirport] = useState('SFO');
     const [flightNumber, setFlightNumber] = useState('UA 452');
-    const [date, setDate] = useState('Mar 15, 2026');
+    const [date, setDate] = useState(new Date(2026, 2, 15));
+    const [flightInputFocused, setFlightInputFocused] = useState(false);
+    const [filteredFlights, setFilteredFlights] = useState([]);
     
     const currentProfile = confidenceProfiles.find(p => p.id === selectedProfile);
     const times = calculateTimes(airport, currentProfile);
@@ -85,6 +95,18 @@ export default function DepartureEngineDemo() {
     const calculateArrivalTime = () => {
         const now = new Date();
         return now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    };
+
+    const handleFlightNumberChange = (value) => {
+        setFlightNumber(value);
+        if (value.length > 0) {
+            const filtered = mockFlights.filter(flight => 
+                flight.toLowerCase().includes(value.toLowerCase())
+            );
+            setFilteredFlights(filtered);
+        } else {
+            setFilteredFlights([]);
+        }
     };
 
     return (
@@ -121,17 +143,35 @@ export default function DepartureEngineDemo() {
                         </div>
 
                         {/* Flight Number Input */}
-                        <div className="mb-5">
+                        <div className="mb-5 relative">
                             <label className="text-xs text-gray-500 uppercase tracking-wider mb-2 block font-medium">Flight Number</label>
                             <div className="bg-gray-50 rounded-xl border border-gray-200 px-3 py-2.5 flex items-center gap-2">
                                 <Plane className="w-4 h-4 text-gray-400" />
                                 <Input
                                     value={flightNumber}
-                                    onChange={(e) => setFlightNumber(e.target.value)}
+                                    onChange={(e) => handleFlightNumberChange(e.target.value)}
+                                    onFocus={() => setFlightInputFocused(true)}
+                                    onBlur={() => setTimeout(() => setFlightInputFocused(false), 200)}
                                     className="border-0 bg-transparent p-0 h-auto text-gray-900 font-medium focus-visible:ring-0 text-sm"
                                     placeholder="UA 452"
                                 />
                             </div>
+                            {flightInputFocused && filteredFlights.length > 0 && (
+                                <div className="absolute z-10 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto">
+                                    {filteredFlights.map((flight) => (
+                                        <button
+                                            key={flight}
+                                            onClick={() => {
+                                                setFlightNumber(flight);
+                                                setFilteredFlights([]);
+                                            }}
+                                            className="w-full text-left px-4 py-2.5 hover:bg-gray-50 text-sm text-gray-900 font-medium transition-colors"
+                                        >
+                                            {flight}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
                         </div>
 
                         {/* Airport & Date */}
@@ -156,15 +196,24 @@ export default function DepartureEngineDemo() {
                             </div>
                             <div>
                                 <label className="text-xs text-gray-500 uppercase tracking-wider mb-2 block font-medium">Date</label>
-                                <div className="bg-gray-50 rounded-xl border border-gray-200 px-3 py-2.5 flex items-center gap-2">
-                                    <Calendar className="w-4 h-4 text-gray-400" />
-                                    <Input
-                                        value={date}
-                                        onChange={(e) => setDate(e.target.value)}
-                                        className="border-0 bg-transparent p-0 h-auto text-gray-400 focus-visible:ring-0 text-sm"
-                                        placeholder="Mar 15, 2026"
-                                    />
-                                </div>
+                                <Popover>
+                                    <PopoverTrigger asChild>
+                                        <button className="w-full bg-gray-50 rounded-xl border border-gray-200 px-3 py-2.5 flex items-center gap-2 hover:bg-gray-100 transition-colors">
+                                            <CalendarIcon className="w-4 h-4 text-gray-400" />
+                                            <span className="text-sm text-gray-900 font-medium">
+                                                {date ? format(date, 'MMM d, yyyy') : 'Pick a date'}
+                                            </span>
+                                        </button>
+                                    </PopoverTrigger>
+                                    <PopoverContent className="w-auto p-0" align="start">
+                                        <Calendar
+                                            mode="single"
+                                            selected={date}
+                                            onSelect={setDate}
+                                            initialFocus
+                                        />
+                                    </PopoverContent>
+                                </Popover>
                             </div>
                         </div>
 
@@ -242,7 +291,7 @@ export default function DepartureEngineDemo() {
                                 <span>•</span>
                                 <span>{airport}</span>
                                 <span>•</span>
-                                <span>{date.split(',')[0]}</span>
+                                <span>{date ? format(date, 'MMM d') : ''}</span>
                             </div>
 
                             {/* View Toggle */}
