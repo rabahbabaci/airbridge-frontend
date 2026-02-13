@@ -24,14 +24,16 @@ export default function Hero() {
                             <span className="text-sm text-gray-600">Now accepting beta users</span>
                         </div>
 
-                        <h1 className="text-5xl sm:text-6xl lg:text-7xl font-bold text-gray-900 leading-[1.1] tracking-tight">
-                            Exact Departure Timing
-                            <br />
-                            <span className="text-gray-700">No Rushing. No Waiting</span>
-                            <br />
-                            <span className="bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-                                Just Fly ✈️
-                            </span>
+                        <h1 className="leading-tight">
+                            <div className="text-4xl sm:text-5xl lg:text-6xl font-bold text-gray-900 mb-3">
+                                Exact Departure Timing
+                            </div>
+                            <div className="text-3xl sm:text-4xl lg:text-5xl font-semibold text-gray-700 mb-4">
+                                No Rushing. No Waiting
+                            </div>
+                            <div className="text-2xl sm:text-3xl lg:text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+                                Just Fly <span className="text-xl sm:text-2xl lg:text-3xl">✈️</span>
+                            </div>
                         </h1>
 
                         <p className="mt-6 text-xl text-gray-600 leading-relaxed max-w-lg">
