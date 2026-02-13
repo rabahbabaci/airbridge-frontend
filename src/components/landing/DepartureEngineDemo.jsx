@@ -221,44 +221,36 @@ export default function DepartureEngineDemo() {
                         <div className="flex-1 mb-8">
                             <label className="text-xs text-gray-500 uppercase tracking-wider mb-3 block font-medium">Confidence Profile</label>
                             <div className="space-y-3">
-                                {confidenceProfiles.map((profile) => {
-                                    const colorScheme = profile.id === 'safety' 
-                                        ? { bg: 'bg-gradient-to-r from-green-50 to-emerald-50', border: 'border-green-200', icon: 'bg-gradient-to-br from-green-500 to-emerald-600', text: 'text-green-600', range: 'text-emerald-600' }
-                                        : profile.id === 'sweet'
-                                        ? { bg: 'bg-gradient-to-r from-blue-50 to-purple-50', border: 'border-blue-200', icon: 'bg-gradient-to-br from-blue-500 to-purple-600', text: 'text-blue-600', range: 'text-purple-600' }
-                                        : { bg: 'bg-gradient-to-r from-orange-50 to-amber-50', border: 'border-orange-200', icon: 'bg-gradient-to-br from-orange-500 to-amber-600', text: 'text-orange-600', range: 'text-amber-600' };
-                                    
-                                    return (
-                                        <button
-                                            key={profile.id}
-                                            onClick={() => setSelectedProfile(profile.id)}
-                                            className={`w-full flex items-center justify-between p-3.5 rounded-lg border transition-all ${
-                                                selectedProfile === profile.id
-                                                    ? `${colorScheme.bg} ${colorScheme.border}`
-                                                    : 'bg-gray-50 border-gray-200 hover:border-gray-300'
-                                            }`}
-                                        >
-                                            <div className="flex items-center gap-3">
-                                                <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
-                                                    selectedProfile === profile.id ? colorScheme.icon : 'bg-gray-200'
-                                                }`}>
-                                                    <profile.icon className={`w-4 h-4 ${
-                                                        selectedProfile === profile.id ? 'text-white' : 'text-gray-500'
-                                                    }`} />
-                                                </div>
-                                                <div className="text-left">
-                                                    <p className={`text-sm font-medium ${
-                                                        selectedProfile === profile.id ? colorScheme.text : 'text-gray-900'
-                                                    }`}>{profile.name}</p>
-                                                    <p className="text-xs text-gray-500">{profile.desc}</p>
-                                                </div>
+                                {confidenceProfiles.map((profile) => (
+                                    <button
+                                        key={profile.id}
+                                        onClick={() => setSelectedProfile(profile.id)}
+                                        className={`w-full flex items-center justify-between p-3.5 rounded-lg border transition-all ${
+                                            selectedProfile === profile.id
+                                                ? 'bg-gradient-to-r from-blue-50 to-purple-50 border-blue-200'
+                                                : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+                                        }`}
+                                    >
+                                        <div className="flex items-center gap-3">
+                                            <div className={`w-8 h-8 rounded-lg flex items-center justify-center ${
+                                                selectedProfile === profile.id ? 'bg-gradient-to-br from-blue-500 to-purple-600' : 'bg-gray-200'
+                                            }`}>
+                                                <profile.icon className={`w-4 h-4 ${
+                                                    selectedProfile === profile.id ? 'text-white' : 'text-gray-500'
+                                                }`} />
                                             </div>
-                                            <span className={`text-xs font-medium ${
-                                                selectedProfile === profile.id ? colorScheme.range : 'text-gray-400'
-                                            }`}>{profile.range}</span>
-                                        </button>
-                                    );
-                                })}
+                                            <div className="text-left">
+                                                <p className={`text-sm font-medium ${
+                                                    selectedProfile === profile.id ? 'text-blue-600' : 'text-gray-900'
+                                                }`}>{profile.name}</p>
+                                                <p className="text-xs text-gray-500">{profile.desc}</p>
+                                            </div>
+                                        </div>
+                                        <span className={`text-xs font-medium ${
+                                            selectedProfile === profile.id ? 'text-purple-600' : 'text-gray-400'
+                                        }`}>{profile.range}</span>
+                                    </button>
+                                ))}
                             </div>
                         </div>
 
