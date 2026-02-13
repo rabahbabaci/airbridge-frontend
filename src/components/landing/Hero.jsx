@@ -56,7 +56,7 @@ export default function Hero() {
                                 size="lg"
                                 variant="outline"
                                 className="rounded-full px-8 h-14 text-base border-gray-200 hover:bg-gray-50"
-                                onClick={() => document.getElementById('engine-demo')?.scrollIntoView({ behavior: 'smooth', block: 'start' })}
+                                onClick={() => document.getElementById('engine-demo')?.scrollIntoView({ behavior: 'smooth', block: 'center' })}
                             >
                                 <Play className="mr-2 w-4 h-4" />
                                 Live Preview
