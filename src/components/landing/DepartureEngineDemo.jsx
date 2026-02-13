@@ -182,29 +182,29 @@ export default function DepartureEngineDemo() {
                                     transition={{ duration: 0.2 }}
                                     className="space-y-4 mb-8"
                                 >
-                                {timeBreakdown.map((item, index) => (
-                                    <div key={item.label}>
-                                        <div className="flex items-center justify-between mb-2">
-                                            <div className="flex items-center gap-2 text-sm text-gray-300">
-                                                {index === 0 && <Car className="w-4 h-4 text-gray-500" />}
-                                                {index === 1 && <Users className="w-4 h-4 text-gray-500" />}
-                                                {index === 2 && <Footprints className="w-4 h-4 text-gray-500" />}
-                                                {index === 3 && <Timer className="w-4 h-4 text-gray-500" />}
-                                                {item.label}
+                                    {timeBreakdown.map((item, index) => (
+                                        <div key={item.label}>
+                                            <div className="flex items-center justify-between mb-2">
+                                                <div className="flex items-center gap-2 text-sm text-gray-300">
+                                                    {index === 0 && <Car className="w-4 h-4 text-gray-500" />}
+                                                    {index === 1 && <Users className="w-4 h-4 text-gray-500" />}
+                                                    {index === 2 && <Footprints className="w-4 h-4 text-gray-500" />}
+                                                    {index === 3 && <Timer className="w-4 h-4 text-gray-500" />}
+                                                    {item.label}
+                                                </div>
+                                                <span className="text-sm text-white font-medium">{item.time}</span>
                                             </div>
-                                            <span className="text-sm text-white font-medium">{item.time}</span>
+                                            <div className="h-2 bg-gray-700/50 rounded-full overflow-hidden">
+                                                <motion.div
+                                                    initial={{ width: 0 }}
+                                                    whileInView={{ width: `${item.percent}%` }}
+                                                    viewport={{ once: true }}
+                                                    transition={{ duration: 0.8, delay: index * 0.1 }}
+                                                    className={`h-full ${item.color} rounded-full`}
+                                                />
+                                            </div>
                                         </div>
-                                        <div className="h-2 bg-gray-700/50 rounded-full overflow-hidden">
-                                            <motion.div
-                                                initial={{ width: 0 }}
-                                                whileInView={{ width: `${item.percent}%` }}
-                                                viewport={{ once: true }}
-                                                transition={{ duration: 0.8, delay: index * 0.1 }}
-                                                className={`h-full ${item.color} rounded-full`}
-                                            />
-                                        </div>
-                                    </div>
-                                ))}
+                                    ))}
                                 </motion.div>
                             )}
 
