@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, Plane, MapPin, Calendar, Shield, Zap, AlertCircle, ChevronDown, ArrowRight, Car, Users, Footprints, Timer } from 'lucide-react';
 import { Input } from "@/components/ui/input";
 
@@ -79,6 +79,11 @@ export default function DepartureEngineDemo() {
     const calculateDepartureTime = () => {
         const now = new Date();
         now.setMinutes(now.getMinutes() - times.total);
+        return now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    };
+
+    const calculateArrivalTime = () => {
+        const now = new Date();
         return now.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
     };
 
@@ -224,7 +229,11 @@ export default function DepartureEngineDemo() {
                                 <p className="text-xs text-gray-400 uppercase tracking-wider mb-2 font-medium">Leave Home At</p>
                                 <h3 className="text-5xl lg:text-6xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent">{calculateDepartureTime()}</h3>
                                 <p className="text-gray-400 mt-2">{currentProfile.desc}</p>
-                                <p className="text-sm text-gray-500 mt-1">Total journey time: {times.total} minutes</p>
+                                <div className="flex items-center gap-4 mt-3">
+                                    <p className="text-sm text-gray-500">Journey: {times.total} min</p>
+                                    <span className="text-gray-600">→</span>
+                                    <p className="text-sm text-gray-400">Arrive at gate: {calculateArrivalTime()}</p>
+                                </div>
                             </motion.div>
 
                             {/* Flight Info */}
@@ -263,112 +272,123 @@ export default function DepartureEngineDemo() {
                                 </div>
                             </div>
 
-                            {/* Breakdown View */}
-                            {viewMode === 'breakdown' && (
-                                <motion.div
-                                    key={`breakdown-${selectedProfile}-${airport}`}
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    exit={{ opacity: 0 }}
-                                    transition={{ duration: 0.3 }}
-                                    className="space-y-4 mb-8"
-                                >
-                                    {timeBreakdown.map((item, index) => (
-                                        <div key={item.label}>
-                                            <div className="flex items-center justify-between mb-2">
-                                                <div className="flex items-center gap-2 text-sm text-gray-300">
-                                                    {index === 0 && <Car className="w-4 h-4 text-gray-500" />}
-                                                    {index === 1 && <Users className="w-4 h-4 text-gray-500" />}
-                                                    {index === 2 && <Footprints className="w-4 h-4 text-gray-500" />}
-                                                    {index === 3 && <Timer className="w-4 h-4 text-gray-500" />}
-                                                    {item.label}
+                            {/* View Container with fixed height */}
+                            <div className="min-h-[360px] mb-8">
+                                <AnimatePresence mode="wait">
+                                    {/* Breakdown View */}
+                                    {viewMode === 'breakdown' && (
+                                        <motion.div
+                                            key="breakdown"
+                                            initial={{ opacity: 0, x: -20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, x: 20 }}
+                                            transition={{ duration: 0.3 }}
+                                            className="space-y-4"
+                                        >
+                                            {timeBreakdown.map((item, index) => (
+                                                <div key={item.label}>
+                                                    <div className="flex items-center justify-between mb-2">
+                                                        <div className="flex items-center gap-2 text-sm text-gray-300">
+                                                            {index === 0 && <Car className="w-4 h-4 text-gray-500" />}
+                                                            {index === 1 && <Users className="w-4 h-4 text-gray-500" />}
+                                                            {index === 2 && <Footprints className="w-4 h-4 text-gray-500" />}
+                                                            {index === 3 && <Timer className="w-4 h-4 text-gray-500" />}
+                                                            {item.label}
+                                                        </div>
+                                                        <span className="text-sm text-white font-medium">{item.time}</span>
+                                                    </div>
+                                                    <div className="h-2 bg-gray-700/50 rounded-full overflow-hidden">
+                                                        <motion.div
+                                                            initial={{ width: 0 }}
+                                                            animate={{ width: `${item.percent}%` }}
+                                                            transition={{ duration: 0.3 }}
+                                                            className={`h-full ${item.color} rounded-full`}
+                                                        />
+                                                    </div>
                                                 </div>
-                                                <span className="text-sm text-white font-medium">{item.time}</span>
+                                            ))}
+                                            {/* Total Time Summary for Breakdown */}
+                                            <div className="text-center pt-6 mt-6 border-t border-gray-700/50">
+                                                <p className="text-sm text-gray-400">
+                                                    Estimated gate arrival: <span className="font-medium text-white">{calculateArrivalTime()}</span>
+                                                </p>
                                             </div>
-                                            <div className="h-2 bg-gray-700/50 rounded-full overflow-hidden">
-                                                <motion.div
-                                                    initial={{ width: 0 }}
-                                                    animate={{ width: `${item.percent}%` }}
-                                                    transition={{ duration: 0.3 }}
-                                                    className={`h-full ${item.color} rounded-full`}
-                                                />
-                                            </div>
-                                        </div>
-                                    ))}
-                                </motion.div>
-                            )}
+                                        </motion.div>
+                                    )}
 
-                            {/* Timeline View */}
-                            {viewMode === 'timeline' && (
-                                <motion.div
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: 1 }}
-                                    exit={{ opacity: 0 }}
-                                    transition={{ duration: 0.2 }}
-                                    className="mb-8"
-                                >
-                                    {/* Timeline Visualization */}
-                                    <div className="py-6">
-                                        <div className="flex items-center justify-between relative">
-                                            {/* Connecting Line */}
-                                            <div className="absolute top-6 left-0 right-0 h-0.5 bg-gray-700/50" />
-                                            
-                                            {/* Stages */}
-                                            <div className="flex justify-between w-full relative z-10">
-                                                {/* Home */}
-                                                <div className="flex flex-col items-center">
-                                                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center mb-2">
-                                                        <MapPin className="w-5 h-5 text-white" />
-                                                    </div>
-                                                    <span className="text-xs text-gray-400 font-medium">Home</span>
-                                                </div>
+                                    {/* Timeline View */}
+                                    {viewMode === 'timeline' && (
+                                        <motion.div
+                                            key="timeline"
+                                            initial={{ opacity: 0, x: 20 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, x: -20 }}
+                                            transition={{ duration: 0.3 }}
+                                        >
+                                            {/* Timeline Visualization */}
+                                            <div className="py-6">
+                                                <div className="flex items-center justify-between relative">
+                                                    {/* Connecting Line */}
+                                                    <div className="absolute top-6 left-0 right-0 h-0.5 bg-gray-700/50" />
 
-                                                {/* Traffic */}
-                                                <div className="flex flex-col items-center">
-                                                    <div className="w-12 h-12 rounded-full bg-gray-700 flex items-center justify-center mb-2">
-                                                        <Car className="w-5 h-5 text-blue-400" />
-                                                    </div>
-                                                    <span className="text-xs text-gray-400 font-medium">Traffic</span>
-                                                    <span className="text-xs text-gray-500 mt-0.5">{times.traffic} min</span>
-                                                </div>
+                                                    {/* Stages */}
+                                                    <div className="flex justify-between w-full relative z-10">
+                                                        {/* Home */}
+                                                        <div className="flex flex-col items-center">
+                                                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center mb-2">
+                                                                <MapPin className="w-5 h-5 text-white" />
+                                                            </div>
+                                                            <span className="text-xs text-gray-400 font-medium">Home</span>
+                                                        </div>
 
-                                                {/* Security */}
-                                                <div className="flex flex-col items-center">
-                                                    <div className="w-12 h-12 rounded-full bg-gray-700 flex items-center justify-center mb-2">
-                                                        <Users className="w-5 h-5 text-purple-400" />
-                                                    </div>
-                                                    <span className="text-xs text-gray-400 font-medium">Security</span>
-                                                    <span className="text-xs text-gray-500 mt-0.5">{times.tsa} min</span>
-                                                </div>
+                                                        {/* Traffic */}
+                                                        <div className="flex flex-col items-center">
+                                                            <div className="w-12 h-12 rounded-full bg-gray-700 flex items-center justify-center mb-2">
+                                                                <Car className="w-5 h-5 text-blue-400" />
+                                                            </div>
+                                                            <span className="text-xs text-gray-400 font-medium">Traffic</span>
+                                                            <span className="text-xs text-gray-500 mt-0.5">{times.traffic} min</span>
+                                                        </div>
 
-                                                {/* Walk */}
-                                                <div className="flex flex-col items-center">
-                                                    <div className="w-12 h-12 rounded-full bg-gray-700 flex items-center justify-center mb-2">
-                                                        <Footprints className="w-5 h-5 text-gray-400" />
-                                                    </div>
-                                                    <span className="text-xs text-gray-400 font-medium">Walk</span>
-                                                    <span className="text-xs text-gray-500 mt-0.5">{times.walking} min</span>
-                                                </div>
+                                                        {/* Security */}
+                                                        <div className="flex flex-col items-center">
+                                                            <div className="w-12 h-12 rounded-full bg-gray-700 flex items-center justify-center mb-2">
+                                                                <Users className="w-5 h-5 text-purple-400" />
+                                                            </div>
+                                                            <span className="text-xs text-gray-400 font-medium">Security</span>
+                                                            <span className="text-xs text-gray-500 mt-0.5">{times.tsa} min</span>
+                                                        </div>
 
-                                                {/* Gate */}
-                                                <div className="flex flex-col items-center">
-                                                    <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center mb-2">
-                                                        <Plane className="w-5 h-5 text-white" />
+                                                        {/* Walk */}
+                                                        <div className="flex flex-col items-center">
+                                                            <div className="w-12 h-12 rounded-full bg-gray-700 flex items-center justify-center mb-2">
+                                                                <Footprints className="w-5 h-5 text-gray-400" />
+                                                            </div>
+                                                            <span className="text-xs text-gray-400 font-medium">Walk</span>
+                                                            <span className="text-xs text-gray-500 mt-0.5">{times.walking} min</span>
+                                                        </div>
+
+                                                        {/* Gate */}
+                                                        <div className="flex flex-col items-center">
+                                                            <div className="w-12 h-12 rounded-full bg-gradient-to-br from-green-500 to-emerald-600 flex items-center justify-center mb-2">
+                                                                <Plane className="w-5 h-5 text-white" />
+                                                            </div>
+                                                            <span className="text-xs text-gray-400 font-medium">Gate</span>
+                                                        </div>
                                                     </div>
-                                                    <span className="text-xs text-gray-400 font-medium">Gate</span>
                                                 </div>
                                             </div>
-                                        </div>
-                                    </div>
 
-                                    {/* Total Time Summary */}
-                                    <div className="text-center pt-4 border-t border-gray-700/50">
-                                        <p className="text-sm text-gray-400">
-                                            Total estimated time to gate: <span className="font-medium text-white">{times.total} minutes</span>
-                                        </p>
-                                    </div>
-                                </motion.div>
-                            )}
+                                            {/* Total Time Summary */}
+                                            <div className="text-center pt-4 border-t border-gray-700/50">
+                                                <p className="text-sm text-gray-400">
+                                                    Total time: <span className="font-medium text-white">{times.total} min</span> • Gate arrival: <span className="font-medium text-white">{calculateArrivalTime()}</span>
+                                                </p>
+                                            </div>
+                                        </motion.div>
+                                    )}
+                                </AnimatePresence>
+                            </div>
 
                             {/* Model Insight */}
                             <div className="mb-6">
