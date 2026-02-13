@@ -3,6 +3,7 @@ import Header from '@/components/landing/Header';
 import Hero from '@/components/landing/Hero';
 import Problem from '@/components/landing/Problem';
 import Solution from '@/components/landing/Solution';
+import DepartureEngineDemo from '@/components/landing/DepartureEngineDemo';
 import HowItWorks from '@/components/landing/HowItWorks';
 import Comparison from '@/components/landing/Comparison';
 import Trust from '@/components/landing/Trust';
@@ -17,6 +18,7 @@ export default function Home() {
                 <Hero />
                 <Problem />
                 <Solution />
+                <DepartureEngineDemo />
                 <HowItWorks />
                 <Comparison />
                 <Trust />
