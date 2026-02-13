@@ -25,10 +25,10 @@ export default function Hero() {
                         </div>
 
                         <h1 className="leading-tight">
-                            <div className="text-5xl sm:text-6xl lg:text-7xl font-bold text-gray-900 mb-4">
+                            <div className="text-5xl sm:text-6xl lg:text-7xl font-bold bg-gradient-to-r from-amber-500 to-orange-500 bg-clip-text text-transparent mb-4">
                                 Never Wait
                             </div>
-                            <div className="text-5xl sm:text-6xl lg:text-7xl font-bold text-gray-900 mb-6">
+                            <div className="text-5xl sm:text-6xl lg:text-7xl font-bold bg-gradient-to-r from-emerald-500 to-green-500 bg-clip-text text-transparent mb-6">
                                 Never Rush
                             </div>
                             <div className="text-5xl sm:text-6xl lg:text-7xl font-bold flex items-center gap-4">
