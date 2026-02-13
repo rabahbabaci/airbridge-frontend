@@ -310,7 +310,7 @@ export default function DepartureEngineDemo() {
                                             {/* Total Time Summary for Breakdown */}
                                             <div className="text-center pt-4 mt-4 border-t border-gray-700/50">
                                                 <p className="text-xs text-gray-400">
-                                                    Gate arrival: <span className="font-medium text-white">{calculateArrivalTime()}</span>
+                                                    Gate arrival: <span className="text-sm font-bold text-white">{calculateArrivalTime()}</span>
                                                 </p>
                                             </div>
                                         </motion.div>
@@ -382,7 +382,7 @@ export default function DepartureEngineDemo() {
                                             {/* Total Time Summary */}
                                             <div className="text-center pt-3 border-t border-gray-700/50">
                                                 <p className="text-xs text-gray-400">
-                                                    Total: <span className="font-medium text-white">{times.total} min</span> • Gate: <span className="font-medium text-white">{calculateArrivalTime()}</span>
+                                                    Total: <span className="text-sm font-bold text-white">{times.total} min</span> • Gate: <span className="text-sm font-bold text-white">{calculateArrivalTime()}</span>
                                                 </p>
                                             </div>
                                         </motion.div>
