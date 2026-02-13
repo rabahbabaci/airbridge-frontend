@@ -1,5 +1,5 @@
 import React from 'react';
-import { Twitter, Linkedin, Instagram } from 'lucide-react';
+import { Twitter, Linkedin, Instagram, Plane } from 'lucide-react';
 
 const footerLinks = {
     product: [
@@ -30,7 +30,7 @@ export default function Footer() {
                     <div className="lg:col-span-2">
                         <div className="flex items-center gap-2 mb-4">
                             <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
-                                <span className="text-white font-bold text-sm">A</span>
+                                <Plane className="w-4 h-4 text-white" />
                             </div>
                             <span className="font-semibold text-lg text-gray-900">AirBridge</span>
                         </div>
