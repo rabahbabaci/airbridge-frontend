@@ -393,27 +393,8 @@ export default function JourneyVisualization({ locked, steps, transport, profile
                                 ))}
                             </div>
 
-                            {/* ── Curved connector: from under Arrive Airport → left → down into first row-2 node ── */}
-                            <div className="w-full" style={{ height: 52 }}>
-                                <motion.svg
-                                    width="100%" height="52" viewBox="0 0 600 52"
-                                    preserveAspectRatio="none"
-                                    initial={{ opacity: 0 }}
-                                    animate={{ opacity: isRevealed(row2[0]?.id) ? 1 : 0 }}
-                                    transition={{ duration: 0.3 }}
-                                >
-                                    <motion.path
-                                        d="M 560 0 Q 590 0 590 28 L 590 28 Q 590 48 570 48 L 40 48 Q 10 48 10 28 L 10 52"
-                                        fill="none"
-                                        stroke="#a78bfa"
-                                        strokeWidth="2.5"
-                                        strokeLinecap="round"
-                                        initial={{ pathLength: 0 }}
-                                        animate={{ pathLength: isRevealed(row2[0]?.id) ? 1 : 0 }}
-                                        transition={{ duration: 1.4, ease: [0.25, 0.46, 0.45, 0.94] }}
-                                    />
-                                </motion.svg>
-                            </div>
+                            {/* spacer between rows */}
+                            <div style={{ height: 24 }} />
 
                             {/* ── Row 2: L → R (normal order, bars draw left-to-right) ── */}
                             <div className="flex items-center">
