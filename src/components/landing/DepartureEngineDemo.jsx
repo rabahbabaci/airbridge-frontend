@@ -85,21 +85,28 @@ export default function DepartureEngineDemo() {
     const profile = confidenceProfiles.find(p => p.id === selectedProfile);
     const base = airportData[airport] || airportData['SFO'];
 
-    // Calculate totals
+    // Transport adds time on top of base traffic
+    const transportExtra = transportOffsets[transport] ?? 0;
+    const trafficTime = base.traffic + transportExtra;
+
+    // Buffer from profile + preferences
     const buffer = Math.round(base.baseBuffer * profile.bufferMultiplier)
         + (withChildren ? 10 : 0)
         + (extraTime === '+15' ? 15 : extraTime === '+30' ? 30 : 0)
         + (hasBaggage ? baggageCount * 5 : 0);
-    const baggageTime = hasBaggage ? baggageCount * 5 : 0;
-    const total = base.traffic + base.tsa + base.walking + buffer;
 
-    const now = new Date();
-    now.setHours(10, 0, 0, 0);
-    const leaveTime = addMinutes(now, 0);
-    const arriveAirport = addMinutes(now, base.traffic);
-    const tsaClear = addMinutes(now, base.traffic + base.tsa);
-    const arriveGate = addMinutes(now, base.traffic + base.tsa + base.walking);
-    const boarding = addMinutes(now, total);
+    // Total minutes needed before gate arrival
+    const total = trafficTime + base.tsa + base.walking + buffer;
+
+    // Fixed gate arrival at 10:00 AM; leave time = gate arrival - total
+    const gateArrival = new Date();
+    gateArrival.setHours(10, 0, 0, 0);
+
+    const leaveTime = addMinutes(gateArrival, -total);
+    const arriveAirport = addMinutes(gateArrival, -(base.tsa + base.walking + buffer));
+    const tsaClear = addMinutes(gateArrival, -(base.walking + buffer));
+    const arriveGate = addMinutes(gateArrival, -buffer);
+    const boarding = addMinutes(gateArrival, 0);
 
     const timelineSteps = [
         { label: 'Leave Home', time: leaveTime, color: 'from-blue-500 to-blue-600', dot: 'bg-blue-500' },
