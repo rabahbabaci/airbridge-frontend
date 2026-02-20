@@ -186,7 +186,8 @@ function StepNode({ stepId, time, dur, revealed, TransportIcon, stepNumber }) {
 // ── Horizontal connector ──────────────────────────────────────────────────────
 function HBar({ revealed, color, reverse, duration = 0.9 }) {
     return (
-        <div className="flex items-center self-center flex-1 px-2" style={{ minWidth: 24 }}>
+        // self-start + mt aligns the bar to the vertical center of the 64px icon bubble (h-16 = 64px, half = 32px, minus half bar height = ~31px)
+        <div className="flex items-center flex-1 px-2 self-start" style={{ minWidth: 24, marginTop: 31 }}>
             <div className="w-full overflow-hidden rounded" style={{ height: 2 }}>
                 <motion.div
                     initial={{ scaleX: 0 }}
