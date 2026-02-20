@@ -393,55 +393,32 @@ export default function JourneyVisualization({ locked, steps, transport, profile
                                 ))}
                             </div>
 
-                            {/* ── U-turn connector: down from right edge, across bottom, up to left of row 2 ── */}
-                            <motion.div
-                                initial={{ opacity: 0 }}
-                                animate={{ opacity: isRevealed(row2[0]?.id) ? 1 : 0 }}
-                                transition={{ duration: 0.5 }}
-                                className="relative w-full"
-                                style={{ height: 44 }}
-                            >
-                                {/* Right vertical drop */}
-                                <motion.div
-                                    initial={{ scaleY: 0 }}
-                                    animate={{ scaleY: isRevealed(row2[0]?.id) ? 1 : 0 }}
-                                    transition={{ duration: 0.4, ease: 'easeOut' }}
-                                    style={{
-                                        position: 'absolute', right: 38, top: 0,
-                                        width: 2, height: 22,
-                                        background: '#06b6d4',
-                                        transformOrigin: 'top',
-                                        borderRadius: 2,
-                                    }}
-                                />
-                                {/* Bottom horizontal line */}
-                                <motion.div
-                                    initial={{ scaleX: 0 }}
-                                    animate={{ scaleX: isRevealed(row2[0]?.id) ? 1 : 0 }}
-                                    transition={{ duration: 0.7, ease: 'easeOut', delay: 0.35 }}
-                                    style={{
-                                        position: 'absolute', right: 38, bottom: 0,
-                                        left: 38,
-                                        height: 2,
-                                        background: 'linear-gradient(90deg, #a855f7, #06b6d4)',
-                                        transformOrigin: 'right',
-                                        borderRadius: 2,
-                                    }}
-                                />
-                                {/* Left vertical rise */}
-                                <motion.div
-                                    initial={{ scaleY: 0 }}
-                                    animate={{ scaleY: isRevealed(row2[0]?.id) ? 1 : 0 }}
-                                    transition={{ duration: 0.4, ease: 'easeOut', delay: 1.0 }}
-                                    style={{
-                                        position: 'absolute', left: 38, bottom: 0,
-                                        width: 2, height: 22,
-                                        background: '#a855f7',
-                                        transformOrigin: 'bottom',
-                                        borderRadius: 2,
-                                    }}
-                                />
-                            </motion.div>
+                            {/* ── Curved connector: from under Arrive Airport → left → down into first row-2 node ── */}
+                            <div className="w-full" style={{ height: 52 }}>
+                                <svg width="100%" height="52" viewBox="0 0 600 52" preserveAspectRatio="none" overflow="visible">
+                                    <defs>
+                                        <linearGradient id="connGrad" x1="1" y1="0" x2="0" y2="0">
+                                            <stop offset="0%" stopColor="#06b6d4" />
+                                            <stop offset="100%" stopColor="#a855f7" />
+                                        </linearGradient>
+                                    </defs>
+                                    {/* Path: starts top-right (under airport node), curves down-right corner,
+                                        sweeps left all the way, then curves down into first row-2 node on the left */}
+                                    <motion.path
+                                        d="M 560 0 Q 590 0 590 28 L 590 28 Q 590 48 570 48 L 40 48 Q 10 48 10 28 L 10 52"
+                                        fill="none"
+                                        stroke="url(#connGrad)"
+                                        strokeWidth="2.5"
+                                        strokeLinecap="round"
+                                        initial={{ pathLength: 0, opacity: 0 }}
+                                        animate={{
+                                            pathLength: isRevealed(row2[0]?.id) ? 1 : 0,
+                                            opacity:    isRevealed(row2[0]?.id) ? 1 : 0,
+                                        }}
+                                        transition={{ duration: 1.4, ease: [0.25, 0.46, 0.45, 0.94] }}
+                                    />
+                                </svg>
+                            </div>
 
                             {/* ── Row 2: R → L (flex-row-reverse so rightmost renders first) ── */}
                             <div className="flex items-center flex-row-reverse">
