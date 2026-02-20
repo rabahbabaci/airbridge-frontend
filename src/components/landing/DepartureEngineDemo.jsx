@@ -6,6 +6,15 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { format } from "date-fns";
 
+// Transport mode adds extra time on top of base traffic
+const transportOffsets = {
+    uber: 0,      // baseline
+    driving: -5,  // slightly faster (no wait for pickup)
+    train: 10,    // fixed schedule, add padding
+    bus: 15,      // slowest, most variable
+    other: 5,
+};
+
 const confidenceProfiles = [
     {
         id: 'safety',
