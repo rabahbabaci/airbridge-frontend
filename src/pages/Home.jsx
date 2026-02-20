@@ -18,7 +18,6 @@ export default function Home() {
                 <Hero />
                 <Problem />
                 <Solution />
-                <DepartureEngineDemo />
                 <HowItWorks />
                 <JourneyFlow />
                 <Comparison />

@@ -6,6 +6,7 @@ import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 
 export default function Hero() {
+    const navigate = useNavigate();
     return (
         <section className="relative min-h-screen flex items-center pt-20 overflow-hidden">
             <div className="absolute inset-0 bg-gradient-to-br from-blue-50/60 via-white to-purple-50/40" />
