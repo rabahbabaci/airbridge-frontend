@@ -14,17 +14,7 @@ const stepIconMap = {
     gate:     CheckCircle2,
 };
 
-const stepColorMap = {
-    home:     '#3b82f6',
-    travel:   '#8b5cf6',
-    airport:  '#6366f1',
-    baggage:  '#f97316',
-    security: '#06b6d4',
-    walk:     '#14b8a6',
-    gate:     '#22c55e',
-};
-
-// ── Loading overlay ──────────────────────────────────────────────────────────
+// ── Loading sequence ─────────────────────────────────────────────────────────
 const loadingMessages = [
     'Scanning live traffic...',
     'Checking TSA wait times...',
@@ -61,7 +51,6 @@ function LoadingSequence({ onDone }) {
             transition={{ duration: 0.35 }}
             className="flex flex-col items-center gap-7 max-w-xs mx-auto text-center"
         >
-            {/* Animated plane */}
             <div className="relative w-20 h-20">
                 <motion.div
                     className="absolute inset-0 rounded-3xl"
@@ -80,7 +69,6 @@ function LoadingSequence({ onDone }) {
                 </div>
             </div>
 
-            {/* Message */}
             <div className="h-6">
                 <AnimatePresence mode="wait">
                     <motion.p
@@ -96,7 +84,6 @@ function LoadingSequence({ onDone }) {
                 </AnimatePresence>
             </div>
 
-            {/* Progress bar */}
             <div className="w-48 h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.08)' }}>
                 <motion.div
                     animate={{ width: `${progress}%` }}
@@ -111,93 +98,98 @@ function LoadingSequence({ onDone }) {
     );
 }
 
-// ── Node Bubble ──────────────────────────────────────────────────────────────
-function NodeBubble({ stepId, label, color, active, done, time, dur, delay, TransportIcon }) {
+// ── Timeline row ─────────────────────────────────────────────────────────────
+function TimelineRow({ stepId, label, color, active, done, time, dur, delay, isLast, TransportIcon }) {
     const IconComponent = stepId === 'travel' ? TransportIcon : stepIconMap[stepId];
     if (!IconComponent) return null;
 
+    const lit = done || active;
+
     return (
         <motion.div
-            initial={{ opacity: 0, scale: 0.5 }}
-            animate={{ opacity: 1, scale: 1 }}
-            transition={{ delay, duration: 0.4, ease: 'easeOut' }}
-            className="flex flex-col items-center gap-2"
+            initial={{ opacity: 0, x: -12 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ delay, duration: 0.35, ease: 'easeOut' }}
+            className="flex items-start gap-4"
         >
-            <motion.div
-                animate={active ? { boxShadow: [`0 0 0px ${color}00`, `0 0 20px ${color}88`, `0 0 0px ${color}00`] } : {}}
-                transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
-                className="relative"
-            >
-                <div
-                    className="w-12 h-12 rounded-2xl flex items-center justify-center relative overflow-hidden transition-all duration-500"
+            {/* Icon + vertical line */}
+            <div className="flex flex-col items-center shrink-0" style={{ width: 44 }}>
+                <motion.div
+                    animate={active ? { boxShadow: [`0 0 0px ${color}00`, `0 0 16px ${color}99`, `0 0 0px ${color}00`] } : {}}
+                    transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
+                    className="w-11 h-11 rounded-2xl flex items-center justify-center relative overflow-hidden shrink-0"
                     style={{
-                        background: done || active ? `linear-gradient(135deg, ${color}33, ${color}66)` : 'rgba(255,255,255,0.04)',
-                        border: `1.5px solid ${done || active ? color + '88' : 'rgba(255,255,255,0.08)'}`,
+                        background: lit ? `linear-gradient(135deg, ${color}30, ${color}60)` : 'rgba(255,255,255,0.04)',
+                        border: `1.5px solid ${lit ? color + '99' : 'rgba(255,255,255,0.08)'}`,
+                        transition: 'all 0.4s ease',
                     }}
                 >
-                    <IconComponent className="w-5 h-5" style={{ color: done || active ? color : '#4b5563' }} />
+                    <IconComponent className="w-5 h-5" style={{ color: lit ? color : '#374151' }} />
                     {active && (
                         <motion.div
                             className="absolute inset-0 rounded-2xl"
-                            animate={{ opacity: [0.3, 0.7, 0.3] }}
-                            transition={{ repeat: Infinity, duration: 1.5 }}
+                            animate={{ opacity: [0.3, 0.6, 0.3] }}
+                            transition={{ repeat: Infinity, duration: 1.4 }}
                             style={{ background: `radial-gradient(circle, ${color}44, transparent)` }}
                         />
                     )}
-                </div>
-                {done && (
+                    {done && (
+                        <motion.div
+                            initial={{ scale: 0 }} animate={{ scale: 1 }}
+                            className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-green-500 flex items-center justify-center"
+                        >
+                            <CheckCircle2 className="w-2.5 h-2.5 text-white" />
+                        </motion.div>
+                    )}
+                </motion.div>
+
+                {/* Vertical connector */}
+                {!isLast && (
                     <motion.div
-                        initial={{ scale: 0 }} animate={{ scale: 1 }} transition={{ delay: 0.2 }}
-                        className="absolute -top-1 -right-1 w-4 h-4 rounded-full bg-green-500 flex items-center justify-center"
-                    >
-                        <CheckCircle2 className="w-2.5 h-2.5 text-white" />
-                    </motion.div>
+                        initial={{ scaleY: 0 }}
+                        animate={{ scaleY: lit ? 1 : 0.3 }}
+                        transition={{ delay: delay + 0.3, duration: 0.4 }}
+                        className="mt-1 w-px flex-1 min-h-[20px]"
+                        style={{
+                            background: lit
+                                ? `linear-gradient(180deg, ${color}88, ${color}22)`
+                                : 'rgba(255,255,255,0.06)',
+                            transformOrigin: 'top',
+                        }}
+                    />
                 )}
-            </motion.div>
-            <div className="text-center">
-                <p className="text-[11px] font-semibold" style={{ color: done || active ? '#e5e7eb' : '#4b5563' }}>
-                    {label}
-                </p>
-                {time && (done || active) && (
+            </div>
+
+            {/* Text */}
+            <div className="flex-1 flex items-start justify-between pb-5 min-w-0">
+                <div>
+                    <p className="text-sm font-semibold leading-tight"
+                        style={{ color: lit ? '#f3f4f6' : '#374151' }}>
+                        {label}
+                    </p>
+                    {dur && (
+                        <p className="text-[11px] mt-0.5" style={{ color: lit ? color : '#4b5563' }}>{dur}</p>
+                    )}
+                </div>
+                {time && (
                     <motion.p
-                        initial={{ opacity: 0, y: 4 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: delay + 0.3 }}
-                        className="text-[10px] font-bold mt-0.5" style={{ color }}
+                        initial={{ opacity: 0 }}
+                        animate={{ opacity: lit ? 1 : 0.2 }}
+                        transition={{ delay: delay + 0.2 }}
+                        className="text-sm font-bold shrink-0 ml-3"
+                        style={{ color: lit ? '#f9fafb' : '#374151' }}
                     >
                         {time}
                     </motion.p>
-                )}
-                {dur && (done || active) && (
-                    <p className="text-[9px] text-gray-600 mt-0.5">{dur}</p>
                 )}
             </div>
         </motion.div>
     );
 }
 
-// ── Connector ────────────────────────────────────────────────────────────────
-function ConnectorLine({ horizontal, delay, color = '#3b82f6' }) {
-    return (
-        <div className={`flex items-center justify-center ${horizontal ? 'flex-row' : 'flex-col'}`}
-            style={{ [horizontal ? 'width' : 'height']: horizontal ? '40px' : '28px', [horizontal ? 'height' : 'width']: '2px' }}>
-            <motion.div
-                initial={{ [horizontal ? 'scaleX' : 'scaleY']: 0 }}
-                animate={{ [horizontal ? 'scaleX' : 'scaleY']: 1 }}
-                transition={{ delay, duration: 0.45, ease: 'easeInOut' }}
-                style={{
-                    width: horizontal ? '100%' : '2px',
-                    height: horizontal ? '2px' : '100%',
-                    background: `linear-gradient(${horizontal ? '90deg' : '180deg'}, ${color}66, ${color})`,
-                    transformOrigin: horizontal ? 'left' : 'top',
-                    borderRadius: '2px',
-                }}
-            />
-        </div>
-    );
-}
-
-// ── Main Component ───────────────────────────────────────────────────────────
+// ── Main ─────────────────────────────────────────────────────────────────────
 export default function JourneyVisualization({ locked, steps, transport, profile, confidenceColorMap }) {
-    const [phase, setPhase] = useState('idle'); // idle | loading | journey
+    const [phase, setPhase] = useState('idle');
     const [activeStep, setActiveStep] = useState(-1);
     const [completedSteps, setCompletedSteps] = useState(new Set());
     const prevLockedRef = useRef(false);
@@ -207,7 +199,6 @@ export default function JourneyVisualization({ locked, steps, transport, profile
 
     useEffect(() => {
         if (locked && !prevLockedRef.current) {
-            // First lock: show loading then animate
             setPhase('loading');
             setActiveStep(-1);
             setCompletedSteps(new Set());
@@ -225,55 +216,37 @@ export default function JourneyVisualization({ locked, steps, transport, profile
         let i = 0;
         const run = () => {
             if (i < visibleSteps.length) {
-                setActiveStep(i);
-                setCompletedSteps(prev => { const n = new Set(prev); if (i > 0) n.add(i - 1); return n; });
+                const idx = i;
+                setActiveStep(idx);
+                setCompletedSteps(prev => { const n = new Set(prev); if (idx > 0) n.add(idx - 1); return n; });
                 i++;
-                setTimeout(run, 800);
+                setTimeout(run, 700);
             } else {
                 setCompletedSteps(prev => { const n = new Set(prev); n.add(i - 1); return n; });
                 setActiveStep(-1);
             }
         };
-        setTimeout(run, 200);
+        setTimeout(run, 150);
     };
 
-    const allStepIds = visibleSteps.map(s => s.id);
-    const isActive = (id) => activeStep >= 0 && allStepIds[activeStep] === id;
-    const isDone = (id) => completedSteps.has(allStepIds.indexOf(id));
+    const isActive = (idx) => activeStep === idx;
+    const isDone = (idx) => completedSteps.has(idx);
     const allDone = completedSteps.size >= visibleSteps.length && visibleSteps.length > 0;
 
     const leaveStep = steps.find(s => s.id === 'home');
 
-    const row0 = visibleSteps.filter(s => ['home', 'travel'].includes(s.id));
-    const row1 = visibleSteps.filter(s => ['airport', 'baggage'].includes(s.id));
-    const row2 = visibleSteps.filter(s => ['security', 'walk'].includes(s.id));
-    const row3 = visibleSteps.filter(s => s.id === 'gate');
-
-    const renderNode = (s, delay) => (
-        <NodeBubble
-            key={s.id}
-            stepId={s.id}
-            label={s.label}
-            color={s.color || stepColorMap[s.id]}
-            active={isActive(s.id)}
-            done={isDone(s.id) || allDone}
-            time={s.time}
-            dur={s.dur}
-            delay={delay}
-            TransportIcon={TransportIcon}
-        />
-    );
-
     return (
-        <div className="w-full max-w-2xl mx-auto flex flex-col gap-4">
+        <div className="w-full max-w-lg mx-auto flex flex-col gap-4">
             <AnimatePresence mode="wait">
+
+                {/* ── Idle ── */}
                 {phase === 'idle' && (
                     <motion.div
                         key="idle"
                         initial={{ opacity: 0, y: 20 }}
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: -10 }}
-                        className="flex flex-col items-center text-center gap-6 max-w-sm mx-auto"
+                        className="flex flex-col items-center text-center gap-6 max-w-sm mx-auto py-8"
                     >
                         <motion.div
                             animate={{ y: [0, -8, 0] }}
@@ -289,17 +262,20 @@ export default function JourneyVisualization({ locked, steps, transport, profile
                         </div>
                         <div className="flex gap-2">
                             {[0.3, 0.5, 0.7].map((o, i) => (
-                                <motion.div key={i} animate={{ opacity: [o, o + 0.3, o] }} transition={{ repeat: Infinity, duration: 2, delay: i * 0.3 }}
+                                <motion.div key={i} animate={{ opacity: [o, o + 0.3, o] }}
+                                    transition={{ repeat: Infinity, duration: 2, delay: i * 0.3 }}
                                     className="w-2 h-2 rounded-full" style={{ background: 'rgba(59,130,246,0.4)' }} />
                             ))}
                         </div>
                     </motion.div>
                 )}
 
+                {/* ── Loading ── */}
                 {phase === 'loading' && (
                     <LoadingSequence key="loading" onDone={handleLoadingDone} />
                 )}
 
+                {/* ── Journey ── */}
                 {phase === 'journey' && (
                     <motion.div
                         key="journey"
@@ -316,13 +292,13 @@ export default function JourneyVisualization({ locked, steps, transport, profile
                                 <motion.span
                                     key={leaveStep?.time}
                                     initial={{ opacity: 0, y: -6 }} animate={{ opacity: 1, y: 0 }}
-                                    className="text-5xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent"
+                                    className="text-5xl font-bold bg-gradient-to-r from-white to-gray-300 bg-clip-text text-transparent block"
                                 >
                                     {leaveStep?.time}
                                 </motion.span>
                                 <p className="text-gray-500 text-xs mt-1.5">{steps[0]?.flightLabel} · {steps[0]?.total} min door-to-gate</p>
                             </div>
-                            <div className="flex flex-col items-end gap-2">
+                            <div className="flex flex-col items-end gap-2 shrink-0 ml-4">
                                 <span className={`text-xs font-bold px-3 py-1.5 rounded-full border ${confidenceColorMap[profile?.color]?.badge}`}>
                                     {profile?.confidenceScore}% Confident
                                 </span>
@@ -335,64 +311,26 @@ export default function JourneyVisualization({ locked, steps, transport, profile
                             </div>
                         </div>
 
-                        {/* Journey path */}
-                        <div className="rounded-2xl p-6 flex flex-col gap-4"
+                        {/* Vertical timeline */}
+                        <div className="rounded-2xl px-5 pt-5 pb-2"
                             style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
-                            <p className="text-[11px] text-gray-600 uppercase tracking-wider font-semibold">Door-to-Gate Journey</p>
+                            <p className="text-[11px] text-gray-600 uppercase tracking-wider font-semibold mb-4">Door-to-Gate Journey</p>
 
-                            {/* Row 0: L → R */}
-                            <div className="flex items-start gap-2">
-                                {row0.map((s, i) => (
-                                    <React.Fragment key={s.id}>
-                                        {renderNode(s, i * 0.15)}
-                                        {i < row0.length - 1 && <ConnectorLine horizontal delay={0.3} color={s.color} />}
-                                    </React.Fragment>
-                                ))}
-                                {row1.length > 0 && <ConnectorLine horizontal delay={0.5} color="#6366f1" />}
-                            </div>
-
-                            {/* Vertical connector — right side down */}
-                            <div className="flex justify-end pr-[26px]">
-                                <ConnectorLine horizontal={false} delay={0.7} color="#6366f1" />
-                            </div>
-
-                            {/* Row 1: R → L */}
-                            <div className="flex items-start gap-2 flex-row-reverse">
-                                {[...row1].reverse().map((s, i) => (
-                                    <React.Fragment key={s.id}>
-                                        {renderNode(s, 0.8 + i * 0.15)}
-                                        {i < row1.length - 1 && <ConnectorLine horizontal delay={0.9 + i * 0.1} color={s.color} />}
-                                    </React.Fragment>
-                                ))}
-                            </div>
-
-                            {/* Vertical connector — left side down */}
-                            <div className="flex justify-start pl-[26px]">
-                                <ConnectorLine horizontal={false} delay={1.1} color="#06b6d4" />
-                            </div>
-
-                            {/* Row 2: L → R */}
-                            <div className="flex items-start gap-2">
-                                {row2.map((s, i) => (
-                                    <React.Fragment key={s.id}>
-                                        {renderNode(s, 1.2 + i * 0.15)}
-                                        {i < row2.length - 1 && <ConnectorLine horizontal delay={1.35} color={s.color} />}
-                                    </React.Fragment>
-                                ))}
-                                {row3.length > 0 && <ConnectorLine horizontal delay={1.5} color="#14b8a6" />}
-                            </div>
-
-                            {/* Vertical connector — right side down to gate */}
-                            {row3.length > 0 && (
-                                <>
-                                    <div className="flex justify-end pr-[26px]">
-                                        <ConnectorLine horizontal={false} delay={1.65} color="#22c55e" />
-                                    </div>
-                                    <div className="flex justify-end">
-                                        {renderNode(row3[0], 1.8)}
-                                    </div>
-                                </>
-                            )}
+                            {visibleSteps.map((s, i) => (
+                                <TimelineRow
+                                    key={s.id}
+                                    stepId={s.id}
+                                    label={s.label}
+                                    color={s.color}
+                                    active={isActive(i)}
+                                    done={isDone(i) || allDone}
+                                    time={s.time}
+                                    dur={s.dur}
+                                    delay={i * 0.08}
+                                    isLast={i === visibleSteps.length - 1}
+                                    TransportIcon={TransportIcon}
+                                />
+                            ))}
                         </div>
 
                         {/* End state */}
@@ -401,10 +339,10 @@ export default function JourneyVisualization({ locked, steps, transport, profile
                                 <motion.div
                                     initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }}
                                     transition={{ duration: 0.5, delay: 0.3 }}
-                                    className="text-center py-3 rounded-xl"
+                                    className="text-center py-4 rounded-xl"
                                     style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)' }}
                                 >
-                                    <motion.div animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut' }} className="inline-block">
+                                    <motion.div animate={{ y: [0, -4, 0] }} transition={{ repeat: Infinity, duration: 2.5 }} className="inline-block">
                                         <Plane className="w-5 h-5 text-green-400 mx-auto mb-1" />
                                     </motion.div>
                                     <p className="text-green-400 font-semibold text-sm">Seat Ready. Just Fly.</p>
@@ -414,6 +352,7 @@ export default function JourneyVisualization({ locked, steps, transport, profile
                         </AnimatePresence>
                     </motion.div>
                 )}
+
             </AnimatePresence>
         </div>
     );
