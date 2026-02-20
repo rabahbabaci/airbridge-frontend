@@ -10,7 +10,7 @@ const stepConfig = [
     { id: 'airport',  label: 'Arrive Airport',  icon: Plane,        color: '#6366f1', row: 1, col: 1 },
     { id: 'baggage',  label: 'Baggage Drop',    icon: Luggage,      color: '#f97316', row: 1, col: 0 },
     { id: 'security', label: 'TSA Security',    icon: Shield,       color: '#06b6d4', row: 2, col: 0 },
-    { id: 'walk',     label: 'Gate Walk',       icon: PersonStanding, color: '#14b8a6', row: 2, col: 1 },
+    { id: 'walk',     label: 'Gate Walk',       icon: ArrowRight,   color: '#14b8a6', row: 2, col: 1 },
     { id: 'gate',     label: 'Boarding',        icon: CheckCircle2, color: '#22c55e', row: 3, col: 1 },
 ];
 
