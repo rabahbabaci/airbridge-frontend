@@ -221,7 +221,7 @@ export default function Engine() {
 
                         {/* Confidence Profile */}
                         <div>
-                            <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Confidence Profile</label>
+                            <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">How Much Time Do You Want?</label>
                             <div className="flex flex-col gap-1.5">
                                 {confidenceProfiles.map(p => (
                                     <button key={p.id} onClick={() => setSelectedProfile(p.id)}
