@@ -168,13 +168,6 @@ export default function Engine() {
                                 <Input value={flightNumber} onChange={e => setFlightNumber(e.target.value)}
                                     placeholder="e.g. UA 452"
                                     className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-xs text-gray-900 font-medium" />
-                                <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0 ml-1" />
-                                <select value={airport} onChange={e => setAirport(e.target.value)}
-                                    className="bg-transparent text-xs text-gray-900 font-medium focus:outline-none">
-                                    {Object.entries(airportData).map(([code]) => (
-                                        <option key={code} value={code}>{code}</option>
-                                    ))}
-                                </select>
                             </div>
                         </div>
 
