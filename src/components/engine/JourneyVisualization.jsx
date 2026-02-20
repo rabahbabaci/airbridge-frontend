@@ -384,7 +384,7 @@ export default function JourneyVisualization({ locked, steps, transport, profile
                             style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.07)' }}>
 
                             {/* ── Row 1: L → R ── */}
-                            <div className="flex items-center">
+                            <div className="flex items-start">
                                 {row1.map((s, i) => (
                                     <React.Fragment key={s.id}>
                                         <StepNode
