@@ -2,10 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
 import { Menu, X, Plane } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { useNavigate } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
 
 export default function Header() {
     const [scrolled, setScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const navigate = useNavigate();
 
     useEffect(() => {
         const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -14,9 +17,8 @@ export default function Header() {
     }, []);
 
     const navLinks = [
-        { name: 'How It Works', href: '#how-it-works' },
-        { name: 'Features', href: '#solution' },
-        { name: 'Compare', href: '#compare' },
+        { name: 'Home', href: '#' },
+        { name: 'Departure Engine', action: () => navigate(createPageUrl('Engine')) },
     ];
 
     return (
