@@ -13,9 +13,9 @@ import JourneyVisualization from '@/components/engine/JourneyVisualization';
 const transportOffsets = { uber: 0, driving: -5, train: 10, bus: 15, other: 5 };
 
 const confidenceProfiles = [
-    { id: 'safety', name: 'Safety Net',  desc: 'Maximum buffer, lowest stress', icon: Shield,      bufferMultiplier: 1.5, confidenceScore: 97, color: 'green' },
-    { id: 'sweet',  name: 'Sweet Spot',  desc: 'Balanced time vs certainty',    icon: Zap,         bufferMultiplier: 1.0, confidenceScore: 91, color: 'blue'  },
-    { id: 'risk',   name: 'Risk Taker',  desc: 'Reclaim time, higher risk',     icon: AlertCircle, bufferMultiplier: 0.4, confidenceScore: 79, color: 'amber' },
+    { id: 'safety', name: 'Stress-Free',   desc: 'Lots of extra time — arrive early, relax at the gate', icon: Shield,      bufferMultiplier: 1.5, confidenceScore: 97, color: 'green' },
+    { id: 'sweet',  name: 'Just Right',    desc: 'Enough time without wasting your day',                  icon: Zap,         bufferMultiplier: 1.0, confidenceScore: 91, color: 'blue'  },
+    { id: 'risk',   name: 'Cut It Close',  desc: 'Minimal buffer — only if you know the airport well',    icon: AlertCircle, bufferMultiplier: 0.4, confidenceScore: 79, color: 'amber' },
 ];
 
 const transportModes = [
