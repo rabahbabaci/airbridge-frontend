@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { motion, AnimatePresence, useAnimation } from 'framer-motion';
-import { Home, Plane, Car, Train, Bus, User, Shield, Luggage, Footprints, CheckCircle2, Zap, AlertCircle } from 'lucide-react';
+import { Home, Plane, Car, Train, Bus, User, Shield, Luggage, PersonStanding, CheckCircle2, Zap, AlertCircle } from 'lucide-react';
 
 const transportIcons = { uber: Car, driving: Car, train: Train, bus: Bus, other: User };
 
