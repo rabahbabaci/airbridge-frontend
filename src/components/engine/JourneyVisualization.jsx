@@ -406,7 +406,7 @@ export default function JourneyVisualization({ locked, steps, transport, profile
                             <div style={{ height: 24 }} />
 
                             {/* ── Row 2: L → R (normal order, bars draw left-to-right) ── */}
-                            <div className="flex items-center">
+                            <div className="flex items-start">
                                 {row2.map((s, i) => {
                                     const nextS = row2[i + 1];
                                     return (
