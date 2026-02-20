@@ -389,6 +389,7 @@ export default function JourneyVisualization({ locked, steps, transport, profile
                                         <StepNode
                                             stepId={s.id} time={s.time} dur={s.dur}
                                             revealed={isRevealed(s.id)} TransportIcon={TransportIcon}
+                                            stepNumber={visibleSteps.findIndex(vs => vs.id === s.id) + 1}
                                         />
                                         {i < row1.length - 1 && (
                                             <HBar
