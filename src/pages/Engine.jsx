@@ -602,6 +602,7 @@ export default function Engine() {
                             transport={transport}
                             profile={profile}
                             confidenceColorMap={confidenceColorMap}
+                            onReady={() => setJourneyReady(true)}
                         />
                     </AnimatePresence>
                 </div>
