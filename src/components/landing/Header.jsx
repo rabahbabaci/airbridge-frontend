@@ -130,5 +130,7 @@ export default function Header() {
                 )}
             </AnimatePresence>
         </motion.header>
+
+        <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
     );
 }
