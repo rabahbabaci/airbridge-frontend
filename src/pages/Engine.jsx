@@ -366,15 +366,29 @@ export default function Engine() {
 
                                                 <div>
                                                     <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Departure Date</label>
-                                                    <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
-                                                        style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                                                        <button onClick={() => dateInputRefStep1Route.current?.click()} className="p-0 cursor-pointer hover:opacity-70">
-                                                            <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                                        </button>
-                                                        <input type="date" ref={dateInputRefStep1Route} value={departureDate} onChange={e => setDepartureDate(e.target.value)}
-                                                            min={getTodayStr()}
-                                                            className="flex-1 bg-transparent text-sm text-gray-900 font-medium focus:outline-none" />
-                                                    </div>
+                                                    <Popover>
+                                                        <PopoverTrigger asChild>
+                                                            <div className="flex items-center gap-2 rounded-xl px-3 py-2.5 cursor-pointer hover:opacity-80 transition-opacity"
+                                                                style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
+                                                                <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                                                <span className="flex-1 text-sm text-gray-900 font-medium">
+                                                                    {departureDate ? new Date(departureDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Select date'}
+                                                                </span>
+                                                            </div>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-auto p-0" align="start">
+                                                            <CalendarComponent
+                                                                mode="single"
+                                                                selected={departureDate ? new Date(departureDate + 'T00:00:00') : undefined}
+                                                                onSelect={(date) => {
+                                                                    if (date) {
+                                                                        setDepartureDate(date.toISOString().split('T')[0]);
+                                                                    }
+                                                                }}
+                                                                disabled={(date) => date < new Date(getTodayStr())}
+                                                            />
+                                                        </PopoverContent>
+                                                    </Popover>
                                                 </div>
 
                                                 <button
