@@ -107,7 +107,7 @@ export default function Engine() {
     const [dir, setDir] = useState(1);
 
     // Step 1
-    const [searchMode, setSearchMode] = useState('route'); // 'route' | 'flight'
+    const [searchMode, setSearchMode] = useState('flight'); // 'route' | 'flight'
     const [airline, setAirline] = useState('');
     const [fromAirport, setFromAirport] = useState('');
     const [toAirport, setToAirport] = useState('');
@@ -339,7 +339,7 @@ export default function Engine() {
                                         className="absolute inset-0 overflow-y-auto px-6 pt-4 pb-4 flex flex-col gap-4">
                                         <StepDots step={1} />
 
-                                        {searchMode === 'route' ? (
+                                        {searchMode === 'flight' ? (
                                                     <>
                                                         <div>
                                                             <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Airline</label>
@@ -414,10 +414,10 @@ export default function Engine() {
                                                 </div>
 
                                                 <button
-                                                    onClick={() => setSearchMode('flight')}
+                                                    onClick={() => setSearchMode('route')}
                                                     className="text-xs text-blue-500 hover:text-blue-700 font-medium mt-1"
                                                 >
-                                                    Know your flight number? Enter it instead.
+                                                    Don't have a flight number? Search by route.
                                                 </button>
                                             </>
                                         ) : (
@@ -485,10 +485,10 @@ export default function Engine() {
                                                 </div>
 
                                                 <button
-                                                    onClick={() => setSearchMode('route')}
+                                                    onClick={() => setSearchMode('flight')}
                                                     className="text-xs text-blue-500 hover:text-blue-700 font-medium mt-1"
                                                 >
-                                                    ← Back to route search
+                                                    Have a flight number? Enter it here.
                                                 </button>
                                             </>
                                         )}
