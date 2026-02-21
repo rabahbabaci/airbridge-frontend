@@ -341,157 +341,157 @@ export default function Engine() {
 
                                         {searchMode === 'flight' ? (
                                                     <>
-                                                        <div>
-                                                            <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Airline</label>
-                                                            <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
-                                                                style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                                                                <Plane className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                                                <Input value={airline} onChange={e => setAirline(e.target.value)}
-                                                                    placeholder="e.g. United, Delta, Southwest"
-                                                                    className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-gray-900 font-medium" />
-                                                            </div>
-                                                        </div>
+                                                         <div>
+                                                             <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Airline</label>
+                                                             <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
+                                                                 style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
+                                                                 <Plane className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                                                 <Input value={airline} onChange={e => setAirline(e.target.value)}
+                                                                     placeholder="e.g. United, Delta, Southwest"
+                                                                     className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-gray-900 font-medium" />
+                                                             </div>
+                                                         </div>
 
-                                                        <div>
-                                                            <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">From (Airport)</label>
-                                                    <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
-                                                        style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                                                        <Plane className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                                        <Input value={fromAirport} onChange={e => setFromAirport(e.target.value)}
-                                                            placeholder="e.g. SFO or San Francisco"
-                                                            className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-gray-900 font-medium" />
-                                                    </div>
-                                                </div>
+                                                         <div>
+                                                             <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Flight Number</label>
+                                                             <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
+                                                                 style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
+                                                                 <Plane className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                                                 <Input value={flightNumber} onChange={e => setFlightNumber(e.target.value)}
+                                                                     placeholder="e.g. UA 452"
+                                                                     onKeyDown={e => e.key === 'Enter' && canSearch && handleFindFlight()}
+                                                                     className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-gray-900 font-medium" />
+                                                             </div>
+                                                         </div>
 
-                                                <div>
-                                                    <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">To (Airport)</label>
-                                                    <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
-                                                        style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                                                        <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                                        <Input value={toAirport} onChange={e => setToAirport(e.target.value)}
-                                                            placeholder="e.g. JFK or New York"
-                                                            className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-gray-900 font-medium" />
-                                                    </div>
-                                                </div>
+                                                         <div>
+                                                             <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Departure Date</label>
+                                                             <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                                                                 <PopoverTrigger asChild>
+                                                                     <div className="flex items-center gap-2 rounded-xl px-3 py-2.5 cursor-pointer hover:opacity-80 transition-opacity"
+                                                                         style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
+                                                                         <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                                                         <span className="flex-1 text-sm text-gray-900 font-medium">
+                                                                             {departureDate ? new Date(departureDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Select date'}
+                                                                         </span>
+                                                                     </div>
+                                                                 </PopoverTrigger>
+                                                                 <PopoverContent className="w-auto p-0" align="start">
+                                                                     <CalendarComponent
+                                                                         mode="single"
+                                                                         selected={departureDate ? new Date(departureDate + 'T00:00:00') : undefined}
+                                                                         onSelect={(date) => {
+                                                                             if (date) {
+                                                                                 setDepartureDate(date.toISOString().split('T')[0]);
+                                                                                 setCalendarOpen(false);
+                                                                             }
+                                                                         }}
+                                                                         disabled={(date) => date < new Date(getTodayStr())}
+                                                                     />
+                                                                 </PopoverContent>
+                                                             </Popover>
+                                                         </div>
 
-                                                <div>
-                                                    <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Departure Date</label>
-                                                    <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                                                        <PopoverTrigger asChild>
-                                                            <div className="flex items-center gap-2 rounded-xl px-3 py-2.5 cursor-pointer hover:opacity-80 transition-opacity"
-                                                                style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                                                                <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                                                <span className="flex-1 text-sm text-gray-900 font-medium">
-                                                                    {departureDate ? new Date(departureDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Select date'}
-                                                                </span>
-                                                            </div>
-                                                        </PopoverTrigger>
-                                                        <PopoverContent className="w-auto p-0" align="start">
-                                                            <CalendarComponent
-                                                                mode="single"
-                                                                selected={departureDate ? new Date(departureDate + 'T00:00:00') : undefined}
-                                                                onSelect={(date) => {
-                                                                    if (date) {
-                                                                        setDepartureDate(date.toISOString().split('T')[0]);
-                                                                        setCalendarOpen(false);
-                                                                    }
-                                                                }}
-                                                                disabled={(date) => date < new Date(getTodayStr())}
-                                                            />
-                                                        </PopoverContent>
-                                                    </Popover>
-                                                </div>
+                                                         <div>
+                                                             <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Starting Address</label>
+                                                             <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
+                                                                 style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
+                                                                 <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                                                 <Input value={startingAddress} onChange={e => setStartingAddress(e.target.value)}
+                                                                     placeholder="e.g. 123 Main St, San Francisco"
+                                                                     className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-gray-900 font-medium" />
+                                                             </div>
+                                                         </div>
 
-                                                <div>
-                                                    <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Starting Address</label>
-                                                    <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
-                                                        style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                                                        <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                                        <Input value={startingAddress} onChange={e => setStartingAddress(e.target.value)}
-                                                            placeholder="e.g. 123 Main St, San Francisco"
-                                                            className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-gray-900 font-medium" />
-                                                    </div>
-                                                </div>
+                                                         <button
+                                                             onClick={() => setSearchMode('route')}
+                                                             className="text-xs text-blue-500 hover:text-blue-700 font-medium mt-1"
+                                                         >
+                                                             Don't have your flight? Search by route.
+                                                         </button>
+                                                     </>
+                                                 ) : (
+                                                     <>
+                                                         <div>
+                                                             <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Airline</label>
+                                                             <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
+                                                                 style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
+                                                                 <Plane className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                                                 <Input value={airline} onChange={e => setAirline(e.target.value)}
+                                                                     placeholder="e.g. United, Delta, Southwest"
+                                                                     className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-gray-900 font-medium" />
+                                                             </div>
+                                                         </div>
 
-                                                <button
-                                                    onClick={() => setSearchMode('route')}
-                                                    className="text-xs text-blue-500 hover:text-blue-700 font-medium mt-1"
-                                                >
-                                                    Don't have a flight number? Search by route.
-                                                </button>
-                                            </>
-                                        ) : (
-                                            <>
-                                                <div>
-                                                    <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Airline</label>
-                                                    <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
-                                                        style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                                                        <Plane className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                                        <Input value={airline} onChange={e => setAirline(e.target.value)}
-                                                            placeholder="e.g. United, Delta, Southwest"
-                                                            className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-gray-900 font-medium" />
-                                                    </div>
-                                                </div>
+                                                         <div>
+                                                             <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">From (Airport)</label>
+                                                             <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
+                                                                 style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
+                                                                 <Plane className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                                                 <Input value={fromAirport} onChange={e => setFromAirport(e.target.value)}
+                                                                     placeholder="e.g. SFO or San Francisco"
+                                                                     className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-gray-900 font-medium" />
+                                                             </div>
+                                                         </div>
 
-                                                <div>
-                                                    <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Flight Number</label>
-                                                    <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
-                                                        style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                                                        <Plane className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                                        <Input value={flightNumber} onChange={e => setFlightNumber(e.target.value)}
-                                                            placeholder="e.g. UA 452"
-                                                            onKeyDown={e => e.key === 'Enter' && canSearch && handleFindFlight()}
-                                                            className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-gray-900 font-medium" />
-                                                    </div>
-                                                </div>
+                                                         <div>
+                                                             <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">To (Airport)</label>
+                                                             <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
+                                                                 style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
+                                                                 <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                                                 <Input value={toAirport} onChange={e => setToAirport(e.target.value)}
+                                                                     placeholder="e.g. JFK or New York"
+                                                                     className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-gray-900 font-medium" />
+                                                             </div>
+                                                         </div>
 
-                                                <div>
-                                                    <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Departure Date</label>
-                                                    <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                                                        <PopoverTrigger asChild>
-                                                            <div className="flex items-center gap-2 rounded-xl px-3 py-2.5 cursor-pointer hover:opacity-80 transition-opacity"
-                                                                style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                                                                <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                                                <span className="flex-1 text-sm text-gray-900 font-medium">
-                                                                    {departureDate ? new Date(departureDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Select date'}
-                                                                </span>
-                                                            </div>
-                                                        </PopoverTrigger>
-                                                        <PopoverContent className="w-auto p-0" align="start">
-                                                            <CalendarComponent
-                                                                mode="single"
-                                                                selected={departureDate ? new Date(departureDate + 'T00:00:00') : undefined}
-                                                                onSelect={(date) => {
-                                                                    if (date) {
-                                                                        setDepartureDate(date.toISOString().split('T')[0]);
-                                                                        setCalendarOpen(false);
-                                                                    }
-                                                                }}
-                                                                disabled={(date) => date < new Date(getTodayStr())}
-                                                            />
-                                                        </PopoverContent>
-                                                    </Popover>
-                                                </div>
+                                                         <div>
+                                                             <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Departure Date</label>
+                                                             <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                                                                 <PopoverTrigger asChild>
+                                                                     <div className="flex items-center gap-2 rounded-xl px-3 py-2.5 cursor-pointer hover:opacity-80 transition-opacity"
+                                                                         style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
+                                                                         <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                                                         <span className="flex-1 text-sm text-gray-900 font-medium">
+                                                                             {departureDate ? new Date(departureDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Select date'}
+                                                                         </span>
+                                                                     </div>
+                                                                 </PopoverTrigger>
+                                                                 <PopoverContent className="w-auto p-0" align="start">
+                                                                     <CalendarComponent
+                                                                         mode="single"
+                                                                         selected={departureDate ? new Date(departureDate + 'T00:00:00') : undefined}
+                                                                         onSelect={(date) => {
+                                                                             if (date) {
+                                                                                 setDepartureDate(date.toISOString().split('T')[0]);
+                                                                                 setCalendarOpen(false);
+                                                                             }
+                                                                         }}
+                                                                         disabled={(date) => date < new Date(getTodayStr())}
+                                                                     />
+                                                                 </PopoverContent>
+                                                             </Popover>
+                                                         </div>
 
-                                                <div>
-                                                    <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Starting Address</label>
-                                                    <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
-                                                        style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                                                        <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                                        <Input value={startingAddress} onChange={e => setStartingAddress(e.target.value)}
-                                                            placeholder="e.g. 123 Main St, San Francisco"
-                                                            className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-gray-900 font-medium" />
-                                                    </div>
-                                                </div>
+                                                         <div>
+                                                             <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Starting Address</label>
+                                                             <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
+                                                                 style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
+                                                                 <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                                                 <Input value={startingAddress} onChange={e => setStartingAddress(e.target.value)}
+                                                                     placeholder="e.g. 123 Main St, San Francisco"
+                                                                     className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-gray-900 font-medium" />
+                                                             </div>
+                                                         </div>
 
-                                                <button
-                                                    onClick={() => setSearchMode('flight')}
-                                                    className="text-xs text-blue-500 hover:text-blue-700 font-medium mt-1"
-                                                >
-                                                    Have a flight number? Enter it here.
-                                                </button>
-                                            </>
-                                        )}
+                                                         <button
+                                                             onClick={() => setSearchMode('flight')}
+                                                             className="text-xs text-blue-500 hover:text-blue-700 font-medium mt-1"
+                                                         >
+                                                             Have a flight number? Use that instead.
+                                                         </button>
+                                                     </>
+                                                 )}
                                     </motion.div>
                                 )}
 
