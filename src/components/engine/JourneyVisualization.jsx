@@ -437,9 +437,9 @@ export default function JourneyVisualization({ locked, steps, transport, profile
                             <div className="flex items-start">
                                 {row2.map((s, i) => {
                                     const nextS = row2[i + 1];
-                                    // baggage→security: no label. walk→gate: show walking time. others: no label.
+                                    // security→gate: show gate walk time on bar
                                     let barLabel = null;
-                                    if (s.id === 'walk' && nextS?.id === 'gate') {
+                                    if (s.id === 'security' && nextS?.id === 'gate') {
                                         barLabel = walkStep?.dur ? `${walkStep.dur} walking` : null;
                                     }
                                     return (
