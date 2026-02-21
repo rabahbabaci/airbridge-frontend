@@ -163,8 +163,11 @@ export default function Engine() {
         goTo(3);
     };
 
+    const [journeyReady, setJourneyReady] = useState(false);
+
     const handleReset = () => {
         setLocked(false);
+        setJourneyReady(false);
         setSelectedFlight(null);
         setFlightOptions([]);
         setDir(-1);
