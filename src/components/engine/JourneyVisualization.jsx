@@ -119,10 +119,14 @@ function StepNode({ stepId, time, dur, terminal, mode, revealed, TransportIcon, 
                 style={{ background: `linear-gradient(135deg, ${meta.color}1a, ${meta.color}40)`, border: `2px solid ${meta.color}77` }}
             >
                 {stepNumber && (
-                    <div className="absolute top-1 right-1 w-4 h-4 rounded-full flex items-center justify-center text-[9px] font-bold z-20"
-                        style={{ background: meta.color, color: '#000' }}>
+                    <motion.div
+                        initial={{ scale: 0 }}
+                        animate={{ scale: revealed ? 1 : 0 }}
+                        transition={{ type: 'spring', stiffness: 200, damping: 20, delay: 0.2 }}
+                        className="absolute -top-1 -right-1 w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-black z-20 shadow-lg"
+                        style={{ background: `linear-gradient(135deg, ${meta.color}, ${meta.color}dd)`, color: '#fff', border: '2px solid rgba(255,255,255,0.3)' }}>
                         {stepNumber}
-                    </div>
+                    </motion.div>
                 )}
                 {stepId === 'travel' && revealed && (
                     <motion.div className="absolute inset-0"
