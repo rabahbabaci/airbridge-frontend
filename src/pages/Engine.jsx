@@ -113,6 +113,7 @@ export default function Engine() {
     const [departureDate, setDepartureDate] = useState('');
     const [departureTime, setDepartureTime] = useState('');
     const [flightNumber, setFlightNumber] = useState('');
+    const [calendarOpen, setCalendarOpen] = useState(false);
 
     // Step 2
     const [searching, setSearching] = useState(false);
