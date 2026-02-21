@@ -298,6 +298,15 @@ export default function JourneyVisualization({ locked, steps, transport, profile
     const leaveStep = steps.find(s => s.id === 'home');
     const allRevealed = revealedCount >= visibleSteps.length && visibleSteps.length > 0;
 
+    // Format total minutes as "Xh Ym" if >= 60, else "Xm"
+    const formatTotal = (mins) => {
+        if (!mins) return '0m';
+        if (mins < 60) return `${mins}m`;
+        const h = Math.floor(mins / 60);
+        const m = mins % 60;
+        return m > 0 ? `${h}h ${m}m` : `${h}h`;
+    };
+
     const isRevealed = (id) => {
         const idx = visibleSteps.findIndex(s => s.id === id);
         return idx !== -1 && revealedCount > idx;
@@ -386,9 +395,7 @@ export default function JourneyVisualization({ locked, steps, transport, profile
                                 <span className="text-4xl font-bold bg-gradient-to-r from-white to-gray-400 bg-clip-text text-transparent">
                                     {leaveStep?.time}
                                 </span>
-                                <p className="text-gray-500 text-[11px] mt-1">
-                                    {steps[0]?.flightLabel} · {total >= 60 ? `${Math.floor(total / 60)}h ${total % 60}m` : `${total} min`} door-to-gate
-                                </p>
+                                <p className="text-gray-500 text-[11px] mt-1">{steps[0]?.flightLabel} · {steps[0]?.total} min door-to-gate</p>
                             </div>
                             <span className={`text-xs font-bold px-3 py-1.5 rounded-full border shrink-0 ml-4 ${confidenceColorMap[profile?.color]?.badge}`}>
                                 {profile?.confidenceScore}% Confident
