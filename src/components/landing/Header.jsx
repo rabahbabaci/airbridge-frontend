@@ -48,8 +48,10 @@ export default function Header() {
                                 onClick={(e) => {
                                     e.preventDefault();
                                     if (link.action) link.action();
-                                    else if (link.href && link.href !== '#') {
+                                    else if (link.href && link.href.startsWith('#')) {
                                         document.querySelector(link.href)?.scrollIntoView({ behavior: 'smooth' });
+                                    } else if (link.href) {
+                                        navigate(link.href);
                                     }
                                 }}
                                 className="text-sm text-gray-600 hover:text-gray-900 hover:bg-white transition-all font-medium px-4 py-1.5 rounded-full"
@@ -57,19 +59,25 @@ export default function Header() {
                                 {link.name}
                             </a>
                         ))}
-                    </nav>
 
-                    <div className="hidden md:flex items-center gap-3">
-                        <Button variant="ghost" className="text-gray-600 hover:text-gray-900 font-medium">
+                        {/* Divider */}
+                        <div className="w-px h-4 bg-gray-300 mx-1" />
+
+                        <a
+                            href="#"
+                            onClick={(e) => e.preventDefault()}
+                            className="text-sm text-gray-600 hover:text-gray-900 hover:bg-white transition-all font-medium px-4 py-1.5 rounded-full"
+                        >
                             Sign in
-                        </Button>
-                        <Button
-                            className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-full px-6 font-semibold"
+                        </a>
+
+                        <button
                             onClick={() => navigate(createPageUrl('Engine'))}
+                            className="text-sm bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-5 py-1.5 rounded-full transition-all"
                         >
                             Get Started
-                        </Button>
-                    </div>
+                        </button>
+                    </nav>
 
                     <button
                         className="md:hidden p-2"
