@@ -362,9 +362,10 @@ export default function Engine() {
                                                 <div>
                                                     <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Departure Date</label>
                                                     <div className="flex items-center gap-2 rounded-xl px-3 py-2.5 cursor-pointer"
+                                                        onClick={() => dateInputRefRoute.current?.click()}
                                                         style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
                                                         <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                                        <input type="date" value={departureDate} onChange={e => setDepartureDate(e.target.value)}
+                                                        <input type="date" ref={dateInputRefRoute} value={departureDate} onChange={e => setDepartureDate(e.target.value)}
                                                             min={getTodayStr()}
                                                             className="flex-1 bg-transparent text-sm text-gray-900 font-medium focus:outline-none cursor-pointer" />
                                                     </div>
