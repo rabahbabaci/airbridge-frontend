@@ -243,23 +243,24 @@ export default function Hero() {
                                 Calculate My Departure Time
                                 <ArrowRight className="w-4 h-4" />
                             </button>
-                        </motion.div>
+                            </motion.div>
 
-                        {/* Stats */}
-                        <motion.div
+                            {/* Trust micro-copy */}
+                            <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ duration: 0.6, delay: 0.5 }}
-                            className="flex gap-10"
-                            style={{ borderTop: '1px solid rgba(0,0,0,0.08)', paddingTop: 24 }}
-                        >
-                            {stats.map((s, i) => (
-                                <div key={i}>
-                                    <p className="text-2xl font-black text-gray-900">{s.value}</p>
-                                    <p className="text-xs text-gray-500 mt-0.5">{s.label}</p>
-                                </div>
-                            ))}
-                        </motion.div>
+                            className="flex items-center gap-5"
+                            >
+                            <span className="flex items-center gap-1.5 text-xs text-gray-400">
+                                <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                                Free during beta
+                            </span>
+                            <span className="flex items-center gap-1.5 text-xs text-gray-400">
+                                <CheckCircle className="w-3.5 h-3.5 text-green-500" />
+                                No credit card required
+                            </span>
+                            </motion.div>
                     </div>
 
                     {/* RIGHT — Phone mockup */}
