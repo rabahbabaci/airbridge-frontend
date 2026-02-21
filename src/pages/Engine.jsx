@@ -155,6 +155,7 @@ export default function Engine() {
                         items: {
                             type: 'object',
                             properties: {
+                                flight_number: { type: 'string', description: 'e.g. UA 452' },
                                 departure_time: { type: 'string', description: 'e.g. 7:30 AM' },
                                 arrival_time: { type: 'string', description: 'e.g. 10:45 AM' },
                                 origin_code: { type: 'string', description: 'IATA airport code e.g. JFK' },
