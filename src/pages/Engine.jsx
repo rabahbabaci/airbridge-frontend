@@ -105,8 +105,12 @@ export default function Engine() {
     const [dir, setDir] = useState(1);
 
     // Step 1
+    const [searchMode, setSearchMode] = useState('route'); // 'route' | 'flight'
+    const [fromAirport, setFromAirport] = useState('');
+    const [toAirport, setToAirport] = useState('');
+    const [departureDate, setDepartureDate] = useState('');
+    const [departureTime, setDepartureTime] = useState('');
     const [flightNumber, setFlightNumber] = useState('');
-    const [flightDate, setFlightDate] = useState('');
 
     // Step 2
     const [searching, setSearching] = useState(false);
