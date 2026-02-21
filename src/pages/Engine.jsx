@@ -270,8 +270,17 @@ export default function Engine() {
             <div className="flex flex-1 min-h-0">
 
                 {/* LEFT — Input Panel */}
-                <div className="w-[380px] shrink-0 flex flex-col overflow-hidden"
+                <div className="w-[380px] shrink-0 flex flex-col overflow-hidden relative"
                     style={{ background: '#ffffff', borderRight: '1px solid #f1f5f9' }}>
+                    {locked && !journeyReady && (
+                        <div className="absolute inset-0 z-20 bg-white/70 backdrop-blur-sm flex items-center justify-center">
+                            <div className="flex flex-col items-center gap-3">
+                                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+                                    className="w-6 h-6 rounded-full border-2 border-blue-600 border-t-transparent" />
+                                <p className="text-xs text-gray-500 font-medium">Calculating your journey...</p>
+                            </div>
+                        </div>
+                    )}
 
                     <div className="flex flex-col flex-1 overflow-hidden">
                         {/* Fixed header */}
