@@ -807,16 +807,17 @@ export default function Engine() {
                     <div className="w-full max-w-2xl mx-auto flex flex-col">
                         <AnimatePresence mode="wait">
                             <JourneyVisualization
-                            key={locked ? 'journey' : 'idle'}
-                            locked={locked}
-                            steps={journeySteps}
-                            transport={transport}
-                            profile={profile}
-                            confidenceColorMap={confidenceColorMap}
-                            onReady={handleJourneyReady}
-                            boardingTime={boarding}
-                        />
-                    </AnimatePresence>
+                                key={locked ? 'journey' : 'idle'}
+                                locked={locked}
+                                steps={journeySteps}
+                                transport={transport}
+                                profile={profile}
+                                confidenceColorMap={confidenceColorMap}
+                                onReady={handleJourneyReady}
+                                boardingTime={boarding}
+                            />
+                        </AnimatePresence>
+                    </div>
                     </motion.div>
                 )}
             </div>
