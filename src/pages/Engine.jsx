@@ -13,6 +13,7 @@ import { base44 } from '@/api/base44Client';
 // ── Data ────────────────────────────────────────────────────────────────────
 const transportOffsets = { uber: 0, driving: -5, train: 10, bus: 15, other: 5 };
 const trainWalkMins = 12; // walk from home to train station
+const busWalkMins = 8;   // walk from home to bus stop
 
 const confidenceProfiles = [
     { id: 'safety', name: 'Stress-Free',   desc: 'Arrive early, relax at the gate', icon: Shield,      bufferMultiplier: 1.5, confidenceScore: 97, color: 'green' },
