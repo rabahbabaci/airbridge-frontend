@@ -274,7 +274,7 @@ export default function Hero() {
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 1.2 }}
-                    className="absolute bottom-2 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
+                    className="absolute bottom-[-28px] left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
                 >
                     <p className="text-[10px] text-gray-400 uppercase tracking-widest font-semibold">Scroll</p>
                     <motion.div
