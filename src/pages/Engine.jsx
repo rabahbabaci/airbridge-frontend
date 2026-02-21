@@ -782,14 +782,14 @@ export default function Engine() {
                 {/* RIGHT — Visualization Panel */}
                 {(journeyReady || step >= 3) && (
                     <motion.div 
-                    initial={false}
-                    animate={{ 
-                        x: mobileView === 'setup' ? '100%' : 0,
-                        opacity: mobileView === 'setup' ? 0 : 1
-                    }}
-                    transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
-                    className="w-full md:flex-1 flex flex-col items-center justify-center px-6 md:px-8 py-6 overflow-hidden absolute md:relative inset-0 md:inset-auto"
-                    style={{ background: 'radial-gradient(ellipse at 60% 40%, rgba(59,130,246,0.07) 0%, rgba(9,9,11,1) 60%)', pointerEvents: (mobileView === 'setup' || !journeyReady) ? 'none' : 'auto', zIndex: mobileView === 'results' ? 10 : 0 }}>
+                        initial={false}
+                        animate={{ 
+                            x: mobileView === 'setup' ? '100%' : 0,
+                            opacity: mobileView === 'setup' ? 0 : 1
+                        }}
+                        transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+                        className="w-full md:flex-1 flex flex-col px-4 md:px-8 py-6 overflow-y-auto absolute md:relative inset-0 md:inset-auto"
+                        style={{ background: 'radial-gradient(ellipse at 60% 40%, rgba(59,130,246,0.07) 0%, rgba(9,9,11,1) 60%)', pointerEvents: (mobileView === 'setup' || !journeyReady) ? 'none' : 'auto', zIndex: mobileView === 'results' ? 10 : 0 }}>
                     {/* Mobile back button */}
                     {step === 3 && mobileView === 'results' && (
                         <button 
