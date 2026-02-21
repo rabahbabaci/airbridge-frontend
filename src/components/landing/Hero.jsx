@@ -201,7 +201,7 @@ export default function Hero() {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.6, delay: 0.1 }}
                         >
-                            <h1 className="text-6xl lg:text-7xl font-black text-gray-900 leading-[1.0] mb-4 tracking-tight">
+                            <h1 className="text-6xl lg:text-7xl font-black text-gray-900 leading-[1.15] mb-4 tracking-tight">
                                 Never Wait.<br />
                                 Never Rush.<br />
                                 <span className="text-indigo-600">Just Board.</span>
