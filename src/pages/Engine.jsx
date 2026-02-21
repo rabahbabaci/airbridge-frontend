@@ -563,7 +563,7 @@ export default function Engine() {
                                         </motion.div>
                                     ) : (
                                         <motion.button key="lock" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-                                            onClick={() => setLocked(true)}
+                                            onClick={() => { setLocked(true); setJourneyReady(false); }}
                                             className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold text-white transition-all"
                                             style={{
                                                 background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
