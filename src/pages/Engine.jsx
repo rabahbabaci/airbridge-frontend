@@ -773,8 +773,24 @@ export default function Engine() {
                 </div>
 
                 {/* RIGHT — Visualization Panel */}
-                <div className="flex-1 flex items-center justify-center px-8 py-6 relative overflow-hidden"
-                    style={{ background: 'radial-gradient(ellipse at 60% 40%, rgba(59,130,246,0.07) 0%, rgba(9,9,11,1) 60%)' }}>
+                <motion.div 
+                    initial={false}
+                    animate={{ 
+                        x: mobileView === 'setup' ? '100%' : 0,
+                        opacity: mobileView === 'setup' ? 0 : 1
+                    }}
+                    transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+                    className="w-full md:flex-1 flex flex-col items-center justify-center px-6 md:px-8 py-6 relative overflow-hidden absolute md:static md:opacity-100 inset-0 md:inset-auto"
+                    style={{ background: 'radial-gradient(ellipse at 60% 40%, rgba(59,130,246,0.07) 0%, rgba(9,9,11,1) 60%)', pointerEvents: mobileView === 'setup' ? 'none' : 'auto' }}>
+                    {/* Mobile back button */}
+                    {step === 3 && mobileView === 'results' && (
+                        <button 
+                            onClick={() => setMobileView('setup')}
+                            className="absolute top-6 left-6 md:hidden z-10 text-gray-400 hover:text-white transition-colors flex items-center gap-1.5 text-xs font-medium">
+                            <ArrowLeft className="w-3.5 h-3.5" />
+                            Back to Setup
+                        </button>
+                    )}
                     <div className="absolute top-10 right-10 w-80 h-80 rounded-full pointer-events-none"
                         style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.08), transparent)', filter: 'blur(60px)' }} />
                     <div className="absolute bottom-10 left-10 w-60 h-60 rounded-full pointer-events-none"
@@ -792,7 +808,7 @@ export default function Engine() {
                             boardingTime={boarding}
                         />
                     </AnimatePresence>
-                </div>
+                </motion.div>
             </div>
         </div>
     );
