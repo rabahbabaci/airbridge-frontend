@@ -194,6 +194,11 @@ export default function Engine() {
         setMobileView('setup');
     };
 
+    const handleJourneyReady = () => {
+        setJourneyReady(true);
+        setMobileView('results'); // Auto-show results on mobile
+    };
+
     const airportCode = selectedFlight?.origin_code && airportData[selectedFlight.origin_code]
         ? selectedFlight.origin_code : 'SFO';
     const profile = confidenceProfiles.find(p => p.id === selectedProfile);
