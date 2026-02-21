@@ -459,6 +459,30 @@ export default function JourneyVisualization({ locked, steps, transport, profile
                             </div>
                         </div>
 
+                        {/* Gate arrival card */}
+                        <AnimatePresence>
+                            {allRevealed && (
+                                <motion.div
+                                    initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+                                    transition={{ duration: 0.5, delay: 0.1 }}
+                                    className="rounded-2xl px-5 py-4 flex items-center justify-between"
+                                    style={{ background: 'rgba(34,197,94,0.05)', border: '1px solid rgba(34,197,94,0.18)' }}>
+                                    <div>
+                                        <p className="text-[10px] text-gray-500 uppercase tracking-widest font-medium mb-1">Arrive at Gate</p>
+                                        <span className="text-4xl font-bold" style={{ background: 'linear-gradient(90deg,#4ade80,#22c55e)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent' }}>
+                                            {steps.find(s => s.id === 'gate')?.time}
+                                        </span>
+                                        <p className="text-gray-500 text-[11px] mt-1">Boarding begins on time</p>
+                                    </div>
+                                    <motion.div animate={{ rotate: [0, 14, -14, 0] }} transition={{ repeat: Infinity, duration: 3.5 }}
+                                        className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ml-4"
+                                        style={{ background: 'rgba(34,197,94,0.12)', border: '1px solid rgba(34,197,94,0.25)' }}>
+                                        <CheckCircle2 className="w-5 h-5 text-green-400" />
+                                    </motion.div>
+                                </motion.div>
+                            )}
+                        </AnimatePresence>
+
                         {/* Seat ready pill */}
                         <AnimatePresence>
                             {allRevealed && (
