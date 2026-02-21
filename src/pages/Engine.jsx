@@ -363,7 +363,7 @@ export default function Engine() {
 
                                                 <div>
                                                     <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Departure Date</label>
-                                                    <Popover>
+                                                    <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                                                         <PopoverTrigger asChild>
                                                             <div className="flex items-center gap-2 rounded-xl px-3 py-2.5 cursor-pointer hover:opacity-80 transition-opacity"
                                                                 style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
@@ -380,7 +380,7 @@ export default function Engine() {
                                                                 onSelect={(date) => {
                                                                     if (date) {
                                                                         setDepartureDate(date.toISOString().split('T')[0]);
-                                                                        document.body.click();
+                                                                        setCalendarOpen(false);
                                                                     }
                                                                 }}
                                                                 disabled={(date) => date < new Date(getTodayStr())}
@@ -412,7 +412,7 @@ export default function Engine() {
 
                                                 <div>
                                                     <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Departure Date</label>
-                                                    <Popover>
+                                                    <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                                                         <PopoverTrigger asChild>
                                                             <div className="flex items-center gap-2 rounded-xl px-3 py-2.5 cursor-pointer hover:opacity-80 transition-opacity"
                                                                 style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
@@ -429,7 +429,7 @@ export default function Engine() {
                                                                 onSelect={(date) => {
                                                                     if (date) {
                                                                         setDepartureDate(date.toISOString().split('T')[0]);
-                                                                        document.body.click();
+                                                                        setCalendarOpen(false);
                                                                     }
                                                                 }}
                                                                 disabled={(date) => date < new Date(getTodayStr())}
