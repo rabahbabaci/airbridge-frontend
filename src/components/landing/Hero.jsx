@@ -141,15 +141,42 @@ export default function Hero() {
         { value: '6 vars', label: 'In Every Prediction' },
     ];
 
+    // Floating travel icons config
+    const floatingIcons = [
+        { Icon: Plane,   top: '12%',  left: '5%',   size: 22, delay: 0,    opacity: 0.12 },
+        { Icon: Train,   top: '20%',  left: '88%',  size: 18, delay: 0.8,  opacity: 0.10 },
+        { Icon: Car,     top: '70%',  left: '6%',   size: 16, delay: 1.2,  opacity: 0.09 },
+        { Icon: Luggage, top: '75%',  left: '90%',  size: 18, delay: 0.4,  opacity: 0.10 },
+        { Icon: Shield,  top: '45%',  left: '3%',   size: 15, delay: 1.6,  opacity: 0.08 },
+        { Icon: MapPin,  top: '55%',  left: '93%',  size: 16, delay: 2.0,  opacity: 0.09 },
+        { Icon: Clock,   top: '88%',  left: '30%',  size: 14, delay: 0.6,  opacity: 0.07 },
+        { Icon: Plane,   top: '85%',  left: '65%',  size: 12, delay: 1.4,  opacity: 0.07 },
+        { Icon: Luggage, top: '8%',   left: '50%',  size: 13, delay: 2.2,  opacity: 0.07 },
+    ];
+
     return (
         <section className="relative min-h-screen flex items-center overflow-hidden"
-            style={{ background: 'linear-gradient(135deg, #f0f0ff 0%, #e8e8ff 40%, #f5f0ff 100%)' }}>
+            style={{ background: 'linear-gradient(160deg, #fafbff 0%, #f3f4ff 35%, #faf5ff 70%, #f8faff 100%)' }}>
 
-            {/* Subtle background circles */}
-            <div className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full opacity-20 pointer-events-none"
-                style={{ background: 'radial-gradient(circle, #a5b4fc, transparent)', filter: 'blur(80px)' }} />
-            <div className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full opacity-15 pointer-events-none"
-                style={{ background: 'radial-gradient(circle, #c084fc, transparent)', filter: 'blur(60px)' }} />
+            {/* Floating travel icons */}
+            {floatingIcons.map(({ Icon, top, left, size, delay, opacity }, i) => (
+                <motion.div key={i}
+                    className="absolute pointer-events-none"
+                    style={{ top, left, opacity }}
+                    animate={{ y: [0, -10, 0], rotate: [0, 6, -6, 0] }}
+                    transition={{ repeat: Infinity, duration: 5 + i * 0.7, delay, ease: 'easeInOut' }}
+                >
+                    <Icon style={{ width: size, height: size, color: '#6366f1' }} />
+                </motion.div>
+            ))}
+
+            {/* Soft glow blobs */}
+            <div className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full opacity-25 pointer-events-none"
+                style={{ background: 'radial-gradient(circle, #a5b4fc, transparent)', filter: 'blur(90px)' }} />
+            <div className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full opacity-20 pointer-events-none"
+                style={{ background: 'radial-gradient(circle, #c084fc, transparent)', filter: 'blur(70px)' }} />
+            <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[300px] opacity-10 pointer-events-none"
+                style={{ background: 'radial-gradient(ellipse, #818cf8, transparent)', filter: 'blur(80px)' }} />
 
             <div className="relative max-w-7xl mx-auto px-6 pt-28 pb-16 w-full">
                 <div className="grid lg:grid-cols-2 gap-12 items-center">
