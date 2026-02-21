@@ -179,7 +179,7 @@ export default function Hero() {
                 style={{ background: 'radial-gradient(ellipse, #818cf8, transparent)', filter: 'blur(80px)' }} />
 
             <div className="relative max-w-7xl mx-auto px-6 pt-28 pb-16 w-full">
-                <div className="grid lg:grid-cols-2 gap-12 items-center">
+                <div className="grid lg:grid-cols-2 gap-6 items-center">
 
                     {/* LEFT */}
                     <div>
