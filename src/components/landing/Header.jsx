@@ -9,6 +9,7 @@ import AuthModal from '@/components/landing/AuthModal';
 export default function Header() {
     const [scrolled, setScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+    const [authOpen, setAuthOpen] = useState(false);
     const navigate = useNavigate();
 
     useEffect(() => {
