@@ -178,7 +178,7 @@ export default function Hero() {
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[300px] opacity-10 pointer-events-none"
                 style={{ background: 'radial-gradient(ellipse, #818cf8, transparent)', filter: 'blur(80px)' }} />
 
-            <div className="relative max-w-5xl mx-auto px-6 pt-28 pb-16 w-full">
+            <div className="relative max-w-6xl mx-auto px-6 pt-28 pb-16 w-full">
                 <div className="grid lg:grid-cols-2 gap-6 items-center">
 
                     {/* LEFT */}
