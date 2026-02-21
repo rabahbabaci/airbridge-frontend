@@ -513,7 +513,7 @@ export default function Engine() {
                                                     </div>
                                                     <div className="flex items-center justify-between">
                                                         <p className="text-xs text-gray-700 font-medium">Traveling with children</p>
-                                                        <Toggle on={withChildren} onToggle={() => setWithChildren(c => !c)} />
+                                                        <Toggle on={withChildren} onToggle={() => setWithChildren(prev => !prev)} />
                                                     </div>
                                                     <div>
                                                         <p className="text-xs text-gray-700 font-medium mb-2">Extra airport time</p>
