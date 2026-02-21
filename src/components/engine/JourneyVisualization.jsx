@@ -115,8 +115,8 @@ function StepNode({ stepId, time, dur, terminal, mode, revealed, TransportIcon, 
                     boxShadow: [`0 0 0px ${meta.glow}`, `0 0 22px ${meta.glow}`, `0 0 0px ${meta.glow}`]
                 } : {}}
                 transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
-                className="w-14 h-14 rounded-2xl flex items-center justify-center relative overflow-hidden"
-                style={{ background: `linear-gradient(135deg, ${meta.color}1a, ${meta.color}40)`, border: `2px solid ${meta.color}77` }}
+                className="w-14 h-14 rounded-2xl flex items-center justify-center relative"
+                style={{ background: `linear-gradient(135deg, ${meta.color}1a, ${meta.color}40)`, border: `2px solid ${meta.color}77`, overflow: 'visible' }}
             >
                 {stepNumber && (
                     <motion.div
