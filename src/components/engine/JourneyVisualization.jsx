@@ -80,20 +80,26 @@ function LoadingSequence({ onDone }) {
 }
 
 // ── Step node ─────────────────────────────────────────────────────────────────
-function StepNode({ stepId, time, dur, terminal, revealed, TransportIcon, stepNumber }) {
-    const meta = stepMeta[stepId];
-    const Icon = stepId === 'travel' ? TransportIcon : meta.icon;
+function StepNode({ stepId, time, dur, terminal, mode, revealed, TransportIcon, stepNumber }) {
+    // trainwalk can be bus or train mode
+    const effectiveMeta = stepId === 'trainwalk' && mode === 'bus'
+        ? { ...stepMeta.trainwalk, icon: Bus, label: 'Walk to Bus' }
+        : stepMeta[stepId];
+    const meta = effectiveMeta;
+    const Icon = meta.icon;
 
-    // Primary value shown below label
-    const primaryLabel = stepId === 'travel' ? null : time;
+    const primaryLabel = time;
 
     // Sub-label (context info)
     const subLabel = (() => {
         if (stepId === 'home') return null;
-        if (stepId === 'travel') return null; // duration shown on bar
         if (stepId === 'airport') return terminal || null;
         if (stepId === 'gate') return 'Board';
-        return dur; // security, walk, baggage, trainwalk
+        if (stepId === 'walk') return null; // duration shown on bar
+        if (stepId === 'security') return dur;
+        if (stepId === 'baggage') return dur;
+        if (stepId === 'trainwalk') return dur;
+        return null;
     })();
 
     return (
