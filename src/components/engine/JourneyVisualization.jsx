@@ -83,7 +83,9 @@ function LoadingSequence({ onDone }) {
 function StepNode({ stepId, time, dur, terminal, mode, revealed, TransportIcon, stepNumber }) {
     // trainwalk can be bus or train mode
     const effectiveMeta = stepId === 'trainwalk' && mode === 'bus'
-        ? { ...stepMeta.trainwalk, icon: Bus, label: 'Walk to Bus' }
+        ? { ...stepMeta.trainwalk, icon: Bus, label: 'Bus Stop' }
+        : stepId === 'trainwalk' && mode === 'train'
+        ? { ...stepMeta.trainwalk, icon: Train, label: 'Train Station' }
         : stepMeta[stepId];
     const meta = effectiveMeta;
     const Icon = meta.icon;
@@ -451,7 +453,7 @@ export default function JourneyVisualization({ locked, steps, transport, profile
                                     let barLabel = null;
                                     if (nextS?.id === 'trainwalk') {
                                         // Home → Walk to Train/Bus: show walk duration on bar
-                                        barLabel = trainwalkStep?.dur || null;
+                                        barLabel = `${trainwalkStep?.dur} walking`;
                                     } else if (nextS?.id === 'airport') {
                                         // (Walk to Train/Bus or Home) → Airport: En Route label
                                         barLabel = `En Route · ${travelStep?.dur || ''}`;
