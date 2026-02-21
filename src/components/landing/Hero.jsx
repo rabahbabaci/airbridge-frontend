@@ -223,7 +223,8 @@ export default function Hero() {
                             transition={{ duration: 0.5, delay: 0.25 }}
                             className="text-gray-500 text-lg leading-relaxed max-w-md mb-10"
                         >
-                            Real-time door-to-gate departure timing powered by live traffic, TSA wait data, and airport intelligence. One precise answer.
+                            Door-to-gate departure timing. No guesswork.<br />
+                            Powered by real-time airport intelligence.
                         </motion.p>
 
                         {/* CTA */}
