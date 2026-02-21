@@ -143,8 +143,8 @@ export default function Engine() {
             goTo(2);
             const dateStr = new Date(departureDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
             const prompt = searchMode === 'route'
-                ? `You are a flight data API. Find realistic flight options from ${fromAirport.trim().toUpperCase()} to ${toAirport.trim().toUpperCase()} on ${dateStr}. Return 2-4 realistic flights with different departure times, each with departure_time, arrival_time, origin_code, origin_name, destination_code, destination_name, duration, and terminal.`
-                : `You are a flight data API. For flight number "${flightNumber.trim()}" on ${dateStr}, return realistic scheduled departure trips for that day. A single flight number typically operates 1-3 trips per day. Return between 1 and 3 trip objects with departure_time, arrival_time, origin_code, origin_name, destination_code, destination_name, duration, and terminal.`;
+                ? `You are a flight data API. Find realistic flight options from ${fromAirport.trim().toUpperCase()} to ${toAirport.trim().toUpperCase()} on ${dateStr}. Return 2-4 realistic flights with different departure times, each with flight_number (e.g. AA 452), departure_time, arrival_time, origin_code, origin_name, destination_code, destination_name, duration, and terminal.`
+                : `You are a flight data API. For flight number "${flightNumber.trim()}" on ${dateStr}, return realistic scheduled departure trips for that day. A single flight number typically operates 1-3 trips per day. Return between 1 and 3 trip objects with flight_number, departure_time, arrival_time, origin_code, origin_name, destination_code, destination_name, duration, and terminal.`;
             const result = await base44.integrations.Core.InvokeLLM({
                 prompt,
             response_json_schema: {
