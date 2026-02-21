@@ -4,7 +4,7 @@ import Hero from '@/components/landing/Hero';
 import Problem from '@/components/landing/Problem';
 import Solution from '@/components/landing/Solution';
 import HowItWorks from '@/components/landing/HowItWorks';
-import JourneyFlow from '@/components/landing/JourneyFlow';
+
 import Comparison from '@/components/landing/Comparison';
 import Trust from '@/components/landing/Trust';
 import CTA from '@/components/landing/CTA';

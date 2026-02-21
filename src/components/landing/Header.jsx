@@ -45,9 +45,12 @@ export default function Header() {
                                 key={link.name}
                                 href={link.href || '#'}
                                 onClick={(e) => {
-                                    e.preventDefault();
-                                    if (link.action) link.action();
-                                }}
+                                            e.preventDefault();
+                                            if (link.action) link.action();
+                                            else if (link.href && link.href !== '#') {
+                                                document.querySelector(link.href)?.scrollIntoView({ behavior: 'smooth' });
+                                            }
+                                        }}
                                 className="text-sm text-gray-600 hover:text-gray-900 transition-colors font-medium"
                             >
                                 {link.name}
