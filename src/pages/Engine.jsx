@@ -261,7 +261,7 @@ export default function Engine() {
         : flightNumber.trim().length > 0 && departureDate.length > 0;
 
     return (
-        <div className="h-screen w-screen flex flex-col overflow-hidden bg-gray-950 font-sans antialiased">
+        <div className="fixed inset-0 flex flex-col overflow-hidden bg-gray-950 font-sans antialiased">
 
             {/* ── Topbar ── */}
             <header className="flex items-center justify-between px-6 py-3 shrink-0 z-10"
