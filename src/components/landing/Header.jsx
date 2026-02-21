@@ -16,8 +16,10 @@ export default function Header() {
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
 
+    const isHome = window.location.pathname === '/' || window.location.pathname.toLowerCase().includes('home');
+
     const navLinks = [
-        { name: 'Home', href: '#' },
+        ...(!isHome ? [{ name: 'Home', href: createPageUrl('Home') }] : []),
         { name: 'How It Works', href: '#how-it-works' },
     ];
 
