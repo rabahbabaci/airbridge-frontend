@@ -201,10 +201,10 @@ export default function Hero() {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.6, delay: 0.1 }}
                         >
-                            <h1 className="text-6xl lg:text-7xl font-black text-gray-900 leading-[1.15] mb-4 tracking-tight">
-                                Never Wait.<br /><span className="block h-2" />&nbsp;
-                                Never Rush.<br /><span className="block h-2" />&nbsp;
-                                <span className="text-indigo-600">Just Board.</span>
+                            <h1 className="text-6xl lg:text-7xl font-black text-gray-900 mb-4 tracking-tight" style={{ lineHeight: 1.4 }}>
+                                <span className="block">Never Wait.</span>
+                                <span className="block">Never Rush.</span>
+                                <span className="block text-indigo-600">Just Board.</span>
                                 {' '}
                                 <motion.span
                                     animate={{ x: [0, 8, 0] }}
