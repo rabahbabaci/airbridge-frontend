@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { ArrowRight, Plane, Car, Shield, CheckCircle } from 'lucide-react';
+import { ArrowRight, Plane, Car, Shield, CheckCircle, Clock, Train, Luggage, MapPin } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 

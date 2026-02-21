@@ -18,6 +18,7 @@ export default function Header() {
 
     const navLinks = [
         { name: 'Home', href: '#' },
+        { name: 'How It Works', href: '#how-it-works' },
         { name: 'Departure Engine', action: () => navigate(createPageUrl('Engine')) },
     ];
 
