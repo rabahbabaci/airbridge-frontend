@@ -268,16 +268,16 @@ export default function JourneyVisualization({ locked, steps, transport, profile
         return clearTimers;
     }, [locked]);
 
-    // When already in journey phase and visible steps change (e.g. transport switch), instantly reveal all
-    const prevVisibleCountRef = useRef(0);
+    // When already in journey phase and transport/steps change, instantly reveal all steps
+    const prevTransportRef = useRef(transport);
     useEffect(() => {
-        if (phase === 'journey' && visibleSteps.length !== prevVisibleCountRef.current) {
+        if (phase === 'journey' && transport !== prevTransportRef.current) {
             clearTimers();
             setRevealedCount(visibleSteps.length);
             if (onReady) onReady();
         }
-        prevVisibleCountRef.current = visibleSteps.length;
-    }, [visibleSteps.length, phase]);
+        prevTransportRef.current = transport;
+    }, [transport, phase, visibleSteps.length]);
 
     const STEP_INTERVAL = 900;
 
