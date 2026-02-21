@@ -1,4 +1,6 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { ArrowUp } from 'lucide-react';
 import Header from '@/components/landing/Header';
 import Hero from '@/components/landing/Hero';
 import Problem from '@/components/landing/Problem';
