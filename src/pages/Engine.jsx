@@ -312,16 +312,15 @@ export default function Engine() {
             <div className="flex flex-1 min-h-0 relative">
 
                 {/* LEFT — Input Panel */}
-                {(!journeyReady || mobileView === 'setup') && (
-                    <motion.div 
+                <motion.div 
                     initial={false}
                     animate={{ 
                         x: mobileView === 'results' ? '-100%' : 0,
                         opacity: mobileView === 'results' ? 0 : 1
                     }}
                     transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
-                    className="w-full md:w-[380px] md:shrink-0 flex flex-col overflow-hidden absolute md:relative inset-0 md:inset-auto"
-                    style={{ background: '#ffffff', borderRight: '1px solid #f1f5f9', pointerEvents: (mobileView === 'results' || journeyReady) ? 'none' : 'auto', zIndex: (mobileView === 'setup' || !journeyReady) ? 10 : 0 }}>
+                    className="w-full md:w-[380px] md:shrink-0 flex flex-col overflow-hidden absolute md:relative md:!transform-none md:!opacity-100 inset-0 md:inset-auto"
+                    style={{ background: '#ffffff', borderRight: '1px solid #f1f5f9', pointerEvents: mobileView === 'results' ? 'none' : 'auto', zIndex: (mobileView === 'setup' || !journeyReady) ? 10 : 0 }}>
                     {locked && !journeyReady && (
                         <div className="absolute inset-0 z-20 bg-white/70 backdrop-blur-sm flex items-center justify-center">
                             <div className="flex flex-col items-center gap-3">
