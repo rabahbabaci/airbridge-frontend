@@ -397,7 +397,7 @@ export default function Engine() {
                                                              onClick={() => setSearchMode('route')}
                                                              className="text-xs text-blue-500 hover:text-blue-700 font-medium mt-2 w-full text-center"
                                                          >
-                                                             Don't have your flight? Search by route.
+                                                             No flight number? Search by route.
                                                          </button>
                                                              </motion.div>
                                                              ) : (
