@@ -757,7 +757,7 @@ export default function Engine() {
                 </div>
 
                 {/* RIGHT — Visualization Panel */}
-                <div className="flex-1 flex items-center justify-center px-8 py-6 relative overflow-hidden"
+                <div className="flex-1 flex items-center justify-center px-8 py-6 relative overflow-y-auto"
                     style={{ background: 'radial-gradient(ellipse at 60% 40%, rgba(59,130,246,0.07) 0%, rgba(9,9,11,1) 60%)' }}>
                     <div className="absolute top-10 right-10 w-80 h-80 rounded-full pointer-events-none"
                         style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.08), transparent)', filter: 'blur(60px)' }} />
