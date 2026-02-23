@@ -328,7 +328,7 @@ export default function Engine() {
                         </div>
 
                         {/* Animated step content */}
-                        <div className="flex-1 min-h-0 relative">
+                        <div className="flex-1 min-h-0 overflow-y-auto relative">
                             <AnimatePresence mode="wait" custom={dir}>
 
                                 {/* ── STEP 1 ── */}
@@ -336,7 +336,7 @@ export default function Engine() {
                                     <motion.div key="step1" custom={dir}
                                         variants={slideVariants} initial="enter" animate="center" exit="exit"
                                         transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-                                        className="absolute inset-0 overflow-y-auto px-6 pt-4 pb-4 flex flex-col gap-4">
+                                        className="px-6 pt-4 pb-4 flex flex-col gap-4">
                                         <StepDots step={1} />
 
                                         <AnimatePresence mode="wait">
