@@ -572,7 +572,7 @@ export default function Engine() {
                                     <motion.div key="step3" custom={dir}
                                         variants={slideVariants} initial="enter" animate="center" exit="exit"
                                         transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-                                        className="absolute inset-0 overflow-y-auto px-6 pt-4 pb-4 flex flex-col gap-4">
+                                        className="absolute inset-0 overflow-y-auto px-6 pt-4 pb-10 flex flex-col gap-4">
                                         <StepDots step={3} />
 
                                         {selectedFlight && (
