@@ -595,7 +595,7 @@ export default function Engine() {
                                                              transition={{ delay: i * 0.08, duration: 0.3 }}
                                                              onClick={() => handleSelectFlight(f)}
                                                              className="w-full text-left rounded-xl px-4 py-3.5 transition-all duration-100 hover:scale-[1.01]"
-                                                             style={{ border: `1px solid ${inWindow && departureWindow !== 'not_sure' ? '#bfdbfe' : '#e5e7eb'}`, background: inWindow && departureWindow !== 'not_sure' ? '#f0f7ff' : '#f9fafb' }}
+                                                             style={{ border: `1px solid ${isInWindow(f.departure_time, departureWindow) && departureWindow !== 'not_sure' ? '#bfdbfe' : '#e5e7eb'}`, background: isInWindow(f.departure_time, departureWindow) && departureWindow !== 'not_sure' ? '#f0f7ff' : '#f9fafb' }}
                                                              whileHover={{ borderColor: '#93c5fd', background: '#eff6ff', transition: { duration: 0.1 } }}>
                                                             <div className="flex items-center justify-between mb-2">
                                                                 <div className="flex items-center gap-3">
