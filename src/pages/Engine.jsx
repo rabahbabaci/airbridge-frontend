@@ -425,6 +425,16 @@ export default function Engine() {
                                                              </div>
                                                          </div>
 
+                                                                          <div>
+                                                             <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Departure Time Window</label>
+                                                             <select value={departureWindow} onChange={e => setDepartureWindow(e.target.value)}
+                                                                 className="w-full rounded-xl px-3 py-2.5 text-sm font-medium text-gray-900 bg-[#f9fafb] border border-[#e5e7eb] focus:outline-none focus:ring-1 focus:ring-blue-400">
+                                                                 {departureWindows.map(w => (
+                                                                     <option key={w.id} value={w.id}>{w.label}{w.desc ? ` — ${w.desc}` : ''}</option>
+                                                                 ))}
+                                                             </select>
+                                                         </div>
+
                                                          <button
                                                              onClick={() => setSearchMode('route')}
                                                              className="text-xs text-blue-500 hover:text-blue-700 font-medium mt-2 w-full text-center"
