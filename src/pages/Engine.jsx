@@ -618,10 +618,10 @@ export default function Engine() {
                                                                 <span className="text-[10px] text-gray-400">→</span>
                                                                 <span className="text-[11px] font-semibold text-gray-600">{f.destination_code}</span>
                                                                 <span className="text-[10px] text-gray-400 ml-2">· {f.terminal}</span>
-                                                            </div>
-                                                        </motion.button>
-                                                    ))}
-                                                </div>
+                                                                </div>
+                                                                </motion.button>
+                                                                );})}
+                                                                </div>
                                             )}
                                         </div>
                                     </motion.div>
