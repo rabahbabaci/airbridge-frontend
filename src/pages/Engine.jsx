@@ -387,6 +387,17 @@ export default function Engine() {
                                                          </div>
 
                                                          <div>
+                                                             <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Starting Address</label>
+                                                             <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
+                                                                 style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
+                                                                 <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                                                 <Input value={startingAddress} onChange={e => setStartingAddress(e.target.value)}
+                                                                     placeholder="e.g. 123 Main St, San Francisco"
+                                                                     className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-gray-900 font-medium" />
+                                                             </div>
+                                                         </div>
+
+                                                         <div>
                                                              <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Departure Date</label>
                                                              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                                                                  <PopoverTrigger asChild>
@@ -414,18 +425,7 @@ export default function Engine() {
                                                              </Popover>
                                                          </div>
 
-                                                         <div>
-                                                             <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Starting Address</label>
-                                                             <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
-                                                                 style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                                                                 <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                                                 <Input value={startingAddress} onChange={e => setStartingAddress(e.target.value)}
-                                                                     placeholder="e.g. 123 Main St, San Francisco"
-                                                                     className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-gray-900 font-medium" />
-                                                             </div>
-                                                         </div>
-
-                                                                         <button
+                                                         <button
                                                              onClick={() => setSearchMode('route')}
                                                              className="text-xs text-blue-500 hover:text-blue-700 font-medium mt-2 w-full text-center"
                                                          >
