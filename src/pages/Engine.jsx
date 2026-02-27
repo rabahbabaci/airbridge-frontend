@@ -582,7 +582,13 @@ export default function Engine() {
                                                 </div>
                                             ) : (
                                                 <div className="flex flex-col gap-2">
-                                                    {flightOptions.map((f, i) => (
+                                                    {[...flightOptions].sort((a, b) => {
+                                                        const aIn = isInWindow(a.departure_time, departureWindow);
+                                                        const bIn = isInWindow(b.departure_time, departureWindow);
+                                                        if (aIn && !bIn) return -1;
+                                                        if (!aIn && bIn) return 1;
+                                                        return 0;
+                                                    }).map((f, i) => (
                                                         <motion.button key={i}
                                                              initial={{ opacity: 0, y: 12 }}
                                                              animate={{ opacity: 1, y: 0 }}
