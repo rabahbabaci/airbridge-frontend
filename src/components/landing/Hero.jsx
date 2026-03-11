@@ -155,7 +155,7 @@ export default function Hero() {
     ];
 
     return (
-        <section className="relative min-h-screen flex items-center overflow-hidden"
+        <section className="relative min-h-screen flex items-center"
             style={{ background: 'linear-gradient(160deg, #fafbff 0%, #f3f4ff 35%, #faf5ff 70%, #f8faff 100%)' }}>
 
             {/* Floating travel icons */}
