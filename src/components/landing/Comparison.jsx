@@ -112,7 +112,7 @@ export default function Comparison() {
                                 whileInView={{ opacity: 1, x: 0 }}
                                 viewport={{ once: true }}
                                 transition={{ delay: index * 0.05 }}
-                                className="grid grid-cols-4 gap-4 p-6 hover:bg-gray-50/50 transition-colors"
+                                className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-6 hover:bg-gray-50/50 transition-colors"
                             >
                                 <div className="text-sm text-gray-700 font-medium flex items-center">
                                     {feature.name}
