@@ -316,6 +316,13 @@ export default function Engine() {
         setStep(1);
         setShowMobileResults(false);
         setSettingsChanged(false);
+        setViewMode('setup');
+    };
+
+    const handleEditSetup = () => {
+        setLocked(false);
+        setJourneyReady(false);
+        setViewMode('setup');
     };
 
     const profile = confidenceProfiles.find(p => p.id === selectedProfile);
