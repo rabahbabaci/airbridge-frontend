@@ -219,18 +219,10 @@ export default function Engine() {
     }, [transport, selectedProfile, hasBaggage, baggageCount, withChildren, extraTime]);
 
     const handleLockIn = async () => {
-        // If on mobile and nothing changed, just show existing results
-        if (!settingsChanged && recommendation && window.innerWidth < 768) {
-            setLocked(true);
-            setJourneyReady(true);
-            setShowMobileResults(true);
-            return;
-        }
-
         setLocked(true);
         setJourneyReady(false);
+        setViewMode('loading');
         try {
-            // Step 1: Create trip
             const tripRes = await fetch(`${API_BASE}/v1/trips`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -252,7 +244,6 @@ export default function Engine() {
             });
             const trip = await tripRes.json();
 
-            // Step 2: Get recommendation
             const recRes = await fetch(`${API_BASE}/v1/recommendations`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -262,13 +253,12 @@ export default function Engine() {
             setRecommendation(rec);
             setJourneyReady(true);
             setSettingsChanged(false);
-            // Switch to results on mobile
-            if (window.innerWidth < 768) {
-                setShowMobileResults(true);
-            }
+            // Small delay for loading animation to feel smooth
+            setTimeout(() => setViewMode('results'), 600);
         } catch (err) {
             console.error('Recommendation failed:', err);
             setJourneyReady(true);
+            setViewMode('setup');
         }
     };
 
