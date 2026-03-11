@@ -1,0 +1,813 @@
+import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
+import { createPageUrl } from '@/utils';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Calendar as CalendarComponent } from "@/components/ui/calendar";
+import {
+    Plane, Car, Train, Bus, User, Shield, Zap, AlertCircle,
+    ChevronDown, CheckCircle2, Lock, Calendar, Search, ArrowLeft, MapPin
+} from 'lucide-react';
+import JourneyVisualization from '@/components/engine/JourneyVisualization';
+
+const API_BASE = 'https://airbridge-backend-production.up.railway.app';
+
+// const API_BASE = 'http://localhost:8000';
+
+// ── Data ────────────────────────────────────────────────────────────────────
+const transportOffsets = { uber: 0, driving: -5, train: 10, bus: 15, other: 5 };
+const trainWalkMins = 12; // walk from home to train station
+const busWalkMins = 8;   // walk from home to bus stop
+
+const confidenceProfiles = [
+    { id: 'safety', name: 'Stress-Free',   desc: 'Arrive early, relax at the gate', icon: Shield,      bufferMultiplier: 1.5, confidenceScore: 97, color: 'green' },
+    { id: 'sweet',  name: 'Just Right',    desc: 'Balanced time vs certainty',       icon: Zap,         bufferMultiplier: 1.0, confidenceScore: 91, color: 'blue'  },
+    { id: 'risk',   name: 'Cut It Close',  desc: 'Minimal buffer, higher risk',      icon: AlertCircle, bufferMultiplier: 0.4, confidenceScore: 79, color: 'amber' },
+];
+
+const transportModes = [
+    { id: 'uber',    label: 'Uber/Lyft', icon: Car   },
+    { id: 'driving', label: 'Driving',   icon: Car   },
+    { id: 'train',   label: 'Train',     icon: Train },
+    { id: 'bus',     label: 'Bus',       icon: Bus   },
+    { id: 'other',   label: 'Other',     icon: User  },
+];
+
+const confidenceColorMap = {
+    green: { badge: 'bg-green-500/20 text-green-400 border-green-500/30', bar: 'from-green-500 to-emerald-400' },
+    blue:  { badge: 'bg-blue-500/20 text-blue-400 border-blue-500/30',    bar: 'from-blue-500 to-purple-500'   },
+    amber: { badge: 'bg-amber-500/20 text-amber-400 border-amber-500/30', bar: 'from-amber-500 to-orange-400'  },
+};
+
+function formatLocalTime(timeStr) {
+    if (!timeStr) return '';
+    // Parse "2026-03-07 10:09-08:00" format
+    const match = timeStr.match(/(\d{4}-\d{2}-\d{2})\s+(\d{2}):(\d{2})/);
+    if (!match) return timeStr;
+    const hours = parseInt(match[2]);
+    const minutes = match[3];
+    const ampm = hours >= 12 ? 'PM' : 'AM';
+    const h12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
+    return `${h12}:${minutes} ${ampm}`;
+}
+
+function parseTimeToDate(localTimeStr) {
+    if (!localTimeStr) return null;
+    const match = localTimeStr.match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/);
+    if (!match) return null;
+    return new Date(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3]), parseInt(match[4]), parseInt(match[5]));
+}
+
+function fmt(date, offsetMins) {
+    const d = new Date(date);
+    d.setMinutes(d.getMinutes() + offsetMins);
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
+// ── Toggle ───────────────────────────────────────────────────────────────────
+function Toggle({ on, onToggle }) {
+    return (
+        <button onClick={onToggle}
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-300 ${on ? 'bg-blue-600' : 'bg-gray-200'}`}>
+            <motion.span
+                animate={{ x: on ? 18 : 2 }}
+                transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                className="inline-block h-3.5 w-3.5 rounded-full bg-white shadow"
+                style={{ position: 'absolute' }}
+            />
+        </button>
+    );
+}
+
+// ── Step indicator ───────────────────────────────────────────────────────────
+function StepDots({ step }) {
+    return (
+        <div className="flex items-center gap-2 mb-5">
+            {[1, 2, 3].map(n => (
+                <div key={n} className="flex items-center gap-2">
+                    <motion.div
+                        animate={{
+                            background: step >= n ? '#3b82f6' : '#e5e7eb',
+                            scale: step === n ? 1 : 0.85,
+                        }}
+                        transition={{ duration: 0.3 }}
+                        className="w-2 h-2 rounded-full"
+                    />
+                    {n < 3 && (
+                        <motion.div
+                            animate={{ background: step > n ? '#3b82f6' : '#e5e7eb' }}
+                            transition={{ duration: 0.4 }}
+                            className="w-8 h-px"
+                        />
+                    )}
+                </div>
+            ))}
+            <span className="text-[10px] text-gray-400 font-medium ml-1">Step {step} of 3</span>
+        </div>
+    );
+}
+
+const slideVariants = {
+    enter: (dir) => ({ x: dir > 0 ? 40 : -40, opacity: 0 }),
+    center: { x: 0, opacity: 1 },
+    exit: (dir) => ({ x: dir > 0 ? -40 : 40, opacity: 0 }),
+};
+
+// ── Main Page ────────────────────────────────────────────────────────────────
+export default function Engine() {
+    const [step, setStep] = useState(1);
+    const [dir, setDir] = useState(1);
+
+    // Step 1
+    const [departureDate, setDepartureDate] = useState('');
+    const [departureTime, setDepartureTime] = useState('');
+    const [flightNumber, setFlightNumber] = useState('');
+    const [startingAddress, setStartingAddress] = useState('');
+    const [calendarOpen, setCalendarOpen] = useState(false);
+
+    // Step 2
+    const [searching, setSearching] = useState(false);
+    const [flightOptions, setFlightOptions] = useState([]);
+    const [selectedFlight, setSelectedFlight] = useState(null);
+
+    // Step 3
+    const [selectedProfile, setSelectedProfile] = useState('sweet');
+    const [transport, setTransport] = useState('uber');
+    const [advancedOpen, setAdvancedOpen] = useState(false);
+    const [hasBaggage, setHasBaggage] = useState(false);
+    const [baggageCount, setBaggageCount] = useState(1);
+    const [withChildren, setWithChildren] = useState(false);
+    const [extraTime, setExtraTime] = useState('none');
+    const [locked, setLocked] = useState(false);
+    const [showMobileResults, setShowMobileResults] = useState(false);
+    const [recommendation, setRecommendation] = useState(null);
+    const [settingsChanged, setSettingsChanged] = useState(false);
+
+    const goTo = (next) => {
+        setDir(next > step ? 1 : -1);
+        setStep(next);
+    };
+
+    const handleFindFlight = async () => {
+        if (!flightNumber.trim() || !departureDate) return;
+        setSearching(true);
+        goTo(2);
+        try {
+            const addrParam = startingAddress.trim() ? `?home_address=${encodeURIComponent(startingAddress.trim())}` : '';
+            const res = await fetch(`${API_BASE}/v1/flights/${encodeURIComponent(flightNumber.trim())}/${departureDate}${addrParam}`);
+            if (!res.ok) {
+                setFlightOptions([]);
+                setSearching(false);
+                return;
+            }
+            const data = await res.json();
+            // Map backend response to the shape the UI expects
+            const mapped = (data.flights || []).map(f => ({
+                flight_number: f.flight_number,
+                departure_time: f.departure_time_local,
+                arrival_time: f.arrival_time_local,
+                origin_code: f.origin_iata,
+                origin_name: f.origin_name,
+                destination_code: f.destination_iata,
+                destination_name: f.destination_name,
+                departure_terminal: f.departure_terminal,
+                departure_gate: f.departure_gate,
+                arrival_terminal: f.arrival_terminal,
+                status: f.status,
+                aircraft_model: f.aircraft_model,
+                departure_time_utc: f.departure_time_utc,
+                departed: f.departed ?? false,
+                canceled: f.canceled ?? false,
+                catchable: f.catchable ?? true,
+                time_warning: f.time_warning ?? null,
+                is_boarding: f.is_boarding ?? false,
+                revised_departure_local: f.revised_departure_local,
+                is_delayed: f.is_delayed ?? false,
+                scheduled_departure_local: f.scheduled_departure_local,
+                // Format display strings
+                duration: '', // We can calculate this later
+                terminal: f.departure_terminal ? `Terminal ${f.departure_terminal}` : 'Terminal TBD',
+            }));
+            setFlightOptions(mapped);
+        } catch (err) {
+            console.error('Flight lookup failed:', err);
+            setFlightOptions([]);
+        }
+        setSearching(false);
+    };
+
+    const handleSelectFlight = (flight) => {
+        setSelectedFlight(flight);
+        if (locked) {
+            setLocked(false);
+            setRecommendation(null);
+            setJourneyReady(false);
+        }
+        goTo(3);
+    };
+
+    const [journeyReady, setJourneyReady] = useState(false);
+
+    useEffect(() => {
+        if (!locked) {
+            setSettingsChanged(true);
+        }
+    }, [transport, selectedProfile, hasBaggage, baggageCount, withChildren, extraTime]);
+
+    const handleLockIn = async () => {
+        // If on mobile and nothing changed, just show existing results
+        if (!settingsChanged && recommendation && window.innerWidth < 768) {
+            setLocked(true);
+            setJourneyReady(true);
+            setShowMobileResults(true);
+            return;
+        }
+
+        setLocked(true);
+        setJourneyReady(false);
+        try {
+            // Step 1: Create trip
+            const tripRes = await fetch(`${API_BASE}/v1/trips`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    input_mode: 'flight_number',
+                    flight_number: selectedFlight.flight_number,
+                    departure_date: departureDate,
+                    home_address: startingAddress,
+                    selected_departure_utc: selectedFlight.departure_time_utc,
+                preferences: {
+                    transport_mode: transport === 'uber' ? 'rideshare' : transport,
+                    confidence_profile: selectedProfile,
+                    bag_count: hasBaggage ? baggageCount : 0,
+                    traveling_with_children: withChildren,
+                    extra_time_minutes: extraTime === '+15' ? 15 : extraTime === '+30' ? 30 : 0,
+                }
+            })
+                
+            });
+            const trip = await tripRes.json();
+
+            // Step 2: Get recommendation
+            const recRes = await fetch(`${API_BASE}/v1/recommendations`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ trip_id: trip.trip_id })
+            });
+            const rec = await recRes.json();
+            setRecommendation(rec);
+            setJourneyReady(true);
+            setSettingsChanged(false);
+            // Switch to results on mobile
+            if (window.innerWidth < 768) {
+                setShowMobileResults(true);
+            }
+        } catch (err) {
+            console.error('Recommendation failed:', err);
+            setJourneyReady(true);
+        }
+    };
+
+    // Re-compute recommendation when preferences change after lock-in
+    useEffect(() => {
+        if (!locked || !selectedFlight) return;
+
+        const timer = setTimeout(async () => {
+            try {
+                const tripRes = await fetch(`${API_BASE}/v1/trips`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        input_mode: 'flight_number',
+                        flight_number: selectedFlight.flight_number,
+                        departure_date: departureDate,
+                        home_address: startingAddress,
+                        selected_departure_utc: selectedFlight.departure_time_utc,
+                        preferences: {
+                            transport_mode: transport === 'uber' ? 'rideshare' : transport,
+                            confidence_profile: selectedProfile,
+                            bag_count: hasBaggage ? baggageCount : 0,
+                            traveling_with_children: withChildren,
+                            extra_time_minutes: extraTime === '+15' ? 15 : extraTime === '+30' ? 30 : 0,
+                        }
+                    })
+                });
+                const trip = await tripRes.json();
+
+                const recRes = await fetch(`${API_BASE}/v1/recommendations`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ trip_id: trip.trip_id })
+                });
+                const rec = await recRes.json();
+                setRecommendation(rec);
+                if (window.innerWidth < 768) {
+                    setShowMobileResults(true);
+                }
+            } catch (err) {
+                console.error('Recompute failed:', err);
+            }
+        }, 400);
+
+        return () => clearTimeout(timer);
+    }, [transport, selectedProfile, hasBaggage, baggageCount, withChildren, extraTime, selectedFlight]);
+
+    const handleReset = () => {
+        setLocked(false);
+        setJourneyReady(false);
+        setRecommendation(null);
+        setSelectedFlight(null);
+        setFlightOptions([]);
+        setDir(-1);
+        setStep(1);
+        setShowMobileResults(false);
+        setSettingsChanged(false);
+    };
+
+    const profile = confidenceProfiles.find(p => p.id === selectedProfile);
+
+    const getTodayStr = () => {
+        const today = new Date();
+        return today.toISOString().split('T')[0];
+    };
+
+    const canSearch = flightNumber.trim().length > 0 && departureDate.length > 0;
+
+    return (
+        <div className="w-screen flex flex-col overflow-hidden bg-gray-950 font-sans antialiased" style={{ height: '100dvh' }}>
+
+            {/* ── Topbar ── */}
+            <header className="flex items-center justify-between px-4 md:px-6 py-3.5 md:py-3 shrink-0 z-10"
+                style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', background: 'rgba(9,9,11,0.85)', backdropFilter: 'blur(20px)' }}>
+                <div className="flex items-center gap-6">
+                    <Link to={createPageUrl('Home')} className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
+                            <Plane className="w-3.5 h-3.5 text-white" />
+                        </div>
+                        <span className="font-semibold text-white text-sm md:text-sm">AirBridge</span>
+                    </Link>
+                    <nav className="hidden md:flex items-center gap-5">
+                        <Link to={createPageUrl('Home')} className="text-sm text-gray-500 hover:text-white transition-colors">Home</Link>
+                        <span className="text-sm text-white font-medium" style={{ borderBottom: '1px solid #3b82f6', paddingBottom: '2px' }}>Departure Engine</span>
+                    </nav>
+                </div>
+                <div className="flex items-center gap-3">
+                    <AnimatePresence mode="wait">
+                        {locked ? (
+                            <motion.div key="live" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
+                                className="flex items-center gap-1 md:gap-1.5 px-2 md:px-3 py-1 md:py-1.5 rounded-full"
+                                style={{ background: 'rgba(34,197,94,0.1)', border: '1px solid rgba(34,197,94,0.2)' }}>
+                                <span className="w-1.5 h-1.5 rounded-full bg-green-400 animate-pulse" />
+                                <span className="text-[11px] md:text-xs text-green-400 font-medium">Live · Reactive</span>
+                            </motion.div>
+                        ) : (
+                            <motion.div key="active" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                                className="flex items-center gap-1 md:gap-1.5 px-2 md:px-3 py-1 md:py-1.5 rounded-full"
+                                style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)' }}>
+                                <span className="w-1.5 h-1.5 rounded-full bg-blue-400 animate-pulse" />
+                                <span className="text-[11px] md:text-xs text-blue-400 font-medium">Engine Active</span>
+                            </motion.div>
+                        )}
+                    </AnimatePresence>
+                    <button className="text-xs md:text-sm text-gray-500 hover:text-white transition-colors">Sign In</button>
+                    <button className="text-xs md:text-sm bg-gradient-to-r from-blue-600 to-purple-600 text-white px-3 md:px-4 py-1 md:py-1.5 rounded-full font-medium">
+                        Get Started
+                    </button>
+                </div>
+            </header>
+
+            {/* ── Main Split ── */}
+            <div className="flex flex-1 min-h-0">
+
+                {/* LEFT — Input Panel (hidden on mobile when showing results) */}
+                <div className={`${showMobileResults ? 'hidden md:flex' : 'flex'} w-full md:w-[440px] shrink-0 flex-col overflow-hidden relative`}
+                    style={{ background: '#ffffff', borderRight: '1px solid #f1f5f9' }}>
+                    {locked && !journeyReady && (
+                        <div className="absolute inset-0 z-20 bg-white/70 backdrop-blur-sm flex items-center justify-center">
+                            <div className="flex flex-col items-center gap-3">
+                                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+                                    className="w-6 h-6 rounded-full border-2 border-blue-600 border-t-transparent" />
+                                <p className="text-xs text-gray-500 font-medium">Calculating your journey...</p>
+                            </div>
+                        </div>
+                    )}
+
+                    <div className="flex flex-col flex-1 overflow-hidden">
+                        {/* Fixed header */}
+                        <div className="px-7 pt-6 pb-2 shrink-0">
+                            <h1 className="text-lg font-bold text-gray-900">Departure Setup</h1>
+                            <p className="text-xs text-gray-400 mt-0.5">
+                                {step === 1 && 'Enter your flight details'}
+                                {step === 2 && 'Select your departure'}
+                                {step === 3 && 'Customize your journey'}
+                            </p>
+                        </div>
+
+                        {/* Animated step content */}
+                        <div className="flex-1 min-h-0 overflow-y-auto relative">
+                            <AnimatePresence mode="wait" custom={dir}>
+
+                                {/* ── STEP 1 ── */}
+                                {step === 1 && (
+                                    <motion.div key="step1" custom={dir}
+                                        variants={slideVariants} initial="enter" animate="center" exit="exit"
+                                        transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+                                        className="px-7 pt-4 pb-4 flex flex-col gap-4">
+                                        <StepDots step={1} />
+
+                                        <div className="space-y-4">
+                                            <div>
+                                                <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Flight Number</label>
+                                                <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
+                                                    style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
+                                                    <Plane className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                                    <Input value={flightNumber} onChange={e => setFlightNumber(e.target.value)}
+                                                        placeholder="e.g. UA 452"
+                                                        onKeyDown={e => e.key === 'Enter' && canSearch && handleFindFlight()}
+                                                        className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-gray-900 font-medium" />
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Starting Address</label>
+                                                <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
+                                                    style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
+                                                    <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                                    <Input value={startingAddress} onChange={e => setStartingAddress(e.target.value)}
+                                                        placeholder="e.g. 123 Main St, San Francisco"
+                                                        className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-gray-900 font-medium" />
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Departure Date</label>
+                                                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                                                    <PopoverTrigger asChild>
+                                                        <div className="flex items-center gap-2 rounded-xl px-3 py-2.5 cursor-pointer hover:opacity-80 transition-opacity"
+                                                            style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
+                                                            <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
+                                                            <span className="flex-1 text-sm text-gray-900 font-medium">
+                                                                {departureDate ? new Date(departureDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Select date'}
+                                                            </span>
+                                                        </div>
+                                                    </PopoverTrigger>
+                                                    <PopoverContent className="w-auto p-0" align="start">
+                                                        <CalendarComponent
+                                                            mode="single"
+                                                            selected={departureDate ? new Date(departureDate + 'T00:00:00') : undefined}
+                                                            onSelect={(date) => {
+                                                                if (date) {
+                                                                    setDepartureDate(date.toISOString().split('T')[0]);
+                                                                    setCalendarOpen(false);
+                                                                }
+                                                            }}
+                                                            disabled={(date) => {
+                                                                const today = new Date();
+                                                                today.setHours(0, 0, 0, 0);
+                                                                const compareDate = new Date(date);
+                                                                compareDate.setHours(0, 0, 0, 0);
+                                                                return compareDate < today;
+                                                            }}
+                                                        />
+                                                    </PopoverContent>
+                                                </Popover>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                )}
+
+                                {/* ── STEP 2 ── */}
+                                {step === 2 && (
+                                    <motion.div key="step2" custom={dir}
+                                        variants={slideVariants} initial="enter" animate="center" exit="exit"
+                                        transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+                                        className="px-7 pt-4 pb-4 flex flex-col gap-4">
+                                        <StepDots step={2} />
+
+                                        <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
+                                            style={{ background: '#f0f5ff', border: '1px solid #c7d7fd' }}>
+                                            <Plane className="w-3.5 h-3.5 text-blue-500 shrink-0" />
+                                            <span className="text-xs font-bold text-blue-700">
+                                                {flightNumber.toUpperCase()}
+                                            </span>
+                                            <span className="text-[10px] text-blue-400 ml-1">
+                                                {new Date(departureDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                                            </span>
+                                            <button onClick={() => goTo(1)}
+                                                className="ml-auto text-[10px] text-blue-400 hover:text-blue-600 flex items-center gap-0.5 font-medium">
+                                                <ArrowLeft className="w-3 h-3" /> Edit
+                                            </button>
+                                        </div>
+
+                                        <div>
+                                            <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold mb-2">Select your departure</p>
+
+                                            {searching ? (
+                                                <div className="flex flex-col gap-2">
+                                                    {[1, 2].map(i => (
+                                                        <motion.div key={i}
+                                                            animate={{ opacity: [0.4, 0.9, 0.4] }}
+                                                            transition={{ repeat: Infinity, duration: 1.4, delay: i * 0.2 }}
+                                                            className="h-20 rounded-xl"
+                                                            style={{ background: '#f3f4f6' }} />
+                                                    ))}
+                                                    <p className="text-[11px] text-gray-400 text-center mt-1">Searching flights...</p>
+                                                </div>
+                                            ) : flightOptions.length === 0 ? (
+                                                <div className="text-center py-8">
+                                                    <p className="text-sm text-gray-400">No flights found.</p>
+                                                    <button onClick={() => goTo(1)} className="text-xs text-blue-500 mt-2 font-medium">← Go back</button>
+                                                </div>
+                                            ) : (
+                                                <div className="flex flex-col gap-2">
+                                                {flightOptions.map((f, i) => {
+                                                    const isDisabled = f.departed || f.canceled || f.is_boarding;
+                                                    return (
+                                                        <motion.button key={i}
+                                                            initial={{ opacity: 0, y: 12 }}
+                                                            animate={{ opacity: 1, y: 0 }}
+                                                            transition={{ delay: i * 0.08, duration: 0.3 }}
+                                                            onClick={() => !isDisabled && handleSelectFlight(f)}
+                                                            disabled={isDisabled}
+                                                            className="w-full text-left rounded-xl px-4 py-3.5 transition-all duration-100"
+                                                            style={{
+                                                                border: (f.departed || f.is_boarding) ? '1px solid #fca5a5' : '1px solid #e5e7eb',
+                                                                background: (f.departed || f.is_boarding) ? '#fef2f2' : '#f9fafb',
+                                                                opacity: (f.departed || f.canceled || f.is_boarding) ? 0.5 : 1,
+                                                                cursor: (f.departed || f.canceled || f.is_boarding) ? 'not-allowed' : 'pointer',
+                                                            }}
+                                                            whileHover={!isDisabled ? { borderColor: '#93c5fd', background: '#eff6ff', transition: { duration: 0.1 } } : {}}>
+                                                            <div className="flex items-center justify-between mb-2">
+                                                                <div className="flex items-center gap-3">
+                                                                    <span className={`text-xl font-black ${(f.departed || f.canceled || f.is_boarding) ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+                                                                        {formatLocalTime(f.departure_time)}
+                                                                    </span>
+                                                                    <div className="flex items-center gap-1">
+                                                                        <div className="w-8 h-px bg-gray-300" />
+                                                                        <Plane className="w-3 h-3 text-gray-400" />
+                                                                        <div className="w-8 h-px bg-gray-300" />
+                                                                    </div>
+                                                                    <span className="text-sm font-semibold text-gray-500">{formatLocalTime(f.arrival_time)}</span>
+                                                                </div>
+                                                                {f.departed && (
+                                                                    <span className="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full border border-red-200">
+                                                                        Departed
+                                                                    </span>
+                                                                )}
+                                                                {f.is_boarding && (
+                                                                    <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                                                                        Boarding Now
+                                                                    </span>
+                                                                )}
+                                                                {f.canceled && (
+                                                                    <span className="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full border border-red-200">
+                                                                        Canceled
+                                                                    </span>
+                                                                )}
+                                                            </div>
+                                                            <div className="flex items-center gap-1.5">
+                                                                <span className="text-[11px] font-semibold text-gray-600">{f.flight_number}</span>
+                                                                <span className="text-[10px] text-gray-400 ml-1">·</span>
+                                                                <span className="text-[11px] font-semibold text-gray-600 ml-1">{f.origin_code}</span>
+                                                                <span className="text-[10px] text-gray-400">→</span>
+                                                                <span className="text-[11px] font-semibold text-gray-600">{f.destination_code}</span>
+                                                                <span className="text-[10px] text-gray-400 ml-2">· {f.terminal}</span>
+                                                            </div>
+                                                            {f.is_delayed && f.revised_departure_local && f.departure_time && (() => {
+                                                                const scheduled = parseTimeToDate(f.departure_time);
+                                                                const revised = parseTimeToDate(f.revised_departure_local);
+                                                                if (scheduled && revised && revised > scheduled) {
+                                                                    return <p className="text-[10px] text-orange-500 font-medium mt-1">⚠️ Delayed — now expected {formatLocalTime(f.revised_departure_local)}</p>;
+                                                                }
+                                                                return null;
+                                                            })()}
+                                                            {f.time_warning && !isDisabled && (
+                                                                <p className="text-[10px] text-amber-600 font-medium mt-1.5">⚠️ {f.time_warning}</p>
+                                                            )}
+                                                        </motion.button>
+                                                    );
+                                                })}
+                                                </div>
+                                            )}
+                                        </div>
+                                    </motion.div>
+                                )}
+
+                                {/* ── STEP 3 ── */}
+                                {step === 3 && (
+                                    <motion.div key="step3" custom={dir}
+                                        variants={slideVariants} initial="enter" animate="center" exit="exit"
+                                        transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
+                                        className="px-7 pt-4 pb-10 flex flex-col gap-4">
+                                        <StepDots step={3} />
+
+                                        {selectedFlight && (
+                                            <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
+                                                style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
+                                                <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                                                <div className="flex-1 min-w-0">
+                                                    <p className="text-xs font-bold text-green-800">
+                                                        {flightNumber.toUpperCase()} · {formatLocalTime(selectedFlight.departure_time)}
+                                                    </p>
+                                                    <p className="text-[10px] text-green-600">{selectedFlight.origin_code} → {selectedFlight.destination_code}</p>
+                                                </div>
+                                                <button onClick={() => goTo(2)}
+                                                    className="text-[10px] text-green-500 hover:text-green-700 flex items-center gap-0.5 font-medium shrink-0">
+                                                    <ArrowLeft className="w-3 h-3" /> Change
+                                                </button>
+                                            </div>
+                                        )}
+
+                                        {/* Transport Mode */}
+                                        <div>
+                                            <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Transportation Mode</label>
+                                            <div className="flex gap-1.5">
+                                                {transportModes.map(m => (
+                                                    <button key={m.id} onClick={() => setTransport(m.id)}
+                                                        className="flex-1 flex flex-col items-center gap-1 py-2.5 rounded-xl text-[10px] font-semibold transition-all duration-200"
+                                                        style={{
+                                                            border: transport === m.id ? '1.5px solid #3b82f6' : '1px solid #e5e7eb',
+                                                            background: transport === m.id ? '#eff6ff' : '#f9fafb',
+                                                            color: transport === m.id ? '#1d4ed8' : '#9ca3af',
+                                                        }}>
+                                                        <m.icon className="w-4 h-4" />
+                                                        {m.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Confidence Profile */}
+                                        <div>
+                                            <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">How Much Time Do You Want?</label>
+                                            <div className="flex gap-2">
+                                                {confidenceProfiles.map(p => (
+                                                    <button key={p.id} onClick={() => setSelectedProfile(p.id)}
+                                                        className="flex-1 flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl text-center transition-all duration-200"
+                                                        style={{
+                                                            border: selectedProfile === p.id ? '1.5px solid #93c5fd' : '1px solid #e5e7eb',
+                                                            background: selectedProfile === p.id ? '#eff6ff' : '#f9fafb',
+                                                        }}>
+                                                        <div className="w-7 h-7 rounded-lg flex items-center justify-center"
+                                                            style={{ background: selectedProfile === p.id ? 'linear-gradient(135deg,#3b82f6,#8b5cf6)' : '#e5e7eb' }}>
+                                                            <p.icon className="w-3.5 h-3.5" style={{ color: selectedProfile === p.id ? '#fff' : '#9ca3af' }} />
+                                                        </div>
+                                                        <p className="text-[11px] font-semibold leading-tight" style={{ color: selectedProfile === p.id ? '#1d4ed8' : '#111827' }}>{p.name}</p>
+                                                        <p className="text-[9px] text-gray-400 leading-tight">{p.desc}</p>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        {/* Advanced Options */}
+                                        <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #e5e7eb' }}>
+                                            <div className="px-4 py-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wider" style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                                Advanced Options
+                                            </div>
+                                            <div className="px-4 pb-4 space-y-4 pt-3">
+                                                <div className="flex items-center justify-between">
+                                                    <div>
+                                                        <p className="text-xs text-gray-700 font-medium">Checked baggage</p>
+                                                        <AnimatePresence>
+                                                            {hasBaggage && (
+                                                                <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
+                                                                    className="flex items-center gap-1.5 mt-1 overflow-hidden">
+                                                                    <span className="text-[10px] text-gray-400">Bags:</span>
+                                                                    {[1, 2, 3].map(n => (
+                                                                        <button key={n} onClick={() => setBaggageCount(n)}
+                                                                            className="w-6 h-6 rounded text-[10px] font-semibold border transition-all"
+                                                                            style={{ background: baggageCount === n ? '#2563eb' : '#f9fafb', color: baggageCount === n ? '#fff' : '#6b7280', borderColor: baggageCount === n ? '#2563eb' : '#e5e7eb' }}>
+                                                                            {n}
+                                                                        </button>
+                                                                    ))}
+                                                                </motion.div>
+                                                            )}
+                                                        </AnimatePresence>
+                                                    </div>
+                                                    <Toggle on={hasBaggage} onToggle={() => setHasBaggage(b => !b)} />
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <p className="text-xs text-gray-700 font-medium">Traveling with children</p>
+                                                    <Toggle on={withChildren} onToggle={() => setWithChildren(prev => !prev)} />
+                                                </div>
+                                                <div>
+                                                    <p className="text-xs text-gray-700 font-medium mb-2">Extra airport time</p>
+                                                    <div className="flex gap-2">
+                                                        {['none', '+15', '+30'].map(v => (
+                                                            <button key={v} onClick={() => setExtraTime(v)}
+                                                                className="flex-1 text-[10px] py-1.5 rounded-lg font-semibold border transition-all"
+                                                                style={{ background: extraTime === v ? '#2563eb' : '#f9fafb', color: extraTime === v ? '#fff' : '#6b7280', borderColor: extraTime === v ? '#2563eb' : '#e5e7eb' }}>
+                                                                {v === 'none' ? 'None' : v + ' min'}
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+                                )}
+                            </AnimatePresence>
+                        </div>
+
+                        {/* CTA — pinned */}
+                        <div className="px-7 py-4 pb-6 md:pb-4 shrink-0" style={{ borderTop: '1px solid #f1f5f9' }}>
+                            <AnimatePresence mode="wait">
+                                {step === 1 && (
+                                    <motion.button key="search" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                        onClick={handleFindFlight}
+                                        disabled={!canSearch}
+                                        className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold transition-all"
+                                        style={{
+                                            background: canSearch ? 'linear-gradient(135deg, #2563eb, #7c3aed)' : '#f3f4f6',
+                                            boxShadow: canSearch ? '0 4px 24px rgba(37,99,235,0.3)' : 'none',
+                                            color: canSearch ? '#fff' : '#9ca3af',
+                                            cursor: canSearch ? 'pointer' : 'not-allowed',
+                                        }}>
+                                        <Search className="w-4 h-4" />
+                                        {canSearch ? 'Find My Flight' : 'Enter flight details'}
+                                    </motion.button>
+                                )}
+
+                                {step === 2 && !searching && flightOptions.length === 0 && (
+                                    <motion.button key="back2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                        onClick={() => goTo(1)}
+                                        className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50 transition-all">
+                                        <ArrowLeft className="w-4 h-4" /> Go back
+                                    </motion.button>
+                                )}
+
+                                {step === 3 && (
+                                    locked ? (
+                                        <motion.div key="locked" initial={{ opacity: 0, y: 6 }} animate={{ opacity: 1, y: 0 }}
+                                            className="w-full flex items-center justify-center gap-2 py-3 rounded-xl text-sm font-semibold"
+                                            style={{ background: 'linear-gradient(135deg,#16a34a22,#16a34a11)', border: '1px solid rgba(34,197,94,0.3)', color: '#16a34a' }}>
+                                            <CheckCircle2 className="w-4 h-4" />
+                                            Departure Time Locked ✓
+                                        </motion.div>
+                                    ) : (
+                                        <motion.button key="lock" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                            onClick={handleLockIn}
+                                            className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold text-white transition-all"
+                                            style={{
+                                                background: 'linear-gradient(135deg, #2563eb, #7c3aed)',
+                                                boxShadow: '0 4px 24px rgba(37,99,235,0.3)',
+                                            }}>
+                                            <Lock className="w-4 h-4" />
+                                            Lock In My Departure Time
+                                        </motion.button>
+                                    )
+                                )}
+                            </AnimatePresence>
+
+                            {step === 3 && (
+                                <button onClick={handleReset}
+                                    className="w-full text-center text-[11px] text-gray-400 hover:text-gray-600 mt-2 transition-colors">
+                                    ← Start over
+                                </button>
+                            )}
+                        </div>
+                    </div>
+                </div>
+
+                {/* RIGHT — Visualization Panel (hidden on mobile before lock-in) */}
+                <div className={`${!showMobileResults && 'hidden md:flex'} ${showMobileResults && 'flex'} md:flex flex-1 flex-col min-h-0 relative overflow-hidden`}
+                    style={{ background: 'radial-gradient(ellipse at 60% 40%, rgba(59,130,246,0.07) 0%, rgba(9,9,11,1) 60%)' }}>
+                    {/* Mobile back button */}
+                    <div className="md:hidden flex items-center px-4 py-2 shrink-0" style={{ borderBottom: '1px solid rgba(255,255,255,0.07)' }}>
+                        <button 
+                            onClick={() => {
+                                setShowMobileResults(false);
+                                setLocked(false);
+                                setJourneyReady(false);
+                                setSettingsChanged(false);
+                            }}
+                            className="flex items-center gap-1.5 text-sm text-blue-400 font-medium">
+                            <ArrowLeft className="w-4 h-4" />
+                            Edit Settings
+                        </button>
+                    </div>
+                    <div className="absolute top-10 right-10 w-80 h-80 rounded-full pointer-events-none"
+                        style={{ background: 'radial-gradient(circle, rgba(139,92,246,0.08), transparent)', filter: 'blur(60px)' }} />
+                    <div className="absolute bottom-10 left-10 w-60 h-60 rounded-full pointer-events-none"
+                        style={{ background: 'radial-gradient(circle, rgba(59,130,246,0.06), transparent)', filter: 'blur(40px)' }} />
+
+                    <div className="flex-1 min-h-0 overflow-y-auto">
+                    <AnimatePresence mode="wait">
+                        <JourneyVisualization
+                            key={locked ? 'journey' : 'idle'}
+                            locked={locked}
+                            recommendation={recommendation}
+                            selectedFlight={selectedFlight}
+                            transport={transport}
+                            profile={profile}
+                            confidenceColorMap={confidenceColorMap}
+                            onReady={() => setJourneyReady(true)}
+                        />
+                    </AnimatePresence>
+                    </div>
+                </div>
+            </div>
+        </div>
+    );
+}
