@@ -144,6 +144,9 @@ export default function Engine() {
     const [recommendation, setRecommendation] = useState(null);
     const [settingsChanged, setSettingsChanged] = useState(false);
 
+    // View mode: 'setup' | 'loading' | 'results'
+    const [viewMode, setViewMode] = useState('setup');
+
     const goTo = (next) => {
         setDir(next > step ? 1 : -1);
         setStep(next);
