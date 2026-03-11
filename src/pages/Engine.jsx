@@ -262,49 +262,6 @@ export default function Engine() {
         }
     };
 
-    // Re-compute recommendation when preferences change after lock-in
-    useEffect(() => {
-        if (!locked || !selectedFlight) return;
-
-        const timer = setTimeout(async () => {
-            try {
-                const tripRes = await fetch(`${API_BASE}/v1/trips`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        input_mode: 'flight_number',
-                        flight_number: selectedFlight.flight_number,
-                        departure_date: departureDate,
-                        home_address: startingAddress,
-                        selected_departure_utc: selectedFlight.departure_time_utc,
-                        preferences: {
-                            transport_mode: transport === 'uber' ? 'rideshare' : transport,
-                            confidence_profile: selectedProfile,
-                            bag_count: hasBaggage ? baggageCount : 0,
-                            traveling_with_children: withChildren,
-                            extra_time_minutes: extraTime === '+15' ? 15 : extraTime === '+30' ? 30 : 0,
-                        }
-                    })
-                });
-                const trip = await tripRes.json();
-
-                const recRes = await fetch(`${API_BASE}/v1/recommendations`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ trip_id: trip.trip_id })
-                });
-                const rec = await recRes.json();
-                setRecommendation(rec);
-                if (window.innerWidth < 768) {
-                    setShowMobileResults(true);
-                }
-            } catch (err) {
-                console.error('Recompute failed:', err);
-            }
-        }, 400);
-
-        return () => clearTimeout(timer);
-    }, [transport, selectedProfile, hasBaggage, baggageCount, withChildren, extraTime, selectedFlight]);
 
     const handleReset = () => {
         setLocked(false);
