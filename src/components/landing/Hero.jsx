@@ -155,7 +155,7 @@ export default function Hero() {
     ];
 
     return (
-        <section className="relative min-h-screen flex items-center overflow-hidden"
+        <section className="relative min-h-screen flex items-center"
             style={{ background: 'linear-gradient(160deg, #fafbff 0%, #f3f4ff 35%, #faf5ff 70%, #f8faff 100%)' }}>
 
             {/* Floating travel icons */}
@@ -178,7 +178,7 @@ export default function Hero() {
             <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[300px] opacity-10 pointer-events-none"
                 style={{ background: 'radial-gradient(ellipse, #818cf8, transparent)', filter: 'blur(80px)' }} />
 
-            <div className="relative max-w-6xl mx-auto px-6 pt-28 pb-16 w-full">
+            <div className="relative max-w-7xl mx-auto px-6 pt-28 pb-24 w-full">
                 <div className="grid lg:grid-cols-2 gap-6 items-center">
 
                     {/* LEFT */}
@@ -201,7 +201,7 @@ export default function Hero() {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.6, delay: 0.1 }}
                         >
-                            <h1 className="text-6xl lg:text-7xl font-black text-gray-900 mb-4 tracking-tight" style={{ lineHeight: 1.4 }}>
+                            <h1 className="text-5xl lg:text-7xl font-black text-gray-900 mb-4 tracking-tight" style={{ lineHeight: 1.08 }}>
                                 <span className="block">Never Wait.</span>
                                 <span className="block">Never Rush.</span>
                                 <span className="block text-indigo-600">

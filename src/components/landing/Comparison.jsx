@@ -88,7 +88,7 @@ export default function Comparison() {
                     className="bg-white rounded-3xl border border-gray-100 shadow-lg overflow-hidden"
                 >
                     {/* Header */}
-                    <div className="grid grid-cols-4 gap-4 p-6 bg-gray-50 border-b border-gray-100">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-6 bg-gray-50 border-b border-gray-100">
                         <div className="text-sm font-medium text-gray-500">Feature</div>
                         <div className="text-center">
                             <div className="text-sm font-medium text-gray-900">Google Maps</div>
@@ -112,7 +112,7 @@ export default function Comparison() {
                                 whileInView={{ opacity: 1, x: 0 }}
                                 viewport={{ once: true }}
                                 transition={{ delay: index * 0.05 }}
-                                className="grid grid-cols-4 gap-4 p-6 hover:bg-gray-50/50 transition-colors"
+                                className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-6 hover:bg-gray-50/50 transition-colors"
                             >
                                 <div className="text-sm text-gray-700 font-medium flex items-center">
                                     {feature.name}
