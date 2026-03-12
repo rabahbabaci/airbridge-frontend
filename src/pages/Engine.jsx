@@ -416,7 +416,7 @@ export default function Engine() {
                                                                         {shortCity(f.origin_name) || f.origin_code}{' '}
                                                                         <span className="font-mono font-bold bg-indigo-100 text-indigo-700 px-1 py-0.5 rounded text-[10px]">{f.origin_code}</span>
                                                                         {' → '}
-                                                                        {f.destination_name || f.destination_code}{' '}
+                                                                        {shortCity(f.destination_name) || f.destination_code}{' '}
                                                                         <span className="font-mono font-bold bg-indigo-100 text-indigo-700 px-1 py-0.5 rounded text-[10px]">{f.destination_code}</span>
                                                                         {' · '}{f.terminal}
                                                                         {f.departure_gate ? ` · Gate ${f.departure_gate}` : ''}
