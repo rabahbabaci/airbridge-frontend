@@ -413,7 +413,7 @@ export default function Engine() {
                                                                     <span>Arrival: {formatLocalTime(f.arrival_time)}</span>
                                                                     <span>·</span>
                                                                     <span className="text-indigo-600 font-medium">
-                                                                        {f.origin_name || f.origin_code}{' '}
+                                                                        {shortCity(f.origin_name) || f.origin_code}{' '}
                                                                         <span className="font-mono font-bold bg-indigo-100 text-indigo-700 px-1 py-0.5 rounded text-[10px]">{f.origin_code}</span>
                                                                         {' → '}
                                                                         {f.destination_name || f.destination_code}{' '}
