@@ -267,15 +267,16 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                         {/* Connecting line */}
                         <div className="absolute top-6 left-8 right-8 h-0.5 bg-indigo-300 z-0" />
 
-                        {/* Duration labels between steps — positioned on connector lines */}
+                        {/* Duration labels on connector lines between steps */}
                         {timelineSteps.length > 1 && (
                             <div className="absolute top-6 left-0 right-0 z-20 flex" style={{ pointerEvents: 'none' }}>
                                 {timelineSteps.map((step, idx) => {
                                     if (idx >= timelineSteps.length - 1) return <div key={idx} style={{ flex: 1 }} />;
+                                    const label = step.connectorExtra || step.duration;
                                     return (
                                         <div key={idx} style={{ flex: 1 }} className="relative">
                                             <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-2 py-0.5 rounded-md border border-gray-100 shadow-sm">
-                                                <span className="text-[10px] font-bold text-indigo-500 whitespace-nowrap">{step.duration}</span>
+                                                <span className="text-[10px] font-bold text-indigo-500 whitespace-nowrap">{label}</span>
                                             </div>
                                         </div>
                                     );
