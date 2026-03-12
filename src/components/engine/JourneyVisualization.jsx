@@ -292,7 +292,7 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                                 return (
                                     <div key={`dur-${idx}`} className="absolute z-20"
                                         style={{ top: '3.5rem', left: `${leftPercent}%`, transform: 'translate(-50%, -50%)' }}>
-                                        <div className="bg-card px-2.5 py-1.5 rounded-md border border-border shadow-sm flex items-center justify-center">
+                                        <div className="bg-card px-2.5 py-2 rounded-md border border-border shadow-sm flex items-center justify-center">
                                             <span className="text-[10px] font-bold text-primary whitespace-nowrap leading-none">{label}</span>
                                         </div>
                                     </div>
