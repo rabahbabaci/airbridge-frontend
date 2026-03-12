@@ -231,7 +231,7 @@ export default function Engine() {
                 <div className="max-w-6xl mx-auto px-6 py-3.5 flex items-center justify-between">
                     <div className="flex items-center gap-6">
                         <Link to={createPageUrl('Home')} className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center">
+                            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
                                 <Plane className="w-4 h-4 text-white" />
                             </div>
                             <span className="font-bold text-lg text-gray-900">AirBridge</span>
