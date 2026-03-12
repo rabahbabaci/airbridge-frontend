@@ -25,7 +25,7 @@ const confidenceProfiles = [
 const transportGroups = [
     {
         label: 'Rideshare',
-        options: [{ id: 'uber', label: 'Uber', icon: Car }, { id: 'lyft', label: 'Lyft', icon: Car }],
+        options: [{ id: 'rideshare', label: 'Rideshare', icon: Car }],
     },
     {
         label: 'Driving / Parking',
