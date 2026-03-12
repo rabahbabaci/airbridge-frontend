@@ -291,7 +291,7 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                                 const label = step.connectorExtra || step.duration;
                                 return (
                                     <div key={`dur-${idx}`} className="absolute z-20"
-                                        style={{ top: '3.15rem', left: `${leftPercent}%`, transform: 'translate(-50%, -50%)' }}>
+                                        style={{ top: '2.85rem', left: `${leftPercent}%`, transform: 'translate(-50%, -50%)' }}>
                                         <div className="bg-card px-2.5 py-0.5 rounded-md border border-border shadow-sm">
                                             <span className="text-[10px] font-bold text-primary whitespace-nowrap">{label}</span>
                                         </div>
