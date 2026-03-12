@@ -6,6 +6,10 @@ import {
 } from 'lucide-react';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
+function shortCity(name) {
+    if (!name) return '';
+    return name.split(/[\s-]+/).slice(0, 2).join(' ');
+}
 function formatUTCToLocal(utcStr) {
     if (!utcStr) return '';
     const d = new Date(utcStr);
