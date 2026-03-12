@@ -164,7 +164,7 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
             if (dropMin != null) parts.push(`${fmtMin(dropMin)} drop`);
             subtitle = parts.length ? parts.join(' · ') : 'Check bags';
             // Use walk_to_next for connector label
-            if (walkMatch) connectorExtra = `Walking ${fmtMin(parseInt(walkMatch[1], 10))}`;
+            if (walkMatch) connectorExtra = `${fmtMin(parseInt(walkMatch[1], 10))} walk`;
         } else if (seg.advice) {
             subtitle = seg.advice;
         }
