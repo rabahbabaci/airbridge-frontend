@@ -256,9 +256,9 @@ export default function Engine() {
                                 </motion.div>
                             ) : (
                                 <motion.div key="active" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-indigo-50 border border-indigo-200">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500 animate-pulse" />
-                                    <span className="text-xs text-indigo-700 font-medium">Engine Active</span>
+                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent border border-primary/20">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
+                                    <span className="text-xs text-primary font-medium">Engine Active</span>
                                 </motion.div>
                             )}
                         </AnimatePresence>
