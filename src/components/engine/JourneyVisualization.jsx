@@ -259,21 +259,29 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                 <div className="hidden md:block">
                     <div className="relative">
                         {/* Connecting line */}
-                        <div className="absolute top-6 left-8 right-8 h-0.5 bg-gray-200 z-0" />
-                        <div className="absolute top-6 left-8 h-0.5 bg-indigo-400 z-0"
-                            style={{ width: `calc(${((timelineSteps.length - 1) / Math.max(timelineSteps.length - 1, 1)) * 100}% - 64px)` }} />
+                        <div className="absolute top-6 left-8 right-8 h-0.5 bg-indigo-300 z-0" />
 
-                        {/* Duration labels between steps */}
+                        {/* Duration labels between steps — positioned on connector lines */}
+                        {timelineSteps.length > 1 && (
+                            <div className="absolute top-6 left-0 right-0 z-20 flex" style={{ pointerEvents: 'none' }}>
+                                {timelineSteps.map((step, idx) => {
+                                    if (idx >= timelineSteps.length - 1) return <div key={idx} style={{ flex: 1 }} />;
+                                    return (
+                                        <div key={idx} style={{ flex: 1 }} className="relative">
+                                            <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-2 py-0.5 rounded-md border border-gray-100 shadow-sm">
+                                                <span className="text-[10px] font-bold text-indigo-500 whitespace-nowrap">{step.duration}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {/* Step icons + labels */}
                         <div className="relative z-10 flex justify-between">
                             {timelineSteps.map((step, idx) => (
-                                <div key={idx} className="relative flex flex-col items-center text-center"
+                                <div key={idx} className="flex flex-col items-center text-center"
                                     style={{ width: `${100 / timelineSteps.length}%` }}>
-                                    {/* Duration connector label (between this step and the next) */}
-                                    {idx < timelineSteps.length - 1 && (
-                                        <div className="absolute top-3 left-[60%] z-20 bg-white px-1.5 py-0.5 rounded-md border border-gray-100 shadow-sm">
-                                            <span className="text-[9px] font-bold text-indigo-500">{timelineSteps[idx].duration}</span>
-                                        </div>
-                                    )}
                                     <motion.div
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
@@ -285,7 +293,7 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                                         </div>
                                         <p className="font-bold text-gray-900 text-sm">{step.time}</p>
                                         <p className="text-xs text-gray-500 font-medium mt-0.5">{step.shortLabel}</p>
-                                        {step.subtitle && <p className="text-[10px] text-indigo-600 font-medium mt-1 max-w-[120px] leading-tight">{step.subtitle}</p>}
+                                        {step.subtitle && <p className="text-[10px] text-indigo-600 font-medium mt-1 max-w-[140px] leading-tight">{step.subtitle}</p>}
                                     </motion.div>
                                 </div>
                             ))}
