@@ -37,13 +37,13 @@ export default function Header() {
             <div className="max-w-7xl mx-auto px-6 py-4">
                 <div className="flex items-center justify-between">
                     <a href="#" className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center">
-                            <Plane className="w-4 h-4 text-white" />
+                        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                            <Plane className="w-4 h-4 text-primary-foreground" />
                         </div>
-                        <span className="font-bold text-lg text-gray-900">AirBridge</span>
+                        <span className="font-bold text-lg text-foreground">AirBridge</span>
                     </a>
 
-                    <nav className="hidden md:flex items-center gap-1 bg-gray-100/80 backdrop-blur-sm rounded-full px-2 py-1.5">
+                    <nav className="hidden md:flex items-center gap-1 bg-secondary/80 backdrop-blur-sm rounded-full px-2 py-1.5">
                         {navLinks.map((link) => (
                             <a
                                 key={link.name}
@@ -57,26 +57,25 @@ export default function Header() {
                                         navigate(link.href);
                                     }
                                 }}
-                                className="text-sm text-gray-600 hover:text-gray-900 hover:bg-white transition-all font-medium px-4 py-1.5 rounded-full"
+                                className="text-sm text-muted-foreground hover:text-foreground hover:bg-white transition-all font-medium px-4 py-1.5 rounded-full"
                             >
                                 {link.name}
                             </a>
                         ))}
 
-                        {/* Divider */}
-                        <div className="w-px h-4 bg-gray-300 mx-1" />
+                        <div className="w-px h-4 bg-border mx-1" />
 
                         <a
                             href="#"
                             onClick={(e) => { e.preventDefault(); setAuthOpen(true); }}
-                            className="text-sm text-gray-600 hover:text-gray-900 hover:bg-white transition-all font-medium px-4 py-1.5 rounded-full"
+                            className="text-sm text-muted-foreground hover:text-foreground hover:bg-white transition-all font-medium px-4 py-1.5 rounded-full"
                         >
                             Sign in
                         </a>
 
                         <button
                             onClick={() => navigate(createPageUrl('Engine'))}
-                            className="text-sm bg-indigo-600 hover:bg-indigo-700 text-white font-semibold px-5 py-1.5 rounded-full transition-all"
+                            className="text-sm bg-primary hover:bg-brand-accent text-primary-foreground font-semibold px-5 py-1.5 rounded-full transition-all"
                         >
                             Get Started
                         </button>
@@ -104,7 +103,7 @@ export default function Header() {
                                 <a
                                     key={link.name}
                                     href={link.href}
-                                    className="block text-gray-600 hover:text-gray-900"
+                                    className="block text-muted-foreground hover:text-foreground"
                                     onClick={(e) => {
                                         e.preventDefault();
                                         setMobileMenuOpen(false);
@@ -115,15 +114,15 @@ export default function Header() {
                                 </a>
                             ))}
                             <div className="pt-4 space-y-3">
-                                <Button variant="outline" className="w-full">Sign In</Button>
+                                <Button variant="outline" className="w-full" onClick={() => { setMobileMenuOpen(false); setAuthOpen(true); }}>Sign In</Button>
                                 <Button 
-                                    className="w-full bg-gray-900 hover:bg-gray-800 text-white"
+                                    className="w-full bg-primary hover:bg-brand-accent text-primary-foreground"
                                     onClick={() => {
                                         setMobileMenuOpen(false);
-                                        document.getElementById('cta')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+                                        navigate(createPageUrl('Engine'));
                                     }}
                                 >
-                                    Get Early Access
+                                    Get Started
                                 </Button>
                             </div>
                         </div>
