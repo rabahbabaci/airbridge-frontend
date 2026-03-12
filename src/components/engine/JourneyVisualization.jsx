@@ -222,24 +222,39 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                     </div>
                     <div className="flex flex-wrap gap-2">
                         <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/20 text-white text-sm font-semibold backdrop-blur-sm">
+                            <Clock className="w-3.5 h-3.5" />
                             Boarding in {totalToHM(boardingInMinutes)}
                         </span>
-                        <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/20 text-white text-sm font-semibold backdrop-blur-sm">
-                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                            {confidenceScore}% {confidenceLevelLabel} Confidence
+                        <span className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold backdrop-blur-sm ${
+                            confidenceScore >= 90 ? 'bg-emerald-400/30 text-emerald-100' :
+                            confidenceScore >= 75 ? 'bg-amber-400/30 text-amber-100' :
+                            'bg-red-400/30 text-red-100'
+                        }`}>
+                            <span className={`w-2 h-2 rounded-full animate-pulse ${
+                                confidenceScore >= 90 ? 'bg-emerald-300' :
+                                confidenceScore >= 75 ? 'bg-amber-300' :
+                                'bg-red-300'
+                            }`} />
+                            {confidenceScore}% Confidence
                         </span>
                     </div>
                 </div>
 
-                {/* Flight info */}
+                {/* Flight info — key details highlighted */}
                 {selectedFlight && (
-                    <div className="mt-4 pt-4 border-t border-white/20">
-                        <p className="text-white/80 text-sm">
-                            {selectedFlight.flight_number} · {selectedFlight.origin_code} → {selectedFlight.destination_code} ·{' '}
-                            {selectedFlight.departure_terminal ? `Terminal ${selectedFlight.departure_terminal}` : 'Terminal TBD'} ·{' '}
-                            {selectedFlight.departure_gate ? `Gate ${selectedFlight.departure_gate}` : 'Gate TBD'} ·{' '}
-                            {totalToHM(totalMinutes)} door-to-gate
-                        </p>
+                    <div className="mt-4 pt-4 border-t border-white/20 flex flex-wrap items-center gap-2">
+                        <span className="text-white/70 text-sm">{selectedFlight.flight_number}</span>
+                        <span className="text-white/40">·</span>
+                        <span className="text-white text-sm font-semibold">{selectedFlight.origin_code} → {selectedFlight.destination_code}</span>
+                        <span className="text-white/40">·</span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/20 text-white text-xs font-bold">
+                            {selectedFlight.departure_terminal ? `Terminal ${selectedFlight.departure_terminal}` : 'Terminal TBD'}
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/20 text-white text-xs font-bold">
+                            {selectedFlight.departure_gate ? `Gate ${selectedFlight.departure_gate}` : 'Gate TBD'}
+                        </span>
+                        <span className="text-white/40">·</span>
+                        <span className="text-white/70 text-sm">{totalToHM(totalMinutes)} door-to-gate</span>
                     </div>
                 )}
             </motion.div>
@@ -361,14 +376,16 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Boarding</p>
                     <p className="text-2xl md:text-3xl font-black text-emerald-600">{boarding}</p>
                     {gateCushionMinutes > 0 && (
-                        <p className="text-xs text-gray-500 mt-1">{gateCushionMinutes} min cushion at gate</p>
+                        <p className="text-xs font-semibold text-emerald-600 mt-1">✓ {gateCushionMinutes} min cushion at gate</p>
                     )}
                 </div>
                 <div className="bg-white rounded-2xl border border-gray-200 p-5">
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Flight Departs</p>
                     <p className="text-2xl md:text-3xl font-black text-gray-900">{departureTime}</p>
                     {selectedFlight?.departure_gate && (
-                        <p className="text-xs text-gray-500 mt-1">Gate {selectedFlight.departure_gate}</p>
+                        <span className="inline-flex items-center mt-1.5 px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-xs font-bold">
+                            Gate {selectedFlight.departure_gate}
+                        </span>
                     )}
                 </div>
             </motion.div>
@@ -385,10 +402,14 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                     {stats.map(({ label, value, unit, highlight }) => (
                         <div key={label} className="flex flex-col items-center gap-1 px-3 py-4 text-center">
                             <p className="text-[10px] md:text-xs uppercase tracking-wider font-bold text-gray-400">{label}</p>
-                            <p className={`text-xl md:text-2xl font-black ${highlight ? 'text-indigo-600' : 'text-gray-900'}`}>
-                                {value}
+                            <p className={`text-xl md:text-2xl font-black ${
+                                highlight
+                                    ? (value >= 90 ? 'text-emerald-600' : value >= 75 ? 'text-amber-600' : 'text-red-600')
+                                    : 'text-gray-900'
+                            }`}>
+                                {value}{highlight ? '%' : ''}
                             </p>
-                            <p className="text-[10px] text-gray-400">{unit}</p>
+                            {!highlight && <p className="text-[10px] text-gray-400">{unit}</p>}
                         </div>
                     ))}
                 </div>
