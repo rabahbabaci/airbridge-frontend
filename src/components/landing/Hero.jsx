@@ -4,7 +4,7 @@ import { ArrowRight, Plane, Car, Shield, CheckCircle, Clock, MapPin } from 'luci
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 
-// Animated phone mockup
+// Animated phone mockup — crisp rendering
 function PhoneMockup() {
     const [leaveTime] = useState('11:45 AM');
     const [pulse, setPulse] = useState(false);
@@ -20,20 +20,24 @@ function PhoneMockup() {
             animate={{ opacity: 1, y: 0, rotate: 2 }}
             transition={{ duration: 0.8, delay: 0.3, ease: [0.25, 0.46, 0.45, 0.94] }}
             className="relative"
-            style={{ filter: 'drop-shadow(0 40px 80px hsl(239 84% 67% / 0.2))' }}
+            style={{
+                filter: 'drop-shadow(0 40px 80px hsl(var(--primary) / 0.2))',
+                willChange: 'transform',
+                backfaceVisibility: 'hidden',
+                WebkitFontSmoothing: 'antialiased',
+            }}
         >
             {/* Floating glow */}
             <div className="absolute inset-0 rounded-[44px] blur-3xl opacity-25 pointer-events-none"
-                style={{ background: 'radial-gradient(circle, hsl(239 84% 67%), transparent)', transform: 'scale(0.85) translateY(20px)' }} />
+                style={{ background: 'radial-gradient(circle, hsl(var(--primary)), transparent)', transform: 'scale(0.85) translateY(20px)' }} />
 
             {/* Phone shell */}
-            <div className="relative w-[300px] bg-foreground rounded-[44px] p-3 shadow-2xl"
-                style={{ border: '3px solid hsl(220 13% 13%)' }}>
+            <div className="relative w-[280px] sm:w-[300px] bg-foreground rounded-[44px] p-3 shadow-2xl border-[3px] border-foreground">
                 {/* Notch */}
                 <div className="absolute top-3 left-1/2 -translate-x-1/2 w-24 h-6 bg-foreground rounded-full z-10" />
 
-                {/* Screen */}
-                <div className="bg-background rounded-[36px] overflow-hidden" style={{ minHeight: 560 }}>
+                {/* Screen — explicit pixel rendering for crispness */}
+                <div className="bg-background rounded-[36px] overflow-hidden" style={{ minHeight: 520, imageRendering: 'auto' }}>
                     {/* Status bar */}
                     <div className="flex items-center justify-between px-6 pt-4 pb-2">
                         <span className="text-[11px] font-semibold text-foreground">9:41</span>
@@ -48,7 +52,9 @@ function PhoneMockup() {
                         {/* Flight header */}
                         <div>
                             <p className="text-[10px] font-semibold text-muted-foreground uppercase tracking-widest">UA 452 · Today</p>
-                            <p className="text-xl font-black text-foreground mt-0.5">SFO → JFK</p>
+                            <p className="text-xl font-black text-foreground mt-0.5">
+                                SFO <span className="text-muted-foreground font-medium text-base">→</span> JFK
+                            </p>
                             <p className="text-[10px] text-muted-foreground">Departs 2:30 PM · Terminal 3</p>
                         </div>
 
@@ -68,7 +74,7 @@ function PhoneMockup() {
                                 </div>
                             </motion.div>
                             <div className="flex-1 flex items-center gap-2 bg-brand-muted rounded-xl px-3 py-2.5">
-                                <div className="w-7 h-7 bg-indigo-100 rounded-full flex items-center justify-center shrink-0">
+                                <div className="w-7 h-7 bg-accent rounded-full flex items-center justify-center shrink-0">
                                     <Shield className="w-3.5 h-3.5 text-primary" />
                                 </div>
                                 <div>
@@ -82,11 +88,11 @@ function PhoneMockup() {
                         <div className="bg-secondary rounded-xl px-3 py-2.5">
                             <p className="text-[9px] text-muted-foreground font-semibold uppercase tracking-wider mb-2">Door-to-Gate</p>
                             <div className="flex items-center gap-1 text-[9px] text-muted-foreground font-medium">
-                                <span className="bg-indigo-100 text-primary px-1.5 py-0.5 rounded-full">🏠 Home</span>
+                                <span className="bg-accent text-primary px-1.5 py-0.5 rounded-full">🏠 Home</span>
                                 <span>→</span>
-                                <span className="bg-indigo-100 text-primary px-1.5 py-0.5 rounded-full">✈️ Airport</span>
+                                <span className="bg-accent text-primary px-1.5 py-0.5 rounded-full">✈️ Airport</span>
                                 <span>→</span>
-                                <span className="bg-indigo-100 text-primary px-1.5 py-0.5 rounded-full">🛡️ TSA</span>
+                                <span className="bg-accent text-primary px-1.5 py-0.5 rounded-full">🛡️ TSA</span>
                                 <span>→</span>
                                 <span className="bg-emerald-100 text-emerald-700 px-1.5 py-0.5 rounded-full">🚪 Gate</span>
                             </div>
@@ -106,7 +112,7 @@ function PhoneMockup() {
 
                         {/* LEAVE BY hero */}
                         <motion.div
-                            animate={{ boxShadow: pulse ? '0 0 0 4px hsl(239 84% 67% / 0.2)' : '0 0 0 0px hsl(239 84% 67% / 0)' }}
+                            animate={{ boxShadow: pulse ? '0 0 0 4px hsl(var(--primary) / 0.2)' : '0 0 0 0px hsl(var(--primary) / 0)' }}
                             transition={{ duration: 1 }}
                             className="rounded-2xl px-4 py-3.5 bg-primary"
                         >
@@ -151,31 +157,33 @@ export default function Hero() {
     ];
 
     return (
-        <section className="relative min-h-screen flex items-center bg-brand-muted">
+        <section className="relative min-h-screen flex items-center bg-brand-muted overflow-hidden">
 
-            {/* Floating travel icons — subtle */}
-            {floatingIcons.map(({ Icon, top, left, size, delay, opacity }, i) => (
-                <motion.div key={i}
-                    className="absolute pointer-events-none"
-                    style={{ top, left, opacity }}
-                    animate={{ y: [0, -10, 0], rotate: [0, 6, -6, 0] }}
-                    transition={{ repeat: Infinity, duration: 5 + i * 0.7, delay, ease: 'easeInOut' }}
-                >
-                    <Icon style={{ width: size, height: size }} className="text-primary" />
-                </motion.div>
-            ))}
+            {/* Floating travel icons — subtle, hidden on mobile for cleanliness */}
+            <div className="hidden md:block">
+                {floatingIcons.map(({ Icon, top, left, size, delay, opacity }, i) => (
+                    <motion.div key={i}
+                        className="absolute pointer-events-none"
+                        style={{ top, left, opacity }}
+                        animate={{ y: [0, -10, 0], rotate: [0, 6, -6, 0] }}
+                        transition={{ repeat: Infinity, duration: 5 + i * 0.7, delay, ease: 'easeInOut' }}
+                    >
+                        <Icon style={{ width: size, height: size }} className="text-primary" />
+                    </motion.div>
+                ))}
+            </div>
 
             {/* Soft glow */}
             <div className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full opacity-15 pointer-events-none"
-                style={{ background: 'radial-gradient(circle, hsl(239 84% 67% / 0.4), transparent)', filter: 'blur(90px)' }} />
+                style={{ background: 'radial-gradient(circle, hsl(var(--primary) / 0.4), transparent)', filter: 'blur(90px)' }} />
             <div className="absolute bottom-0 left-0 w-[400px] h-[400px] rounded-full opacity-10 pointer-events-none"
-                style={{ background: 'radial-gradient(circle, hsl(239 84% 67% / 0.3), transparent)', filter: 'blur(70px)' }} />
+                style={{ background: 'radial-gradient(circle, hsl(var(--primary) / 0.3), transparent)', filter: 'blur(70px)' }} />
 
             <div className="relative max-w-7xl mx-auto px-6 pt-28 pb-24 w-full">
-                <div className="grid lg:grid-cols-2 gap-6 items-center">
+                <div className="grid lg:grid-cols-2 gap-10 lg:gap-6 items-center">
 
                     {/* LEFT */}
-                    <div>
+                    <div className="text-center lg:text-left">
                         {/* Beta pill */}
                         <motion.div
                             initial={{ opacity: 0, y: 16 }}
@@ -193,7 +201,7 @@ export default function Hero() {
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.6, delay: 0.1 }}
                         >
-                            <h1 className="text-5xl lg:text-7xl font-black text-foreground mb-4 tracking-tight" style={{ lineHeight: 1.08 }}>
+                            <h1 className="text-4xl sm:text-5xl lg:text-7xl font-black text-foreground mb-4 tracking-tight" style={{ lineHeight: 1.08 }}>
                                 <span className="block">Never Wait.</span>
                                 <span className="block">Never Rush.</span>
                                 <span className="block text-primary">
@@ -203,7 +211,7 @@ export default function Hero() {
                                         transition={{ repeat: Infinity, duration: 2, ease: 'easeInOut' }}
                                         className="inline-block"
                                     >
-                                        <Plane className="inline w-12 h-12 text-primary" />
+                                        <Plane className="inline w-8 h-8 sm:w-10 sm:h-10 lg:w-12 lg:h-12 text-primary" />
                                     </motion.span>
                                 </span>
                             </h1>
@@ -214,9 +222,9 @@ export default function Hero() {
                             initial={{ opacity: 0, y: 16 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.5, delay: 0.25 }}
-                            className="text-muted-foreground text-lg leading-relaxed max-w-md mb-10"
+                            className="text-muted-foreground text-base sm:text-lg leading-relaxed max-w-md mx-auto lg:mx-0 mb-10"
                         >
-                            Door-to-gate departure timing. No guesswork.<br />
+                            Door-to-gate departure timing. No guesswork.<br className="hidden sm:block" />
                             Powered by real-time airport intelligence.
                         </motion.p>
 
@@ -225,27 +233,27 @@ export default function Hero() {
                             initial={{ opacity: 0, y: 16 }}
                             animate={{ opacity: 1, y: 0 }}
                             transition={{ duration: 0.5, delay: 0.35 }}
-                            className="flex flex-wrap gap-3 mb-14"
+                            className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start mb-10 sm:mb-14"
                         >
                             <motion.button
                                 onClick={() => navigate(createPageUrl('Engine'))}
-                                className="flex items-center gap-2 px-8 py-4 rounded-full text-primary-foreground font-bold text-base transition-all hover:scale-105 active:scale-100 bg-primary shadow-lg shadow-primary/30"
-                                animate={{ boxShadow: ['0 10px 40px hsl(239 84% 67% / 0.3)', '0 10px 60px hsl(239 84% 67% / 0.45)', '0 10px 40px hsl(239 84% 67% / 0.3)'] }}
+                                className="flex items-center justify-center gap-2 px-8 py-4 rounded-full text-primary-foreground font-bold text-base transition-all hover:scale-105 active:scale-100 bg-primary shadow-lg"
+                                animate={{ boxShadow: ['0 10px 40px hsl(var(--primary) / 0.3)', '0 10px 60px hsl(var(--primary) / 0.45)', '0 10px 40px hsl(var(--primary) / 0.3)'] }}
                                 transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut' }}
                             >
                                 <Plane className="w-5 h-5" />
                                 See My Departure Time
                                 <ArrowRight className="w-5 h-5" />
                             </motion.button>
-                            </motion.div>
+                        </motion.div>
 
-                            {/* Trust micro-copy */}
-                            <motion.div
+                        {/* Trust micro-copy */}
+                        <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ duration: 0.6, delay: 0.5 }}
-                            className="flex items-center gap-5"
-                            >
+                            className="flex items-center gap-5 justify-center lg:justify-start"
+                        >
                             <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
                                 <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
                                 Free during beta
@@ -254,7 +262,7 @@ export default function Hero() {
                                 <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
                                 No credit card required
                             </span>
-                            </motion.div>
+                        </motion.div>
                     </div>
 
                     {/* RIGHT — Phone mockup */}
@@ -263,12 +271,12 @@ export default function Hero() {
                     </div>
                 </div>
 
-                {/* Scroll indicator */}
+                {/* Scroll indicator — hidden on mobile */}
                 <motion.div
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 1.2 }}
-                    className="absolute bottom-[-28px] left-1/2 -translate-x-1/2 flex flex-col items-center gap-2"
+                    className="hidden md:flex absolute bottom-[-28px] left-1/2 -translate-x-1/2 flex-col items-center gap-2"
                 >
                     <p className="text-[10px] text-muted-foreground uppercase tracking-widest font-semibold">Scroll</p>
                     <motion.div
