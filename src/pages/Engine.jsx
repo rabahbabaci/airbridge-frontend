@@ -275,8 +275,8 @@ export default function Engine() {
                                 <motion.div key="s1" {...pageTransition} className="w-full max-w-md mx-auto">
                                     {/* Hero section — anchors purpose immediately (cognitive fluency) */}
                                     <motion.div custom={0} variants={stagger} initial="hidden" animate="visible" className="text-center mb-8">
-                                        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-indigo-500 to-indigo-700 flex items-center justify-center mx-auto mb-5 shadow-lg shadow-indigo-200">
-                                            <Sparkles className="w-7 h-7 text-white" />
+                                        <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-5 shadow-lg shadow-primary/20">
+                                            <Sparkles className="w-7 h-7 text-primary-foreground" />
                                         </div>
                                         <h1 className="text-3xl md:text-4xl font-black text-gray-900 tracking-tight mb-2">Start Your Journey</h1>
                                         <p className="text-gray-500">Never miss a flight again</p>
