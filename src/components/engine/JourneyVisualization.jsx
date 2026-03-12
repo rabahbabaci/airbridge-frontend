@@ -280,7 +280,7 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
 
                 {/* Desktop: Horizontal */}
                 <div className="hidden md:block">
-                    <div className="relative pt-8">
+                    <div className="relative pt-4">
                         <div className="absolute top-14 left-8 right-8 h-0.5 bg-primary/30 z-0" />
 
                         {/* Duration labels */}
