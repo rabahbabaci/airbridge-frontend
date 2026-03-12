@@ -153,7 +153,18 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
             // Don't show raw advice as subtitle
             subtitle = '';
         } else if (seg.id === 'bag_drop') {
-            subtitle = seg.advice || 'Check bags';
+            // Parse advice like "1 bag(s)|drop:5|walk_to_next:3"
+            const bagMatch = seg.advice?.match(/(\d+)\s*bag/);
+            const dropMatch = seg.advice?.match(/drop:(\d+)/);
+            const walkMatch = seg.advice?.match(/walk_to_next:(\d+)/);
+            const bags = bagMatch ? parseInt(bagMatch[1], 10) : null;
+            const dropMin = dropMatch ? parseInt(dropMatch[1], 10) : null;
+            const parts = [];
+            if (bags != null) parts.push(`${bags} bag${bags !== 1 ? 's' : ''}`);
+            if (dropMin != null) parts.push(`${fmtMin(dropMin)} drop`);
+            subtitle = parts.length ? parts.join(' · ') : 'Check bags';
+            // Use walk_to_next for connector label
+            if (walkMatch) connectorExtra = `Walking ${fmtMin(parseInt(walkMatch[1], 10))}`;
         } else if (seg.advice) {
             subtitle = seg.advice;
         }
