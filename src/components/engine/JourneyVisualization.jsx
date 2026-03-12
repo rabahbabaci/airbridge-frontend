@@ -116,20 +116,24 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
             : stepTime;
 
         let subtitle = '';
-        if (seg.id === 'transport') subtitle = seg.advice || `${seg.duration_minutes} min`;
-        if (seg.id === 'tsa') {
+        // Surface all advice from backend
+        if (seg.id === 'transport') {
+            subtitle = seg.advice || `${seg.duration_minutes} min`;
+        } else if (seg.id === 'tsa') {
             const waitMatch = seg.advice?.match(/wait:(\d+)/);
             const periodMatch = seg.advice?.match(/\|([^|]+)$/);
             const waitMin = waitMatch ? parseInt(waitMatch[1], 10) : seg.duration_minutes;
             const period = periodMatch ? periodMatch[1].trim() : '';
             subtitle = `${formatDuration(waitMin)} wait${period ? ' · ' + period : ''}`;
-        }
-        if (seg.id === 'walk_to_gate') {
+        } else if (seg.id === 'walk_to_gate') {
             meta.shortLabel = 'At Gate';
             if (comfortBuffer) subtitle = `+${formatDuration(comfortBuffer.duration_minutes)} buffer`;
+        } else if (seg.advice) {
+            // Surface any other advice the backend sends
+            subtitle = seg.advice;
         }
 
-        return { ...meta, time: displayTime, duration: formatDuration(seg.duration_minutes), subtitle, seg, isLast };
+        return { ...meta, time: displayTime, durationMinutes: seg.duration_minutes, duration: formatDuration(seg.duration_minutes), subtitle, seg, isLast };
     });
 
     // Boarding step data
