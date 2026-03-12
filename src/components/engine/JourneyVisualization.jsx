@@ -205,37 +205,26 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                 <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-8">Your Journey Timeline</h3>
 
                 <div className="relative">
-                    {/* Steps row */}
-                    <div className="flex items-start">
-                        {timelineSteps.map((step, idx) => (
-                            <React.Fragment key={idx}>
-                                {/* Step node */}
-                                <motion.div
-                                    custom={idx + 2} variants={stagger} initial="hidden" animate="visible"
-                                    className="flex flex-col items-center text-center shrink-0"
-                                    style={{ width: 80 }}
-                                >
-                                    <div className={`w-11 h-11 rounded-xl ${step.bg} flex items-center justify-center mb-2 ring-2 ring-white shadow-sm`}>
-                                        <step.Icon className={`w-5 h-5 ${step.color}`} />
-                                    </div>
-                                    <p className="font-bold text-foreground text-xs leading-tight">{step.startTime}</p>
-                                    <p className="text-[10px] text-muted-foreground font-medium mt-0.5 leading-tight">{step.shortLabel}</p>
-                                    {step.subtitle && <p className="text-[10px] text-indigo-600 font-medium mt-0.5 leading-tight">{step.subtitle}</p>}
-                                </motion.div>
+                    {/* Continuous connecting line behind icons */}
+                    <div className="absolute left-0 right-0 top-[22px] h-[2px] bg-indigo-200 z-0 mx-[40px]" />
 
-                                {/* Duration connector between steps */}
-                                {!step.isLast && (
-                                    <div className="flex-1 flex flex-col items-center justify-start pt-4 min-w-[60px]">
-                                        <div className="w-full flex items-center">
-                                            <div className="flex-1 h-px bg-gray-200" />
-                                            <span className="px-2 py-0.5 text-[10px] font-semibold text-muted-foreground bg-gray-50 border border-gray-200 rounded-full whitespace-nowrap">
-                                                {step.durationLabel}
-                                            </span>
-                                            <div className="flex-1 h-px bg-gray-200" />
-                                        </div>
-                                    </div>
-                                )}
-                            </React.Fragment>
+                    {/* Steps row */}
+                    <div className="relative z-10 flex justify-between">
+                        {timelineSteps.map((step, idx) => (
+                            <motion.div
+                                key={idx}
+                                custom={idx + 2} variants={stagger} initial="hidden" animate="visible"
+                                className="flex flex-col items-center text-center"
+                                style={{ width: `${100 / timelineSteps.length}%` }}
+                            >
+                                <div className={`w-11 h-11 rounded-full ${step.bg} flex items-center justify-center mb-2.5 ring-[3px] ring-white`}>
+                                    <step.Icon className={`w-5 h-5 ${step.color}`} />
+                                </div>
+                                <p className="font-bold text-foreground text-sm">{step.startTime}</p>
+                                <p className="text-[11px] text-muted-foreground font-medium mt-0.5">{step.shortLabel}</p>
+                                <p className="text-[10px] text-muted-foreground mt-0.5">{step.durationLabel}</p>
+                                {step.subtitle && <p className="text-[10px] text-indigo-600 font-semibold mt-0.5">{step.subtitle}</p>}
+                            </motion.div>
                         ))}
                     </div>
                 </div>
