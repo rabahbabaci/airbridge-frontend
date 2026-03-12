@@ -88,7 +88,7 @@ function StepDots({ step }) {
                 <div key={n} className="flex items-center gap-2">
                     <motion.div
                         animate={{
-                            background: step >= n ? '#3b82f6' : '#e5e7eb',
+                            background: step >= n ? '#60a5fa' : 'rgba(255,255,255,0.2)',
                             scale: step === n ? 1 : 0.85,
                         }}
                         transition={{ duration: 0.3 }}
@@ -96,14 +96,14 @@ function StepDots({ step }) {
                     />
                     {n < 3 && (
                         <motion.div
-                            animate={{ background: step > n ? '#3b82f6' : '#e5e7eb' }}
+                            animate={{ background: step > n ? '#60a5fa' : 'rgba(255,255,255,0.15)' }}
                             transition={{ duration: 0.4 }}
                             className="w-8 h-px"
                         />
                     )}
                 </div>
             ))}
-            <span className="text-[10px] text-gray-400 font-medium ml-1">Step {step} of 3</span>
+            <span className="text-[10px] text-blue-300/60 font-medium ml-1">Step {step} of 3</span>
         </div>
     );
 }
