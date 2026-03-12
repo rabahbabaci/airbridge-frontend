@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import {
     Plane, Car, Train, Bus, Shield, Clock, MapPin, Luggage,
-    Building2, PersonStanding, Ticket, CheckCircle2, ChevronRight, ArrowRight
+    Building2, PersonStanding, Ticket, CheckCircle2
 } from 'lucide-react';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -54,26 +54,25 @@ function getSegmentMeta(seg) {
     const id = (seg.id || '').toLowerCase();
     const label = (seg.label || '').toLowerCase();
 
-    if (id === 'transport' || label.includes('leave') || label.includes('depart') || label.includes('ride') || label.includes('drive') || label.includes('uber'))
-        return { Icon: Car, color: 'text-indigo-600', bg: 'bg-indigo-50', ringColor: 'ring-indigo-200', shortLabel: 'Ride to Airport', connectorLabel: 'ride' };
+    if (id === 'transport' || label.includes('leave') || label.includes('ride') || label.includes('drive') || label.includes('uber'))
+        return { Icon: Car, color: 'text-indigo-600', bg: 'bg-indigo-50', shortLabel: 'Leave Home' };
     if (id === 'at_airport' || label.includes('check-in') || label.includes('terminal'))
-        return { Icon: Building2, color: 'text-indigo-600', bg: 'bg-indigo-50', ringColor: 'ring-indigo-200', shortLabel: 'At Airport', connectorLabel: 'at airport' };
+        return { Icon: Building2, color: 'text-indigo-600', bg: 'bg-indigo-50', shortLabel: 'At Airport' };
     if (id === 'bag_drop' || label.includes('bag') || label.includes('luggage'))
-        return { Icon: Luggage, color: 'text-amber-600', bg: 'bg-amber-50', ringColor: 'ring-amber-200', shortLabel: 'Bag Drop', connectorLabel: 'bag drop' };
+        return { Icon: Luggage, color: 'text-amber-600', bg: 'bg-amber-50', shortLabel: 'Bag Drop' };
     if (id === 'tsa' || label.includes('security') || label.includes('tsa'))
-        return { Icon: Shield, color: 'text-red-500', bg: 'bg-red-50', ringColor: 'ring-red-200', shortLabel: 'TSA Security', connectorLabel: 'security' };
+        return { Icon: Shield, color: 'text-red-500', bg: 'bg-red-50', shortLabel: 'TSA Security' };
     if (id === 'walk_to_gate' || label.includes('walk'))
-        return { Icon: PersonStanding, color: 'text-emerald-600', bg: 'bg-emerald-50', ringColor: 'ring-emerald-200', shortLabel: 'Walk to Gate', connectorLabel: 'walk' };
+        return { Icon: PersonStanding, color: 'text-emerald-600', bg: 'bg-emerald-50', shortLabel: 'At Gate' };
     if (id === 'boarding_buffer')
-        return { Icon: Clock, color: 'text-indigo-600', bg: 'bg-indigo-50', ringColor: 'ring-indigo-200', shortLabel: 'Buffer', connectorLabel: 'buffer' };
+        return { Icon: Clock, color: 'text-indigo-600', bg: 'bg-indigo-50', shortLabel: 'Buffer' };
     if (label.includes('gate'))
-        return { Icon: Ticket, color: 'text-emerald-600', bg: 'bg-emerald-50', ringColor: 'ring-emerald-200', shortLabel: 'At Gate', connectorLabel: 'at gate' };
+        return { Icon: Ticket, color: 'text-emerald-600', bg: 'bg-emerald-50', shortLabel: 'At Gate' };
     if (label.includes('board'))
-        return { Icon: Plane, color: 'text-emerald-600', bg: 'bg-emerald-50', ringColor: 'ring-emerald-200', shortLabel: 'Board', connectorLabel: 'boarding' };
-    return { Icon: MapPin, color: 'text-gray-500', bg: 'bg-gray-50', ringColor: 'ring-gray-200', shortLabel: seg.label || 'Step', connectorLabel: '' };
+        return { Icon: Plane, color: 'text-emerald-600', bg: 'bg-emerald-50', shortLabel: 'Board' };
+    return { Icon: MapPin, color: 'text-gray-500', bg: 'bg-gray-50', shortLabel: seg.label || 'Step' };
 }
 
-// ── Stagger animation ───────────────────────────────────────────────────────
 const stagger = {
     hidden: { opacity: 0, y: 12 },
     visible: (i) => ({
@@ -99,10 +98,9 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
         : 0;
 
     const confidenceScore = Math.round((recommendation.confidence_score || 0) * 100);
-
-    const gateArrival = recommendation.gate_arrival_utc ? new Date(recommendation.gate_arrival_utc) : null;
     const departureDateObj = selectedFlight?.departure_time ? parseDepartureTime(selectedFlight.departure_time) : null;
     const boardingTime = departureDateObj ? new Date(departureDateObj.getTime() - 30 * 60000) : null;
+    const gateArrival = recommendation.gate_arrival_utc ? new Date(recommendation.gate_arrival_utc) : null;
     const gateCushionMinutes = (gateArrival && boardingTime) ? Math.max(0, Math.round((boardingTime - gateArrival) / 60000)) : 0;
 
     const { boarding, departure: departureTime } = selectedFlight
@@ -113,7 +111,7 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
     const comfortBuffer = segments.find(s => s.id === 'comfort_buffer');
     const displaySegments = segments.filter(s => s.id !== 'comfort_buffer');
 
-    // Build step data
+    // Build timeline steps
     const timelineSteps = displaySegments.map((seg, idx) => {
         const cumulativeBefore = displaySegments.slice(0, idx).reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
         const startTime = addMinutesAndFormat(recommendation.leave_home_at, cumulativeBefore);
@@ -121,35 +119,20 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
         const meta = getSegmentMeta(seg);
 
         let subtitle = '';
-        let detail = '';
         if (seg.id === 'transport') {
-            subtitle = seg.advice || `${seg.duration_minutes} min`;
-            // Extract distance if present
             const distMatch = seg.advice?.match(/([\d.]+)\s*mi/i);
-            if (distMatch) detail = `${distMatch[1]} mi`;
+            subtitle = distMatch ? `${distMatch[1]} mi` : '';
         }
         if (seg.id === 'tsa') {
-            const waitMatch = seg.advice?.match(/wait:(\d+)/);
             const periodMatch = seg.advice?.match(/\|([^|]+)$/);
-            const waitMin = waitMatch ? parseInt(waitMatch[1], 10) : seg.duration_minutes;
-            const period = periodMatch ? periodMatch[1].trim() : '';
-            subtitle = `${formatDuration(waitMin)} wait`;
-            if (period) detail = period;
+            subtitle = periodMatch ? periodMatch[1].trim() : '';
         }
-        if (seg.id === 'walk_to_gate') {
-            meta.shortLabel = 'At Gate';
-            if (comfortBuffer) subtitle = `+${formatDuration(comfortBuffer.duration_minutes)} buffer`;
-        }
-        if (seg.id === 'at_airport') {
-            subtitle = seg.advice || '';
+        if (seg.id === 'walk_to_gate' && comfortBuffer) {
+            subtitle = `+${formatDuration(comfortBuffer.duration_minutes)} buffer`;
         }
 
-        return { ...meta, startTime, endTime, duration: seg.duration_minutes, durationLabel: formatDuration(seg.duration_minutes), subtitle, detail, seg, isLast: idx === displaySegments.length - 1 };
+        return { ...meta, startTime, endTime, duration: seg.duration_minutes, durationLabel: formatDuration(seg.duration_minutes), subtitle, seg, isLast: idx === displaySegments.length - 1 };
     });
-
-    const boardingInMinutes = boardingTime && recommendation.leave_home_at
-        ? Math.max(0, Math.round((boardingTime - new Date(recommendation.leave_home_at)) / 60000))
-        : totalMinutes;
 
     const isPastDue = recommendation.leave_home_at && new Date(recommendation.leave_home_at) < new Date();
 
@@ -173,18 +156,18 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                             {formatUTCToLocal(recommendation.leave_home_at)}
                         </motion.p>
                     </div>
-                    <div className="flex flex-col items-end gap-2">
+                    <div className="flex flex-col items-start md:items-end gap-2">
                         <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-emerald-200 bg-emerald-50 text-emerald-700 text-sm font-semibold">
                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
                             {confidenceScore}% Confident
                         </span>
                         {selectedFlight && (
-                            <p className="text-sm text-muted-foreground text-right">
+                            <p className="text-sm text-muted-foreground">
                                 {selectedFlight.flight_number} · {selectedFlight.origin_code} → {selectedFlight.destination_code} · {totalToHM(totalMinutes)} door-to-gate
                             </p>
                         )}
                         {selectedFlight && (
-                            <p className="text-xs text-indigo-600 font-medium text-right">
+                            <p className="text-xs text-indigo-600 font-medium">
                                 {selectedFlight.departure_terminal ? `Terminal ${selectedFlight.departure_terminal}` : 'Terminal TBD'} · {selectedFlight.departure_gate ? `Gate ${selectedFlight.departure_gate}` : 'Gate not assigned yet'}
                             </p>
                         )}
@@ -192,7 +175,7 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                 </div>
             </motion.div>
 
-            {/* Late departure warning */}
+            {/* Late warning */}
             {isPastDue && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                     className="rounded-2xl px-5 py-4 mb-5 flex items-center gap-3 bg-red-50 border border-red-200">
@@ -206,106 +189,77 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
             {/* ── HORIZONTAL TIMELINE (Desktop) ── */}
             <motion.div
                 custom={1} variants={stagger} initial="hidden" animate="visible"
-                className="hidden md:block mb-5"
+                className="hidden md:block rounded-2xl border border-gray-200 bg-white p-6 md:p-8 mb-5"
             >
-                <div className="space-y-0">
-                    {timelineSteps.map((step, idx) => (
-                        <div key={idx}>
-                            {/* Step card */}
-                            <motion.div
-                                custom={idx + 2} variants={stagger} initial="hidden" animate="visible"
-                                className="rounded-2xl border border-gray-200 bg-white px-6 py-5 flex items-center justify-between"
-                            >
-                                <div className="flex items-center gap-4">
-                                    {/* Step number + icon */}
-                                    <div className="flex items-center gap-2">
-                                        <span className="w-7 h-7 rounded-lg bg-indigo-600 text-white text-xs font-bold flex items-center justify-center">
-                                            {idx + 1}
-                                        </span>
-                                        <div className={`w-10 h-10 rounded-xl ${step.bg} flex items-center justify-center`}>
-                                            <step.Icon className={`w-5 h-5 ${step.color}`} />
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-8">Your Journey Timeline</h3>
+
+                <div className="relative">
+                    {/* Steps row */}
+                    <div className="flex items-start">
+                        {timelineSteps.map((step, idx) => (
+                            <React.Fragment key={idx}>
+                                {/* Step node */}
+                                <motion.div
+                                    custom={idx + 2} variants={stagger} initial="hidden" animate="visible"
+                                    className="flex flex-col items-center text-center shrink-0"
+                                    style={{ width: 80 }}
+                                >
+                                    <div className={`w-11 h-11 rounded-xl ${step.bg} flex items-center justify-center mb-2 ring-2 ring-white shadow-sm`}>
+                                        <step.Icon className={`w-5 h-5 ${step.color}`} />
+                                    </div>
+                                    <p className="font-bold text-foreground text-xs leading-tight">{step.startTime}</p>
+                                    <p className="text-[10px] text-muted-foreground font-medium mt-0.5 leading-tight">{step.shortLabel}</p>
+                                    {step.subtitle && <p className="text-[10px] text-indigo-600 font-medium mt-0.5 leading-tight">{step.subtitle}</p>}
+                                </motion.div>
+
+                                {/* Duration connector between steps */}
+                                {!step.isLast && (
+                                    <div className="flex-1 flex flex-col items-center justify-start pt-4 min-w-[60px]">
+                                        <div className="w-full flex items-center">
+                                            <div className="flex-1 h-px bg-gray-200" />
+                                            <span className="px-2 py-0.5 text-[10px] font-semibold text-muted-foreground bg-gray-50 border border-gray-200 rounded-full whitespace-nowrap">
+                                                {step.durationLabel}
+                                            </span>
+                                            <div className="flex-1 h-px bg-gray-200" />
                                         </div>
                                     </div>
-                                    {/* Label + subtitle */}
-                                    <div>
-                                        <p className="font-bold text-foreground text-sm">{step.shortLabel}</p>
-                                        {step.subtitle && (
-                                            <p className="text-xs text-indigo-600 font-medium">{step.subtitle}</p>
-                                        )}
-                                        {step.detail && (
-                                            <p className="text-xs text-muted-foreground">{step.detail}</p>
-                                        )}
-                                    </div>
-                                </div>
-                                {/* Time */}
-                                <div className="text-right">
-                                    {step.seg.id === 'tsa' ? (
-                                        <span className="font-mono font-bold text-sm text-foreground bg-gray-100 px-3 py-1.5 rounded-lg">
-                                            {step.startTime} → {step.endTime}
-                                        </span>
-                                    ) : (
-                                        <span className="font-mono font-bold text-sm text-foreground bg-gray-100 px-3 py-1.5 rounded-lg">
-                                            {step.isLast ? step.endTime : step.startTime}
-                                        </span>
-                                    )}
-                                </div>
-                            </motion.div>
-
-                            {/* Duration connector between steps */}
-                            {!step.isLast && (
-                                <div className="flex flex-col items-center py-1.5">
-                                    <div className="w-px h-4 bg-gray-200" />
-                                    <span className="text-xs font-semibold text-muted-foreground bg-gray-100 border border-gray-200 px-3 py-1 rounded-full">
-                                        ↓ {step.durationLabel}{step.connectorLabel ? ` ${step.connectorLabel}` : ''}
-                                    </span>
-                                    <div className="w-px h-4 bg-gray-200" />
-                                </div>
-                            )}
-                        </div>
-                    ))}
+                                )}
+                            </React.Fragment>
+                        ))}
+                    </div>
                 </div>
             </motion.div>
 
             {/* ── VERTICAL TIMELINE (Mobile) ── */}
             <motion.div
                 custom={1} variants={stagger} initial="hidden" animate="visible"
-                className="md:hidden mb-5"
+                className="md:hidden rounded-2xl border border-gray-200 bg-white p-5 mb-5"
             >
+                <h3 className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-5">Your Journey</h3>
+
                 <div className="space-y-0">
                     {timelineSteps.map((step, idx) => (
                         <div key={idx}>
-                            {/* Step card */}
-                            <motion.div
-                                custom={idx + 2} variants={stagger} initial="hidden" animate="visible"
-                                className="rounded-2xl border border-gray-200 bg-white px-4 py-4"
-                            >
-                                <div className="flex items-center justify-between">
-                                    <div className="flex items-center gap-3">
-                                        <span className="w-6 h-6 rounded-md bg-indigo-600 text-white text-[10px] font-bold flex items-center justify-center shrink-0">
-                                            {idx + 1}
-                                        </span>
-                                        <div className={`w-9 h-9 rounded-xl ${step.bg} flex items-center justify-center shrink-0`}>
-                                            <step.Icon className={`w-4 h-4 ${step.color}`} />
-                                        </div>
-                                        <div>
-                                            <p className="font-bold text-foreground text-sm">{step.shortLabel}</p>
-                                            {step.subtitle && <p className="text-xs text-indigo-600 font-medium">{step.subtitle}</p>}
-                                        </div>
-                                    </div>
-                                    <span className="font-mono font-bold text-xs text-foreground bg-gray-100 px-2.5 py-1 rounded-lg shrink-0">
-                                        {step.seg.id === 'tsa' ? `${step.startTime} → ${step.endTime}` : (step.isLast ? step.endTime : step.startTime)}
-                                    </span>
+                            <div className="flex items-center gap-3">
+                                <div className={`w-9 h-9 rounded-xl ${step.bg} flex items-center justify-center shrink-0`}>
+                                    <step.Icon className={`w-4 h-4 ${step.color}`} />
                                 </div>
-                            </motion.div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center justify-between">
+                                        <p className="font-bold text-foreground text-sm">{step.shortLabel}</p>
+                                        <span className="font-mono font-bold text-xs text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">{step.startTime}</span>
+                                    </div>
+                                    {step.subtitle && <p className="text-xs text-indigo-600 font-medium">{step.subtitle}</p>}
+                                </div>
+                            </div>
 
                             {/* Duration connector */}
                             {!step.isLast && (
-                                <div className="flex flex-col items-center py-1">
-                                    <div className="w-px h-3 bg-gray-200" />
-                                    <span className="text-[10px] font-semibold text-muted-foreground bg-gray-100 border border-gray-200 px-2.5 py-0.5 rounded-full">
-                                        ↓ {step.durationLabel}{step.connectorLabel ? ` ${step.connectorLabel}` : ''}
-                                    </span>
-                                    <div className="w-px h-3 bg-gray-200" />
+                                <div className="flex items-center gap-3 py-1.5">
+                                    <div className="w-9 flex justify-center">
+                                        <div className="w-px h-5 bg-gray-200" />
+                                    </div>
+                                    <span className="text-[10px] font-semibold text-muted-foreground">{step.durationLabel}</span>
                                 </div>
                             )}
                         </div>
@@ -313,12 +267,11 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                 </div>
             </motion.div>
 
-            {/* ── BOARDING + DEPARTURE FOOTER ── */}
+            {/* ── BOARDING + STATS FOOTER ── */}
             <motion.div
                 custom={timelineSteps.length + 2} variants={stagger} initial="hidden" animate="visible"
                 className="rounded-2xl border border-gray-200 bg-white overflow-hidden"
             >
-                {/* Top row: Boarding + Departure */}
                 <div className="grid grid-cols-2 divide-x divide-gray-100">
                     <div className="p-5 md:p-6">
                         <p className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-indigo-600 mb-1">Boarding</p>
@@ -329,8 +282,6 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                         <p className="text-2xl md:text-3xl font-black text-foreground">{departureTime}</p>
                     </div>
                 </div>
-
-                {/* Bottom row: Total Journey + Gate Cushion */}
                 <div className="grid grid-cols-2 divide-x divide-gray-100 border-t border-gray-100">
                     <div className="p-5 md:p-6">
                         <p className="text-[10px] md:text-xs font-bold uppercase tracking-widest text-muted-foreground mb-1">Total Journey</p>
