@@ -96,7 +96,7 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
         ? recommendation.segments.reduce((sum, s) => sum + (s.duration_minutes || 0), 0)
         : 0;
 
-    const confidenceScore = Math.round((recommendation.confidence_score || 0) * 100);
+    const confidenceScore = profile?.confidenceScore || Math.round((recommendation.confidence_score || 0) * 100);
 
     const gateArrival = recommendation.gate_arrival_utc ? new Date(recommendation.gate_arrival_utc) : null;
     const departureDateObj = selectedFlight?.departure_time ? parseDepartureTime(selectedFlight.departure_time) : null;
