@@ -154,10 +154,14 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
     if (comfortBuffer) stats.push({ label: 'Buffer', value: comfortBuffer.duration_minutes, unit: 'minutes' });
     stats.push({ label: 'Confidence', value: confidenceScore, unit: 'percent', highlight: true });
 
+    // Confidence level label from backend
+    const confidenceLevel = recommendation.confidence || '';
+    const confidenceLevelLabel = confidenceLevel === 'high' ? 'High' : confidenceLevel === 'medium' ? 'Medium' : confidenceLevel === 'low' ? 'Low' : '';
+
     return (
         <div className="max-w-5xl mx-auto px-4 md:px-8 py-8">
 
-            {/* ── HERO CARD — anchoring: the most important info dominates (peak-end rule) ── */}
+            {/* ── HERO CARD ── */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -186,7 +190,7 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                         </span>
                         <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/20 text-white text-sm font-semibold backdrop-blur-sm">
                             <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                            {confidenceScore}% Confidence
+                            {confidenceScore}% {confidenceLevelLabel} Confidence
                         </span>
                     </div>
                 </div>
@@ -204,6 +208,14 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                 )}
             </motion.div>
 
+            {/* Backend explanation */}
+            {recommendation.explanation && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
+                    className="rounded-2xl px-5 py-4 mb-6 bg-indigo-50 border border-indigo-100">
+                    <p className="text-indigo-700 text-sm font-medium leading-relaxed">{recommendation.explanation}</p>
+                </motion.div>
+            )}
+
             {/* Late departure warning */}
             {recommendation.leave_home_at && new Date(recommendation.leave_home_at) < new Date() && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
@@ -215,7 +227,7 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                 </motion.div>
             )}
 
-            {/* ── HORIZONTAL TIMELINE (Desktop) / VERTICAL (Mobile) ── */}
+            {/* ── TIMELINE ── */}
             <motion.div
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -232,24 +244,31 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                         <div className="absolute top-6 left-8 h-0.5 bg-indigo-400 z-0"
                             style={{ width: `calc(${((timelineSteps.length - 1) / Math.max(timelineSteps.length - 1, 1)) * 100}% - 64px)` }} />
 
-                        {/* Steps */}
+                        {/* Duration labels between steps */}
                         <div className="relative z-10 flex justify-between">
                             {timelineSteps.map((step, idx) => (
-                                <motion.div key={idx}
-                                    initial={{ opacity: 0, y: 10 }}
-                                    animate={{ opacity: 1, y: 0 }}
-                                    transition={{ delay: idx * 0.08 + 0.2 }}
-                                    className="flex flex-col items-center text-center"
-                                    style={{ width: `${100 / timelineSteps.length}%` }}
-                                >
-                                    <div className={`w-12 h-12 rounded-2xl ${step.bg} flex items-center justify-center mb-3 shadow-sm`}>
-                                        <step.Icon className={`w-5 h-5 ${step.iconColor}`} />
-                                    </div>
-                                    <p className="font-bold text-gray-900 text-sm">{step.time}</p>
-                                    <p className="text-xs text-gray-500 font-medium mt-0.5">{step.shortLabel}</p>
-                                    <p className="text-[10px] text-gray-400 mt-0.5">{step.duration}</p>
-                                    {step.subtitle && <p className="text-[10px] text-indigo-600 font-medium mt-0.5">{step.subtitle}</p>}
-                                </motion.div>
+                                <div key={idx} className="relative flex flex-col items-center text-center"
+                                    style={{ width: `${100 / timelineSteps.length}%` }}>
+                                    {/* Duration connector label (between this step and the next) */}
+                                    {idx < timelineSteps.length - 1 && (
+                                        <div className="absolute top-3 left-[60%] z-20 bg-white px-1.5 py-0.5 rounded-md border border-gray-100 shadow-sm">
+                                            <span className="text-[9px] font-bold text-indigo-500">{timelineSteps[idx].duration}</span>
+                                        </div>
+                                    )}
+                                    <motion.div
+                                        initial={{ opacity: 0, y: 10 }}
+                                        animate={{ opacity: 1, y: 0 }}
+                                        transition={{ delay: idx * 0.08 + 0.2 }}
+                                        className="flex flex-col items-center text-center w-full"
+                                    >
+                                        <div className={`w-12 h-12 rounded-2xl ${step.bg} flex items-center justify-center mb-3 shadow-sm`}>
+                                            <step.Icon className={`w-5 h-5 ${step.iconColor}`} />
+                                        </div>
+                                        <p className="font-bold text-gray-900 text-sm">{step.time}</p>
+                                        <p className="text-xs text-gray-500 font-medium mt-0.5">{step.shortLabel}</p>
+                                        {step.subtitle && <p className="text-[10px] text-indigo-600 font-medium mt-1 max-w-[120px] leading-tight">{step.subtitle}</p>}
+                                    </motion.div>
+                                </div>
                             ))}
                         </div>
                     </div>
@@ -270,7 +289,12 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                                         <step.Icon className={`w-4 h-4 ${step.iconColor}`} />
                                     </div>
                                     {idx < timelineSteps.length - 1 && (
-                                        <div className="w-0.5 h-8 bg-gray-200 my-1" />
+                                        <div className="relative w-0.5 h-10 bg-gray-200 my-1">
+                                            {/* Duration label on the connector */}
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-indigo-500 bg-white px-1.5 py-0.5 rounded border border-gray-100 shadow-sm whitespace-nowrap">
+                                                {step.duration}
+                                            </span>
+                                        </div>
                                     )}
                                 </div>
 
@@ -280,7 +304,6 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                                         <p className="font-bold text-gray-900 text-sm">{step.shortLabel}</p>
                                         <span className="text-xs font-mono text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-md">{step.time}</span>
                                     </div>
-                                    <p className="text-xs text-gray-500 mt-0.5">{step.duration}</p>
                                     {step.subtitle && <p className="text-xs text-indigo-600 font-medium mt-0.5">{step.subtitle}</p>}
                                 </div>
                             </div>
@@ -299,14 +322,20 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                 <div className="bg-white rounded-2xl border border-gray-200 p-5">
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Boarding</p>
                     <p className="text-2xl md:text-3xl font-black text-emerald-600">{boarding}</p>
+                    {gateCushionMinutes > 0 && (
+                        <p className="text-xs text-gray-500 mt-1">{gateCushionMinutes} min cushion at gate</p>
+                    )}
                 </div>
                 <div className="bg-white rounded-2xl border border-gray-200 p-5">
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Flight Departs</p>
                     <p className="text-2xl md:text-3xl font-black text-gray-900">{departureTime}</p>
+                    {selectedFlight?.departure_gate && (
+                        <p className="text-xs text-gray-500 mt-1">Gate {selectedFlight.departure_gate}</p>
+                    )}
                 </div>
             </motion.div>
 
-            {/* ── STATS BAR — reliability signal (data transparency builds trust) ── */}
+            {/* ── STATS BAR ── */}
             <motion.div
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
@@ -326,6 +355,18 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                     ))}
                 </div>
             </motion.div>
+
+            {/* ── COMPUTED AT (data freshness signal) ── */}
+            {recommendation.computed_at && (
+                <motion.p
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.5 }}
+                    className="text-center text-[11px] text-gray-400 mt-4"
+                >
+                    Computed {new Date(recommendation.computed_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} · Powered by real-time data
+                </motion.p>
+            )}
         </div>
     );
 }
