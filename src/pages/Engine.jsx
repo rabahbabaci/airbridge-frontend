@@ -69,7 +69,7 @@ function fmt(date, offsetMins) {
 function Toggle({ on, onToggle }) {
     return (
         <button onClick={onToggle}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-300 ${on ? 'bg-blue-600' : 'bg-gray-200'}`}>
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-300 ${on ? 'bg-blue-500' : 'bg-white/15'}`}>
             <motion.span
                 animate={{ x: on ? 18 : 2 }}
                 transition={{ type: 'spring', stiffness: 500, damping: 30 }}
