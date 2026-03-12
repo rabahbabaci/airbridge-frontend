@@ -119,19 +119,30 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
         const meta = getSegmentMeta(seg);
 
         let subtitle = '';
+        let detail = '';
         if (seg.id === 'transport') {
             const distMatch = seg.advice?.match(/([\d.]+)\s*mi/i);
-            subtitle = distMatch ? `${distMatch[1]} mi` : '';
+            const durMatch = seg.advice?.match(/(\d+)\s*min/i);
+            const parts = [];
+            if (durMatch) parts.push(`${durMatch[1]} mins`);
+            if (distMatch) parts.push(`${distMatch[1]} mi`);
+            subtitle = parts.length ? parts.join(' — ') : `${seg.duration_minutes} min`;
         }
         if (seg.id === 'tsa') {
+            const waitMatch = seg.advice?.match(/wait:(\d+)/);
             const periodMatch = seg.advice?.match(/\|([^|]+)$/);
-            subtitle = periodMatch ? periodMatch[1].trim() : '';
+            const waitMin = waitMatch ? parseInt(waitMatch[1], 10) : seg.duration_minutes;
+            const period = periodMatch ? periodMatch[1].trim() : '';
+            subtitle = `${waitMin} min wait${period ? ' · ' + period : ''}`;
         }
         if (seg.id === 'walk_to_gate' && comfortBuffer) {
             subtitle = `+${formatDuration(comfortBuffer.duration_minutes)} buffer`;
         }
+        if (seg.id === 'at_airport') {
+            subtitle = seg.advice || '';
+        }
 
-        return { ...meta, startTime, endTime, duration: seg.duration_minutes, durationLabel: formatDuration(seg.duration_minutes), subtitle, seg, isLast: idx === displaySegments.length - 1 };
+        return { ...meta, startTime, endTime, duration: seg.duration_minutes, durationLabel: formatDuration(seg.duration_minutes), subtitle, detail, seg, isLast: idx === displaySegments.length - 1 };
     });
 
     const isPastDue = recommendation.leave_home_at && new Date(recommendation.leave_home_at) < new Date();
