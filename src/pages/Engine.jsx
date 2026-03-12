@@ -69,7 +69,7 @@ function fmt(date, offsetMins) {
 function Toggle({ on, onToggle }) {
     return (
         <button onClick={onToggle}
-            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-300 ${on ? 'bg-blue-600' : 'bg-gray-200'}`}>
+            className={`relative inline-flex h-5 w-9 items-center rounded-full transition-colors duration-300 ${on ? 'bg-blue-500' : 'bg-white/15'}`}>
             <motion.span
                 animate={{ x: on ? 18 : 2 }}
                 transition={{ type: 'spring', stiffness: 500, damping: 30 }}
@@ -88,7 +88,7 @@ function StepDots({ step }) {
                 <div key={n} className="flex items-center gap-2">
                     <motion.div
                         animate={{
-                            background: step >= n ? '#3b82f6' : '#e5e7eb',
+                            background: step >= n ? '#60a5fa' : 'rgba(255,255,255,0.2)',
                             scale: step === n ? 1 : 0.85,
                         }}
                         transition={{ duration: 0.3 }}
@@ -96,14 +96,14 @@ function StepDots({ step }) {
                     />
                     {n < 3 && (
                         <motion.div
-                            animate={{ background: step > n ? '#3b82f6' : '#e5e7eb' }}
+                            animate={{ background: step > n ? '#60a5fa' : 'rgba(255,255,255,0.15)' }}
                             transition={{ duration: 0.4 }}
                             className="w-8 h-px"
                         />
                     )}
                 </div>
             ))}
-            <span className="text-[10px] text-gray-400 font-medium ml-1">Step {step} of 3</span>
+            <span className="text-[10px] text-blue-300/60 font-medium ml-1">Step {step} of 3</span>
         </div>
     );
 }
@@ -309,11 +309,20 @@ export default function Engine() {
     };
 
     return (
-        <div className="w-screen flex flex-col overflow-hidden bg-gray-950 font-sans antialiased" style={{ height: '100dvh' }}>
+        <div className="w-screen flex flex-col overflow-hidden font-sans antialiased relative" style={{ height: '100dvh' }}>
+            {/* Full-page cinematic airport background */}
+            <div className="absolute inset-0 z-0" style={{
+                backgroundImage: 'url(https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=1920&q=80)',
+                backgroundSize: 'cover',
+                backgroundPosition: 'center 40%',
+            }} />
+            <div className="absolute inset-0 z-0" style={{
+                background: 'linear-gradient(170deg, rgba(2,6,23,0.88) 0%, rgba(15,23,42,0.82) 35%, rgba(2,6,23,0.92) 100%)',
+            }} />
 
             {/* ── Topbar ── */}
-            <header className="flex items-center justify-between px-4 md:px-6 py-3.5 md:py-3 shrink-0 z-10"
-                style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', background: 'rgba(9,9,11,0.85)', backdropFilter: 'blur(20px)' }}>
+            <header className="flex items-center justify-between px-4 md:px-6 py-3.5 md:py-3 shrink-0 z-10 relative"
+                style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', background: 'rgba(2,6,23,0.6)', backdropFilter: 'blur(20px)' }}>
                 <div className="flex items-center gap-6">
                     <Link to={createPageUrl('Home')} className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
@@ -352,7 +361,7 @@ export default function Engine() {
             </header>
 
             {/* ── Main Content ── */}
-            <div className="flex flex-1 min-h-0 items-center justify-center overflow-hidden">
+            <div className="flex flex-1 min-h-0 items-center justify-center overflow-hidden relative z-10">
                 <AnimatePresence mode="wait">
 
                     {/* ── SETUP VIEW ── */}
