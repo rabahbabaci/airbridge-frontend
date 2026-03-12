@@ -309,7 +309,16 @@ export default function Engine() {
     };
 
     return (
-        <div className="w-screen flex flex-col overflow-hidden bg-gray-950 font-sans antialiased" style={{ height: '100dvh' }}>
+        <div className="w-screen flex flex-col overflow-hidden font-sans antialiased relative" style={{ height: '100dvh' }}>
+            {/* Full-page cinematic airport background */}
+            <div className="absolute inset-0 z-0" style={{
+                backgroundImage: 'url(https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=1920&q=80)',
+                backgroundSize: 'cover',
+                backgroundPosition: 'center 40%',
+            }} />
+            <div className="absolute inset-0 z-0" style={{
+                background: 'linear-gradient(170deg, rgba(2,6,23,0.88) 0%, rgba(15,23,42,0.82) 35%, rgba(2,6,23,0.92) 100%)',
+            }} />
 
             {/* ── Topbar ── */}
             <header className="flex items-center justify-between px-4 md:px-6 py-3.5 md:py-3 shrink-0 z-10"
