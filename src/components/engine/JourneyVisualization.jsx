@@ -110,12 +110,13 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
     const segments = recommendation.segments || [];
     const comfortBuffer = segments.find(s => s.id === 'comfort_buffer');
     const displaySegments = segments.filter(s => s.id !== 'comfort_buffer');
+    const airportCode = selectedFlight?.origin_code || '';
 
     // Build step data for timeline
     const timelineSteps = displaySegments.map((seg, idx) => {
         const cumulativeBefore = displaySegments.slice(0, idx).reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
         const stepTime = addMinutesAndFormat(recommendation.leave_home_at, cumulativeBefore);
-        const meta = getSegmentMeta(seg);
+        const meta = getSegmentMeta(seg, airportCode, transport);
         const isLast = idx === displaySegments.length - 1;
 
         let displayTime = isLast
@@ -123,24 +124,35 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
             : stepTime;
 
         let subtitle = '';
-        // Surface all advice from backend
         if (seg.id === 'transport') {
-            subtitle = seg.advice || `${seg.duration_minutes} min`;
+            // Parse advice like "mode:rideshare|raw:101|buffer:35|distance_mi:23.7"
+            const rawMatch = seg.advice?.match(/raw:(\d+)/);
+            const bufferMatch = seg.advice?.match(/buffer:(\d+)/);
+            const distMatch = seg.advice?.match(/distance_mi:([\d.]+)/);
+            const rawMin = rawMatch ? parseInt(rawMatch[1], 10) : null;
+            const bufferMin = bufferMatch ? parseInt(bufferMatch[1], 10) : null;
+            const distMi = distMatch ? parseFloat(distMatch[1]) : null;
+            const parts = [];
+            if (rawMin != null) parts.push(fmtMin(rawMin));
+            if (distMi != null) parts.push(`${distMi} mi`);
+            subtitle = parts.length ? parts.join(' — ') : fmtMin(seg.duration_minutes);
         } else if (seg.id === 'tsa') {
             const waitMatch = seg.advice?.match(/wait:(\d+)/);
             const periodMatch = seg.advice?.match(/\|([^|]+)$/);
             const waitMin = waitMatch ? parseInt(waitMatch[1], 10) : seg.duration_minutes;
             const period = periodMatch ? periodMatch[1].trim() : '';
-            subtitle = `${formatDuration(waitMin)} wait${period ? ' · ' + period : ''}`;
+            subtitle = `${fmtMin(waitMin)} wait${period ? ' · ' + period : ''}`;
         } else if (seg.id === 'walk_to_gate') {
-            meta.shortLabel = 'At Gate';
-            if (comfortBuffer) subtitle = `+${formatDuration(comfortBuffer.duration_minutes)} buffer`;
+            if (comfortBuffer) subtitle = `+${fmtMin(comfortBuffer.duration_minutes)} buffer`;
+        } else if (seg.id === 'at_airport') {
+            subtitle = seg.advice || '';
+        } else if (seg.id === 'bag_drop') {
+            subtitle = seg.advice || 'Check bags';
         } else if (seg.advice) {
-            // Surface any other advice the backend sends
             subtitle = seg.advice;
         }
 
-        return { ...meta, time: displayTime, durationMinutes: seg.duration_minutes, duration: formatDuration(seg.duration_minutes), subtitle, seg, isLast };
+        return { ...meta, time: displayTime, durationMinutes: seg.duration_minutes, duration: fmtMin(seg.duration_minutes), subtitle, seg, isLast };
     });
 
     // Boarding step data
