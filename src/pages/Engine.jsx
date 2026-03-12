@@ -408,7 +408,7 @@ export default function Engine() {
                                                                     <span>Arrival: {formatLocalTime(f.arrival_time)}</span>
                                                                     <span>·</span>
                                                                     <span className="text-indigo-600 font-medium">
-                                                                        To {f.destination_code} · {f.terminal}
+                                                                        {f.origin_code} → {f.destination_code} · {f.terminal}
                                                                         {f.departure_gate ? ` · Gate ${f.departure_gate}` : ''}
                                                                     </span>
                                                                 </div>
