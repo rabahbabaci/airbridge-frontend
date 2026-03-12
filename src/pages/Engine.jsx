@@ -321,8 +321,8 @@ export default function Engine() {
             }} />
 
             {/* ── Topbar ── */}
-            <header className="flex items-center justify-between px-4 md:px-6 py-3.5 md:py-3 shrink-0 z-10"
-                style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', background: 'rgba(9,9,11,0.85)', backdropFilter: 'blur(20px)' }}>
+            <header className="flex items-center justify-between px-4 md:px-6 py-3.5 md:py-3 shrink-0 z-10 relative"
+                style={{ borderBottom: '1px solid rgba(255,255,255,0.07)', background: 'rgba(2,6,23,0.6)', backdropFilter: 'blur(20px)' }}>
                 <div className="flex items-center gap-6">
                     <Link to={createPageUrl('Home')} className="flex items-center gap-2">
                         <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center">
