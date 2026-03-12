@@ -276,7 +276,7 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15, duration: 0.4 }}
-                className="bg-white rounded-3xl border border-gray-200 p-6 md:p-8 mb-6"
+                className="bg-white rounded-3xl border border-gray-200 px-6 py-4 md:px-8 md:py-5 mb-6"
             >
                 <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-6">Your Journey Timeline</h3>
 
