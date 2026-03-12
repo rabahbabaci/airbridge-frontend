@@ -493,7 +493,7 @@ export default function Engine() {
                                                 {shortCity(selectedFlight.origin_name) || selectedFlight.origin_code}{' '}
                                                 <span className="font-mono font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded text-[10px]">{selectedFlight.origin_code}</span>
                                                 {' → '}
-                                                {selectedFlight.destination_name || selectedFlight.destination_code}{' '}
+                                                {shortCity(selectedFlight.destination_name) || selectedFlight.destination_code}{' '}
                                                 <span className="font-mono font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded text-[10px]">{selectedFlight.destination_code}</span>
                                             </span>
                                         </motion.div>

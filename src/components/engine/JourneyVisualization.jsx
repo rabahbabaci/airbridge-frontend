@@ -252,7 +252,7 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                             {shortCity(selectedFlight.origin_name) || selectedFlight.origin_code}{' '}
                             <span className="font-mono font-bold bg-white/25 px-1.5 py-0.5 rounded text-[11px] tracking-wider">{selectedFlight.origin_code}</span>
                             <span className="mx-0.5">→</span>
-                            {selectedFlight.destination_name || selectedFlight.destination_code}{' '}
+                            {shortCity(selectedFlight.destination_name) || selectedFlight.destination_code}{' '}
                             <span className="font-mono font-bold bg-white/25 px-1.5 py-0.5 rounded text-[11px] tracking-wider">{selectedFlight.destination_code}</span>
                         </span>
                         <span className="text-white/40">·</span>
