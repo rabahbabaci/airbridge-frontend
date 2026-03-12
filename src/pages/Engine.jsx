@@ -25,7 +25,7 @@ const confidenceProfiles = [
 const transportGroups = [
     {
         label: 'Rideshare',
-        options: [{ id: 'uber', label: 'Uber', icon: Car }, { id: 'lyft', label: 'Lyft', icon: Car }],
+        options: [{ id: 'rideshare', label: 'Rideshare', icon: Car }],
     },
     {
         label: 'Driving / Parking',
@@ -593,35 +593,35 @@ export default function Engine() {
                                                     <h3 className="font-bold text-gray-900">Security & Check-in</h3>
                                                 </div>
                                                 <div className="px-5 py-4 space-y-3">
-                                                    <div className="flex items-center justify-between">
+                                                    <div className="flex items-center justify-between opacity-50">
                                                         <div className="flex items-center gap-3">
                                                             <ShieldCheck className="w-4 h-4 text-gray-400" />
                                                             <div>
                                                                 <p className="text-sm font-medium text-gray-900">TSA PreCheck</p>
-                                                                <p className="text-xs text-gray-400">Faster security</p>
+                                                                <p className="text-xs text-gray-400">Coming soon</p>
                                                             </div>
                                                         </div>
-                                                        <Switch checked={hasTsaPreCheck} onCheckedChange={setHasTsaPreCheck} />
+                                                        <Switch checked={false} disabled />
                                                     </div>
-                                                    <div className="flex items-center justify-between">
+                                                    <div className="flex items-center justify-between opacity-50">
                                                         <div className="flex items-center gap-3">
                                                             <Sparkles className="w-4 h-4 text-gray-400" />
                                                             <div>
                                                                 <p className="text-sm font-medium text-gray-900">Clear</p>
-                                                                <p className="text-xs text-gray-400">Expedited screening</p>
+                                                                <p className="text-xs text-gray-400">Coming soon</p>
                                                             </div>
                                                         </div>
-                                                        <Switch checked={hasClear} onCheckedChange={setHasClear} />
+                                                        <Switch checked={false} disabled />
                                                     </div>
-                                                    <div className="flex items-center justify-between">
+                                                    <div className="flex items-center justify-between opacity-50">
                                                         <div className="flex items-center gap-3">
                                                             <Smartphone className="w-4 h-4 text-gray-400" />
                                                             <div>
                                                                 <p className="text-sm font-medium text-gray-900">Boarding Pass Ready</p>
-                                                                <p className="text-xs text-gray-400">Already checked in</p>
+                                                                <p className="text-xs text-gray-400">Coming soon</p>
                                                             </div>
                                                         </div>
-                                                        <Switch checked={hasBoardingPass} onCheckedChange={setHasBoardingPass} />
+                                                        <Switch checked={false} disabled />
                                                     </div>
                                                 </div>
                                             </motion.div>
