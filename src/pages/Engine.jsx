@@ -716,18 +716,18 @@ export default function Engine() {
                                         <ArrowLeft className="w-4 h-4" />
                                     </button>
                                     <div>
-                                        <h1 className="font-bold text-gray-900 text-lg">Journey Blueprint</h1>
+                                        <h1 className="font-bold text-gray-900">Journey Blueprint</h1>
                                         <p className="text-sm text-gray-500">Your optimized travel timeline</p>
                                     </div>
                                 </div>
                                 <button onClick={handleReset}
-                                    className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-900 border border-gray-200 px-4 py-2 rounded-xl transition-all hover:border-gray-300">
-                                    <Clock className="w-3.5 h-3.5" />
+                                    className="text-sm text-gray-500 hover:text-gray-900 border border-gray-200 px-4 py-2 rounded-xl transition-all hover:border-gray-300">
                                     Start Over
                                 </button>
                             </div>
                         </div>
 
+                        {/* Journey Visualization */}
                         <JourneyVisualization
                             locked={true}
                             recommendation={recommendation}

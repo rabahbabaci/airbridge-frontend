@@ -1,8 +1,8 @@
 import React, { useEffect } from 'react';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     Plane, Car, Train, Bus, Shield, Clock, MapPin, Luggage,
-    Building2, PersonStanding, Ticket, Home, Navigation, MapPinned
+    Building2, PersonStanding, Ticket, CheckCircle2
 } from 'lucide-react';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -49,40 +49,32 @@ function formatDuration(minutes) {
     return `${minutes} min`;
 }
 
-// ── Segment mapping ─────────────────────────────────────────────────────────
+// ── Segment Icon Mapping ────────────────────────────────────────────────────
 function getSegmentMeta(seg) {
     const id = (seg.id || '').toLowerCase();
     const label = (seg.label || '').toLowerCase();
 
     if (id === 'transport' || label.includes('leave') || label.includes('depart') || label.includes('ride') || label.includes('drive') || label.includes('uber'))
-        return { Icon: Car, shortLabel: 'En Route', color: 'indigo' };
+        return { Icon: Car, bg: 'bg-indigo-100', iconColor: 'text-indigo-600', shortLabel: 'Leave Home' };
     if (id === 'at_airport' || label.includes('check-in') || label.includes('terminal'))
-        return { Icon: Building2, shortLabel: 'At Airport', color: 'indigo' };
+        return { Icon: Building2, bg: 'bg-indigo-100', iconColor: 'text-indigo-600', shortLabel: 'En Route' };
     if (id === 'bag_drop' || label.includes('bag') || label.includes('luggage'))
-        return { Icon: Luggage, shortLabel: 'Bag Drop', color: 'amber' };
+        return { Icon: Luggage, bg: 'bg-amber-100', iconColor: 'text-amber-600', shortLabel: 'Bag Drop' };
     if (id === 'tsa' || label.includes('security') || label.includes('tsa'))
-        return { Icon: Shield, shortLabel: 'TSA Security', color: 'red' };
+        return { Icon: Shield, bg: 'bg-red-100', iconColor: 'text-red-600', shortLabel: 'TSA Security' };
     if (id === 'walk_to_gate' || label.includes('walk'))
-        return { Icon: MapPinned, shortLabel: 'Walk to Gate', color: 'emerald' };
+        return { Icon: PersonStanding, bg: 'bg-emerald-100', iconColor: 'text-emerald-600', shortLabel: 'Walk to Gate' };
     if (id === 'boarding_buffer')
-        return { Icon: Clock, shortLabel: 'Buffer', color: 'indigo' };
+        return { Icon: Clock, bg: 'bg-indigo-100', iconColor: 'text-indigo-600', shortLabel: 'Buffer' };
     if (label.includes('gate'))
-        return { Icon: Ticket, shortLabel: 'At Gate', color: 'emerald' };
+        return { Icon: Ticket, bg: 'bg-emerald-100', iconColor: 'text-emerald-600', shortLabel: 'At Gate' };
     if (label.includes('board'))
-        return { Icon: Plane, shortLabel: 'Board', color: 'emerald' };
-    return { Icon: MapPin, shortLabel: seg.label || 'Step', color: 'gray' };
+        return { Icon: Plane, bg: 'bg-emerald-100', iconColor: 'text-emerald-600', shortLabel: 'Board' };
+    return { Icon: MapPin, bg: 'bg-gray-100', iconColor: 'text-gray-600', shortLabel: seg.label || 'Step' };
 }
 
-const colorStyles = {
-    indigo: { bg: 'bg-indigo-50', icon: 'text-indigo-600', ring: 'ring-indigo-200' },
-    emerald: { bg: 'bg-emerald-50', icon: 'text-emerald-600', ring: 'ring-emerald-200' },
-    red: { bg: 'bg-red-50', icon: 'text-red-600', ring: 'ring-red-200' },
-    amber: { bg: 'bg-amber-50', icon: 'text-amber-600', ring: 'ring-amber-200' },
-    gray: { bg: 'bg-gray-100', icon: 'text-gray-600', ring: 'ring-gray-200' },
-};
-
 // ── Main Component ──────────────────────────────────────────────────────────
-export default function JourneyVisualization({ locked, recommendation, selectedFlight, onReady }) {
+export default function JourneyVisualization({ locked, recommendation, selectedFlight, transport, profile, confidenceColorMap, onReady }) {
 
     useEffect(() => {
         if (locked && recommendation && onReady) {
@@ -98,8 +90,11 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
         : 0;
 
     const confidenceScore = Math.round((recommendation.confidence_score || 0) * 100);
+
+    const gateArrival = recommendation.gate_arrival_utc ? new Date(recommendation.gate_arrival_utc) : null;
     const departureDateObj = selectedFlight?.departure_time ? parseDepartureTime(selectedFlight.departure_time) : null;
-    const boardingTimeObj = departureDateObj ? new Date(departureDateObj.getTime() - 30 * 60000) : null;
+    const boardingTime = departureDateObj ? new Date(departureDateObj.getTime() - 30 * 60000) : null;
+    const gateCushionMinutes = (gateArrival && boardingTime) ? Math.max(0, Math.round((boardingTime - gateArrival) / 60000)) : 0;
 
     const { boarding, departure: departureTime } = selectedFlight
         ? parseDepartureAndGetBoardingTime(selectedFlight.departure_time)
@@ -109,106 +104,106 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
     const comfortBuffer = segments.find(s => s.id === 'comfort_buffer');
     const displaySegments = segments.filter(s => s.id !== 'comfort_buffer');
 
-    // Build timeline steps
-    const allSteps = [];
-
-    allSteps.push({
-        Icon: Home, shortLabel: 'Leave Home', color: 'indigo',
-        time: formatUTCToLocal(recommendation.leave_home_at),
-        duration: '0 min', subtitle: 'Start your journey', isFirst: true,
-    });
-
-    displaySegments.forEach((seg, idx) => {
+    // Build step data for timeline
+    const timelineSteps = displaySegments.map((seg, idx) => {
         const cumulativeBefore = displaySegments.slice(0, idx).reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
+        const stepTime = addMinutesAndFormat(recommendation.leave_home_at, cumulativeBefore);
         const meta = getSegmentMeta(seg);
         const isLast = idx === displaySegments.length - 1;
 
         let displayTime = isLast
             ? addMinutesAndFormat(recommendation.leave_home_at, cumulativeBefore + seg.duration_minutes)
-            : addMinutesAndFormat(recommendation.leave_home_at, cumulativeBefore);
+            : stepTime;
 
         let subtitle = '';
-        let durationLabel = formatDuration(seg.duration_minutes);
-
-        if (seg.id === 'transport') subtitle = seg.advice || '';
+        if (seg.id === 'transport') subtitle = seg.advice || `${seg.duration_minutes} min`;
         if (seg.id === 'tsa') {
             const waitMatch = seg.advice?.match(/wait:(\d+)/);
-            const walkMatch = seg.advice?.match(/walk:(\d+)/);
             const periodMatch = seg.advice?.match(/\|([^|]+)$/);
             const waitMin = waitMatch ? parseInt(waitMatch[1], 10) : seg.duration_minutes;
-            const walkMin = walkMatch ? parseInt(walkMatch[1], 10) : 0;
             const period = periodMatch ? periodMatch[1].trim() : '';
-            durationLabel = `${formatDuration(waitMin)} wait` + (walkMin ? ` + ${walkMin} min screening` : '');
-            subtitle = selectedFlight?.departure_terminal ? `Terminal ${selectedFlight.departure_terminal}` : '';
-            if (period) subtitle += (subtitle ? ' · ' : '') + period;
+            subtitle = `${formatDuration(waitMin)} wait${period ? ' · ' + period : ''}`;
         }
         if (seg.id === 'walk_to_gate') {
-            meta.shortLabel = isLast ? 'At Gate' : 'Walk to Gate';
-            if (comfortBuffer) durationLabel = `${formatDuration(comfortBuffer.duration_minutes)} buffer`;
-            if (selectedFlight?.departure_gate) subtitle = `Gate ${selectedFlight.departure_gate}`;
-            if (isLast && boarding) subtitle += (subtitle ? ' · ' : '') + `Boarding at ${boarding}`;
-        }
-        if (seg.id === 'at_airport') {
-            subtitle = seg.advice?.replace(/walk_to_next:\d+/, '').replace(/\|/g, ' ').trim() || '';
+            meta.shortLabel = 'At Gate';
+            if (comfortBuffer) subtitle = `+${formatDuration(comfortBuffer.duration_minutes)} buffer`;
         }
 
-        allSteps.push({ ...meta, time: displayTime, duration: durationLabel, subtitle, seg });
+        return { ...meta, time: displayTime, duration: formatDuration(seg.duration_minutes), subtitle, seg, isLast };
     });
 
-    const boardingInMinutes = boardingTimeObj && recommendation.leave_home_at
-        ? Math.max(0, Math.round((boardingTimeObj - new Date(recommendation.leave_home_at)) / 60000))
+    // Boarding step data
+    const boardingInMinutes = boardingTime && recommendation.leave_home_at
+        ? Math.max(0, Math.round((boardingTime - new Date(recommendation.leave_home_at)) / 60000))
         : totalMinutes;
 
-    // Stats
+    // Stats for the bottom bar
     const stats = [];
     displaySegments.forEach(seg => {
-        if (seg.id === 'transport') stats.push({ label: 'Transport', value: seg.duration_minutes, unit: 'min' });
+        if (seg.id === 'transport') stats.push({ label: 'Transport', value: seg.duration_minutes, unit: 'minutes' });
         if (seg.id === 'tsa') {
             const waitMatch = seg.advice?.match(/wait:(\d+)/);
-            const walkMatch = seg.advice?.match(/walk:(\d+)/);
-            stats.push({ label: 'TSA Wait', value: waitMatch ? parseInt(waitMatch[1]) : seg.duration_minutes, unit: 'min' });
-            if (walkMatch) stats.push({ label: 'Screening', value: parseInt(walkMatch[1]), unit: 'min' });
+            stats.push({ label: 'TSA Wait', value: waitMatch ? parseInt(waitMatch[1]) : seg.duration_minutes, unit: 'minutes' });
         }
-        if (seg.id === 'walk_to_gate') stats.push({ label: 'Gate Walk', value: seg.duration_minutes, unit: 'min' });
+        if (seg.id === 'walk_to_gate') stats.push({ label: 'Gate Walk', value: seg.duration_minutes, unit: 'minutes' });
     });
-    if (comfortBuffer) stats.push({ label: 'Buffer', value: comfortBuffer.duration_minutes, unit: 'min', isBuffer: true });
-    stats.push({ label: 'Confidence', value: confidenceScore, unit: '%', highlight: true });
+    if (comfortBuffer) stats.push({ label: 'Buffer', value: comfortBuffer.duration_minutes, unit: 'minutes' });
+    stats.push({ label: 'Confidence', value: confidenceScore, unit: 'percent', highlight: true });
 
     return (
-        <div className="max-w-5xl mx-auto px-4 md:px-8 py-8 space-y-6">
+        <div className="max-w-5xl mx-auto px-4 md:px-8 py-8">
 
-            {/* ── HERO CARD ── */}
+            {/* ── HERO CARD — anchoring: the most important info dominates (peak-end rule) ── */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5 }}
-                className="bg-indigo-600 rounded-3xl p-8 md:p-10 text-center"
+                transition={{ duration: 0.5, ease: 'easeOut' }}
+                className="rounded-3xl p-6 md:p-8 mb-6"
+                style={{ background: 'linear-gradient(135deg, #059669, #10b981)' }}
             >
-                <div className="flex items-center justify-center gap-2 mb-2">
-                    <Clock className="w-5 h-5 text-indigo-200" />
-                    <p className="text-indigo-200 font-semibold text-sm">Leave Now at</p>
+                <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
+                    <div>
+                        <div className="flex items-center gap-2 mb-2">
+                            <Clock className="w-4 h-4 text-white/80" />
+                            <p className="text-sm font-semibold text-white/80">Leave Now at</p>
+                        </div>
+                        <motion.p
+                            key={formatUTCToLocal(recommendation.leave_home_at)}
+                            initial={{ scale: 0.95 }}
+                            animate={{ scale: 1 }}
+                            className="text-5xl md:text-6xl font-black text-white tracking-tight"
+                        >
+                            {formatUTCToLocal(recommendation.leave_home_at)}
+                        </motion.p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                        <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/20 text-white text-sm font-semibold backdrop-blur-sm">
+                            Boarding in {totalToHM(boardingInMinutes)}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/20 text-white text-sm font-semibold backdrop-blur-sm">
+                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                            {confidenceScore}% Confidence
+                        </span>
+                    </div>
                 </div>
-                <motion.p
-                    key={formatUTCToLocal(recommendation.leave_home_at)}
-                    initial={{ scale: 0.95 }}
-                    animate={{ scale: 1 }}
-                    className="text-5xl md:text-7xl font-black text-white tracking-tight mb-4"
-                >
-                    {formatUTCToLocal(recommendation.leave_home_at)}
-                </motion.p>
-                <div className="inline-flex items-center gap-3 bg-white/15 backdrop-blur-sm rounded-full px-5 py-2">
-                    <span className="text-sm text-white">
-                        Boarding in <span className="text-emerald-300 font-bold">{totalToHM(boardingInMinutes)}</span>
-                    </span>
-                    <span className="text-white/30">•</span>
-                    <span className="text-sm text-white font-medium">{confidenceScore}% Confidence</span>
-                </div>
+
+                {/* Flight info */}
+                {selectedFlight && (
+                    <div className="mt-4 pt-4 border-t border-white/20">
+                        <p className="text-white/80 text-sm">
+                            {selectedFlight.flight_number} · {selectedFlight.origin_code} → {selectedFlight.destination_code} ·{' '}
+                            {selectedFlight.departure_terminal ? `Terminal ${selectedFlight.departure_terminal}` : 'Terminal TBD'} ·{' '}
+                            {selectedFlight.departure_gate ? `Gate ${selectedFlight.departure_gate}` : 'Gate TBD'} ·{' '}
+                            {totalToHM(totalMinutes)} door-to-gate
+                        </p>
+                    </div>
+                )}
             </motion.div>
 
-            {/* Late warning */}
+            {/* Late departure warning */}
             {recommendation.leave_home_at && new Date(recommendation.leave_home_at) < new Date() && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                    className="rounded-2xl px-5 py-4 flex items-center gap-3 bg-red-50 border border-red-200">
+                    className="rounded-2xl px-5 py-4 mb-6 flex items-center gap-3 bg-red-50 border border-red-200">
                     <span className="text-lg">⚠️</span>
                     <p className="text-red-700 text-sm font-medium">
                         You needed to leave by {formatUTCToLocal(recommendation.leave_home_at)} — you may not make this flight on time
@@ -216,155 +211,117 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                 </motion.div>
             )}
 
-            {/* ── TIMELINE ── */}
+            {/* ── HORIZONTAL TIMELINE (Desktop) / VERTICAL (Mobile) ── */}
             <motion.div
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.12 }}
-                className="bg-white rounded-3xl border border-gray-200 p-6 md:p-8"
+                transition={{ delay: 0.15, duration: 0.4 }}
+                className="bg-white rounded-3xl border border-gray-200 p-6 md:p-8 mb-6"
             >
-                {/* Desktop horizontal */}
+                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-6">Your Journey Timeline</h3>
+
+                {/* Desktop: Horizontal */}
                 <div className="hidden md:block">
-                    {/* Icons row */}
-                    <div className="relative mb-4">
+                    <div className="relative">
                         {/* Connecting line */}
-                        <div className="absolute top-7 left-10 right-10 h-0.5 bg-gray-200" />
-                        <div className="absolute top-7 left-10 h-0.5 bg-indigo-300"
-                            style={{ width: `calc(100% - 80px)` }} />
+                        <div className="absolute top-6 left-8 right-8 h-0.5 bg-gray-200 z-0" />
+                        <div className="absolute top-6 left-8 h-0.5 bg-indigo-400 z-0"
+                            style={{ width: `calc(${((timelineSteps.length - 1) / Math.max(timelineSteps.length - 1, 1)) * 100}% - 64px)` }} />
 
-                        <div className="relative flex justify-between">
-                            {allSteps.map((step, idx) => {
-                                const cs = colorStyles[step.color] || colorStyles.gray;
-                                return (
-                                    <motion.div key={idx}
-                                        initial={{ opacity: 0, y: 10 }}
-                                        animate={{ opacity: 1, y: 0 }}
-                                        transition={{ delay: idx * 0.06 + 0.2 }}
-                                        className="flex flex-col items-center relative"
-                                        style={{ width: `${100 / allSteps.length}%` }}
-                                    >
-                                        {/* Numbered badge */}
-                                        <div className={`absolute -top-1.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold z-10 ${
-                                            idx === 0 ? 'bg-indigo-600 text-white' : 'bg-gray-300 text-white'
-                                        }`}>
-                                            {idx + 1}
-                                        </div>
-                                        {/* Icon */}
-                                        <div className={`w-14 h-14 rounded-2xl ${cs.bg} flex items-center justify-center ring-2 ${cs.ring} ${
-                                            idx === 0 ? 'bg-indigo-600 ring-indigo-300' : ''
-                                        }`}>
-                                            <step.Icon className={`w-6 h-6 ${idx === 0 ? 'text-white' : cs.icon}`} />
-                                        </div>
-                                    </motion.div>
-                                );
-                            })}
+                        {/* Steps */}
+                        <div className="relative z-10 flex justify-between">
+                            {timelineSteps.map((step, idx) => (
+                                <motion.div key={idx}
+                                    initial={{ opacity: 0, y: 10 }}
+                                    animate={{ opacity: 1, y: 0 }}
+                                    transition={{ delay: idx * 0.08 + 0.2 }}
+                                    className="flex flex-col items-center text-center"
+                                    style={{ width: `${100 / timelineSteps.length}%` }}
+                                >
+                                    <div className={`w-12 h-12 rounded-2xl ${step.bg} flex items-center justify-center mb-3 shadow-sm`}>
+                                        <step.Icon className={`w-5 h-5 ${step.iconColor}`} />
+                                    </div>
+                                    <p className="font-bold text-gray-900 text-sm">{step.time}</p>
+                                    <p className="text-xs text-gray-500 font-medium mt-0.5">{step.shortLabel}</p>
+                                    <p className="text-[10px] text-gray-400 mt-0.5">{step.duration}</p>
+                                    {step.subtitle && <p className="text-[10px] text-indigo-600 font-medium mt-0.5">{step.subtitle}</p>}
+                                </motion.div>
+                            ))}
                         </div>
-                    </div>
-
-                    {/* Detail cards row */}
-                    <div className="flex gap-2">
-                        {allSteps.map((step, idx) => (
-                            <motion.div key={idx}
-                                initial={{ opacity: 0, y: 8 }}
-                                animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: idx * 0.06 + 0.35 }}
-                                className={`flex-1 rounded-xl p-3 border ${
-                                    idx === 0 ? 'border-indigo-200 bg-indigo-50/50' : 'border-gray-100 bg-gray-50/50'
-                                }`}
-                            >
-                                <p className={`text-xs font-semibold mb-0.5 ${idx === 0 ? 'text-indigo-600' : 'text-gray-500'}`}>
-                                    {step.shortLabel}
-                                </p>
-                                <p className="text-gray-900 font-bold text-lg leading-tight">{step.time}</p>
-                                <p className="text-gray-400 text-[11px] mt-0.5">{step.duration}</p>
-                                {step.subtitle && (
-                                    <p className="text-gray-400 text-[10px] mt-0.5 line-clamp-2">{step.subtitle}</p>
-                                )}
-                            </motion.div>
-                        ))}
                     </div>
                 </div>
 
-                {/* Mobile vertical */}
+                {/* Mobile: Vertical */}
                 <div className="md:hidden space-y-0">
-                    {allSteps.map((step, idx) => {
-                        const cs = colorStyles[step.color] || colorStyles.gray;
-                        return (
-                            <motion.div key={idx}
-                                initial={{ opacity: 0, x: -10 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: idx * 0.05 + 0.1 }}
-                            >
-                                <div className="flex items-start gap-4">
-                                    <div className="flex flex-col items-center">
-                                        <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-                                            idx === 0 ? 'bg-indigo-600' : cs.bg
-                                        }`}>
-                                            <step.Icon className={`w-4 h-4 ${idx === 0 ? 'text-white' : cs.icon}`} />
-                                        </div>
-                                        {idx < allSteps.length - 1 && <div className="w-0.5 h-8 bg-gray-200 my-1" />}
+                    {timelineSteps.map((step, idx) => (
+                        <motion.div key={idx}
+                            initial={{ opacity: 0, x: -10 }}
+                            animate={{ opacity: 1, x: 0 }}
+                            transition={{ delay: idx * 0.06 + 0.1 }}
+                        >
+                            <div className="flex items-start gap-4">
+                                {/* Timeline rail */}
+                                <div className="flex flex-col items-center">
+                                    <div className={`w-10 h-10 rounded-xl ${step.bg} flex items-center justify-center shrink-0`}>
+                                        <step.Icon className={`w-4 h-4 ${step.iconColor}`} />
                                     </div>
-                                    <div className="pb-4 pt-1 flex-1">
-                                        <div className="flex items-center justify-between">
-                                            <p className={`font-semibold text-sm ${idx === 0 ? 'text-indigo-600' : 'text-gray-900'}`}>{step.shortLabel}</p>
-                                            <span className="text-sm font-bold text-gray-900">{step.time}</span>
-                                        </div>
-                                        <p className="text-xs text-gray-400 mt-0.5">{step.duration}</p>
-                                        {step.subtitle && <p className="text-xs text-gray-400 mt-0.5">{step.subtitle}</p>}
-                                    </div>
+                                    {idx < timelineSteps.length - 1 && (
+                                        <div className="w-0.5 h-8 bg-gray-200 my-1" />
+                                    )}
                                 </div>
-                            </motion.div>
-                        );
-                    })}
+
+                                {/* Content */}
+                                <div className="pb-4 pt-1">
+                                    <div className="flex items-center gap-2">
+                                        <p className="font-bold text-gray-900 text-sm">{step.shortLabel}</p>
+                                        <span className="text-xs font-mono text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-md">{step.time}</span>
+                                    </div>
+                                    <p className="text-xs text-gray-500 mt-0.5">{step.duration}</p>
+                                    {step.subtitle && <p className="text-xs text-indigo-600 font-medium mt-0.5">{step.subtitle}</p>}
+                                </div>
+                            </div>
+                        </motion.div>
+                    ))}
                 </div>
             </motion.div>
 
-            {/* ── BOARDING ROW ── */}
-            <div className="grid grid-cols-2 gap-4">
+            {/* ── BOARDING + DEPARTURE ROW ── */}
+            <motion.div
+                initial={{ opacity: 0, y: 16 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3, duration: 0.4 }}
+                className="grid grid-cols-2 gap-4 mb-6"
+            >
                 <div className="bg-white rounded-2xl border border-gray-200 p-5">
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Boarding</p>
-                    <p className="text-2xl md:text-3xl font-black text-indigo-600">{boarding}</p>
+                    <p className="text-2xl md:text-3xl font-black text-emerald-600">{boarding}</p>
                 </div>
                 <div className="bg-white rounded-2xl border border-gray-200 p-5">
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Flight Departs</p>
                     <p className="text-2xl md:text-3xl font-black text-gray-900">{departureTime}</p>
                 </div>
-            </div>
+            </motion.div>
 
-            {/* ── STATS BAR ── */}
+            {/* ── STATS BAR — reliability signal (data transparency builds trust) ── */}
             <motion.div
-                initial={{ opacity: 0, y: 12 }}
+                initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.35 }}
+                transition={{ delay: 0.4, duration: 0.4 }}
                 className="bg-white rounded-2xl border border-gray-200 overflow-hidden"
             >
-                <div className="grid divide-x divide-gray-100" style={{ gridTemplateColumns: `repeat(${stats.length}, 1fr)` }}>
-                    {stats.map(({ label, value, unit, highlight, isBuffer }) => (
-                        <div key={label} className={`flex flex-col items-center gap-0.5 px-2 py-4 text-center ${highlight ? 'bg-indigo-50' : ''}`}>
-                            <p className={`text-[9px] md:text-[10px] uppercase tracking-wider font-bold ${highlight ? 'text-indigo-500' : 'text-gray-400'}`}>{label}</p>
-                            <p className={`text-xl md:text-2xl font-black ${
-                                highlight ? 'text-indigo-600' : isBuffer ? 'text-emerald-600' : 'text-gray-900'
-                            }`}>{value}</p>
-                            <p className="text-[9px] text-gray-400">{unit}</p>
+                <div className={`grid divide-x divide-gray-100`}
+                    style={{ gridTemplateColumns: `repeat(${stats.length}, 1fr)` }}>
+                    {stats.map(({ label, value, unit, highlight }) => (
+                        <div key={label} className="flex flex-col items-center gap-1 px-3 py-4 text-center">
+                            <p className="text-[10px] md:text-xs uppercase tracking-wider font-bold text-gray-400">{label}</p>
+                            <p className={`text-xl md:text-2xl font-black ${highlight ? 'text-indigo-600' : 'text-gray-900'}`}>
+                                {value}
+                            </p>
+                            <p className="text-[10px] text-gray-400">{unit}</p>
                         </div>
                     ))}
                 </div>
             </motion.div>
-
-            {/* ── FLIGHT INFO ── */}
-            {selectedFlight && (
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.4 }}
-                    className="text-center text-sm text-gray-400 pb-4"
-                >
-                    {selectedFlight.flight_number} · {selectedFlight.origin_code} → {selectedFlight.destination_code} ·{' '}
-                    {selectedFlight.departure_terminal ? `Terminal ${selectedFlight.departure_terminal}` : 'Terminal TBD'} ·{' '}
-                    {selectedFlight.departure_gate ? `Gate ${selectedFlight.departure_gate}` : 'Gate TBD'} ·{' '}
-                    {totalToHM(totalMinutes)} door-to-gate
-                </motion.div>
-            )}
         </div>
     );
 }
