@@ -229,7 +229,7 @@ export default function Engine() {
 
     // ── Render ──────────────────────────────────────────────────────────────
     return (
-        <div className="min-h-screen bg-gray-50 font-sans antialiased">
+        <div className="min-h-screen bg-secondary/50 font-sans antialiased">
 
             {/* ── HEADER ── */}
             <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
