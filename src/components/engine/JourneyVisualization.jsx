@@ -376,14 +376,16 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Boarding</p>
                     <p className="text-2xl md:text-3xl font-black text-emerald-600">{boarding}</p>
                     {gateCushionMinutes > 0 && (
-                        <p className="text-xs text-gray-500 mt-1">{gateCushionMinutes} min cushion at gate</p>
+                        <p className="text-xs font-semibold text-emerald-600 mt-1">✓ {gateCushionMinutes} min cushion at gate</p>
                     )}
                 </div>
                 <div className="bg-white rounded-2xl border border-gray-200 p-5">
                     <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Flight Departs</p>
                     <p className="text-2xl md:text-3xl font-black text-gray-900">{departureTime}</p>
                     {selectedFlight?.departure_gate && (
-                        <p className="text-xs text-gray-500 mt-1">Gate {selectedFlight.departure_gate}</p>
+                        <span className="inline-flex items-center mt-1.5 px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-xs font-bold">
+                            Gate {selectedFlight.departure_gate}
+                        </span>
                     )}
                 </div>
             </motion.div>
