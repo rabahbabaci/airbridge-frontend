@@ -291,6 +291,23 @@ export default function Engine() {
 
     const canSearch = flightNumber.trim().length > 0 && departureDate.length > 0;
 
+    // Shared input field style
+    const inputBoxStyle = { border: '1px solid rgba(255,255,255,0.1)', background: 'rgba(255,255,255,0.05)' };
+    const inputBoxActiveStyle = { border: '1px solid rgba(59,130,246,0.4)', background: 'rgba(59,130,246,0.08)' };
+
+    // Individual field animation with stagger
+    const fieldVariants = {
+        hidden: { opacity: 0, y: 20, filter: 'blur(4px)' },
+        visible: (i) => ({
+            opacity: 1, y: 0, filter: 'blur(0px)',
+            transition: { delay: i * 0.08, duration: 0.4, ease: [0.4, 0, 0.2, 1] }
+        }),
+        exit: (i) => ({
+            opacity: 0, y: -15, filter: 'blur(4px)',
+            transition: { delay: i * 0.04, duration: 0.25, ease: [0.4, 0, 1, 1] }
+        }),
+    };
+
     return (
         <div className="w-screen flex flex-col overflow-hidden bg-gray-950 font-sans antialiased" style={{ height: '100dvh' }}>
 
@@ -342,138 +359,152 @@ export default function Engine() {
                     {viewMode === 'setup' && (
                         <motion.div
                             key="setup-view"
-                            initial={{ opacity: 0, y: 30, scale: 0.97 }}
-                            animate={{ opacity: 1, y: 0, scale: 1 }}
-                            exit={{ opacity: 0, y: -30, scale: 0.97 }}
-                            transition={{ duration: 0.45, ease: [0.4, 0, 0.2, 1] }}
-                            className="w-full max-w-[480px] mx-auto flex flex-col overflow-hidden rounded-2xl shadow-2xl"
-                            style={{ background: '#ffffff', maxHeight: 'calc(100dvh - 80px)' }}
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            exit={{ opacity: 0, scale: 0.97 }}
+                            transition={{ duration: 0.4, ease: [0.4, 0, 0.2, 1] }}
+                            className="w-full max-w-[480px] mx-auto flex flex-col overflow-hidden px-4"
+                            style={{ maxHeight: 'calc(100dvh - 80px)' }}
                         >
                             <div className="flex flex-col flex-1 overflow-hidden">
-                                {/* Fixed header */}
-                                <div className="px-7 pt-6 pb-2 shrink-0">
-                                    <h1 className="text-lg font-bold text-gray-900">Departure Setup</h1>
-                                    <p className="text-xs text-gray-400 mt-0.5">
-                                        {step === 1 && 'Enter your flight details'}
-                                        {step === 2 && 'Select your departure'}
-                                        {step === 3 && 'Customize your journey'}
-                                    </p>
+                                {/* Header — always visible, animates subtitle */}
+                                <div className="pt-4 pb-3 shrink-0">
+                                    <motion.h1
+                                        layout
+                                        className="text-xl font-bold text-white"
+                                    >
+                                        Departure Setup
+                                    </motion.h1>
+                                    <AnimatePresence mode="wait">
+                                        <motion.p
+                                            key={`subtitle-${step}`}
+                                            initial={{ opacity: 0, x: 10 }}
+                                            animate={{ opacity: 1, x: 0 }}
+                                            exit={{ opacity: 0, x: -10 }}
+                                            transition={{ duration: 0.2 }}
+                                            className="text-xs text-gray-500 mt-1"
+                                        >
+                                            {step === 1 && 'Enter your flight details'}
+                                            {step === 2 && 'Select your departure'}
+                                            {step === 3 && 'Customize your journey'}
+                                        </motion.p>
+                                    </AnimatePresence>
                                 </div>
 
-                                {/* Animated step content */}
+                                {/* Step dots */}
+                                <div className="shrink-0 pb-2">
+                                    <StepDots step={step} />
+                                </div>
+
+                                {/* Animated step content — no card, fields animate individually */}
                                 <div className="flex-1 min-h-0 overflow-y-auto relative">
                                     <AnimatePresence mode="wait" custom={dir}>
 
                                         {/* ── STEP 1 ── */}
                                         {step === 1 && (
-                                            <motion.div key="step1" custom={dir}
-                                                variants={slideVariants} initial="enter" animate="center" exit="exit"
-                                                transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-                                                className="px-7 pt-4 pb-4 flex flex-col gap-4">
-                                                <StepDots step={1} />
+                                            <motion.div key="step1"
+                                                initial="hidden" animate="visible" exit="exit"
+                                                className="pt-2 pb-4 flex flex-col gap-5">
 
-                                                <div className="space-y-4">
-                                                    <div>
-                                                        <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Flight Number</label>
-                                                        <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
-                                                            style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                                                            <Plane className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                                            <Input value={flightNumber} onChange={e => setFlightNumber(e.target.value)}
-                                                                placeholder="e.g. UA 452"
-                                                                onKeyDown={e => e.key === 'Enter' && canSearch && handleFindFlight()}
-                                                                className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-gray-900 font-medium" />
-                                                        </div>
+                                                <motion.div custom={0} variants={fieldVariants}>
+                                                    <label className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold block mb-2">Flight Number</label>
+                                                    <div className="flex items-center gap-2 rounded-xl px-3.5 py-3 transition-all duration-200"
+                                                        style={inputBoxStyle}>
+                                                        <Plane className="w-4 h-4 text-gray-500 shrink-0" />
+                                                        <Input value={flightNumber} onChange={e => setFlightNumber(e.target.value)}
+                                                            placeholder="e.g. UA 452"
+                                                            onKeyDown={e => e.key === 'Enter' && canSearch && handleFindFlight()}
+                                                            className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-white font-medium placeholder:text-gray-600" />
                                                     </div>
+                                                </motion.div>
 
-                                                    <div>
-                                                        <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Starting Address</label>
-                                                        <div className="flex items-center gap-2 rounded-xl px-3 py-2.5"
-                                                            style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                                                            <MapPin className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                                            <Input value={startingAddress} onChange={e => setStartingAddress(e.target.value)}
-                                                                placeholder="e.g. 123 Main St, San Francisco"
-                                                                className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-gray-900 font-medium" />
-                                                        </div>
+                                                <motion.div custom={1} variants={fieldVariants}>
+                                                    <label className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold block mb-2">Starting Address</label>
+                                                    <div className="flex items-center gap-2 rounded-xl px-3.5 py-3 transition-all duration-200"
+                                                        style={inputBoxStyle}>
+                                                        <MapPin className="w-4 h-4 text-gray-500 shrink-0" />
+                                                        <Input value={startingAddress} onChange={e => setStartingAddress(e.target.value)}
+                                                            placeholder="e.g. 123 Main St, San Francisco"
+                                                            className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-white font-medium placeholder:text-gray-600" />
                                                     </div>
+                                                </motion.div>
 
-                                                    <div>
-                                                        <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Departure Date</label>
-                                                        <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                                                            <PopoverTrigger asChild>
-                                                                <div className="flex items-center gap-2 rounded-xl px-3 py-2.5 cursor-pointer hover:opacity-80 transition-opacity"
-                                                                    style={{ border: '1px solid #e5e7eb', background: '#f9fafb' }}>
-                                                                    <Calendar className="w-3.5 h-3.5 text-gray-400 shrink-0" />
-                                                                    <span className="flex-1 text-sm text-gray-900 font-medium">
-                                                                        {departureDate ? new Date(departureDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Select date'}
-                                                                    </span>
-                                                                </div>
-                                                            </PopoverTrigger>
-                                                            <PopoverContent className="w-auto p-0" align="start">
-                                                                <CalendarComponent
-                                                                    mode="single"
-                                                                    selected={departureDate ? new Date(departureDate + 'T00:00:00') : undefined}
-                                                                    onSelect={(date) => {
-                                                                        if (date) {
-                                                                            setDepartureDate(date.toISOString().split('T')[0]);
-                                                                            setCalendarOpen(false);
-                                                                        }
-                                                                    }}
-                                                                    disabled={(date) => {
-                                                                        const today = new Date();
-                                                                        today.setHours(0, 0, 0, 0);
-                                                                        const compareDate = new Date(date);
-                                                                        compareDate.setHours(0, 0, 0, 0);
-                                                                        return compareDate < today;
-                                                                    }}
-                                                                />
-                                                            </PopoverContent>
-                                                        </Popover>
-                                                    </div>
-                                                </div>
+                                                <motion.div custom={2} variants={fieldVariants}>
+                                                    <label className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold block mb-2">Departure Date</label>
+                                                    <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                                                        <PopoverTrigger asChild>
+                                                            <div className="flex items-center gap-2 rounded-xl px-3.5 py-3 cursor-pointer hover:opacity-80 transition-all duration-200"
+                                                                style={inputBoxStyle}>
+                                                                <Calendar className="w-4 h-4 text-gray-500 shrink-0" />
+                                                                <span className="flex-1 text-sm font-medium" style={{ color: departureDate ? '#fff' : '#4b5563' }}>
+                                                                    {departureDate ? new Date(departureDate + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : 'Select date'}
+                                                                </span>
+                                                            </div>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-auto p-0" align="start">
+                                                            <CalendarComponent
+                                                                mode="single"
+                                                                selected={departureDate ? new Date(departureDate + 'T00:00:00') : undefined}
+                                                                onSelect={(date) => {
+                                                                    if (date) {
+                                                                        setDepartureDate(date.toISOString().split('T')[0]);
+                                                                        setCalendarOpen(false);
+                                                                    }
+                                                                }}
+                                                                disabled={(date) => {
+                                                                    const today = new Date();
+                                                                    today.setHours(0, 0, 0, 0);
+                                                                    const compareDate = new Date(date);
+                                                                    compareDate.setHours(0, 0, 0, 0);
+                                                                    return compareDate < today;
+                                                                }}
+                                                            />
+                                                        </PopoverContent>
+                                                    </Popover>
+                                                </motion.div>
                                             </motion.div>
                                         )}
 
                                         {/* ── STEP 2 ── */}
                                         {step === 2 && (
-                                            <motion.div key="step2" custom={dir}
-                                                variants={slideVariants} initial="enter" animate="center" exit="exit"
-                                                transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-                                                className="px-7 pt-4 pb-4 flex flex-col gap-4">
-                                                <StepDots step={2} />
+                                            <motion.div key="step2"
+                                                initial="hidden" animate="visible" exit="exit"
+                                                className="pt-2 pb-4 flex flex-col gap-4">
 
-                                                <div className="flex items-center gap-2 px-3 py-2 rounded-xl"
-                                                    style={{ background: '#f0f5ff', border: '1px solid #c7d7fd' }}>
-                                                    <Plane className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                                                    <span className="text-xs font-bold text-blue-700">
+                                                <motion.div custom={0} variants={fieldVariants}
+                                                    className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl"
+                                                    style={{ background: 'rgba(59,130,246,0.1)', border: '1px solid rgba(59,130,246,0.2)' }}>
+                                                    <Plane className="w-3.5 h-3.5 text-blue-400 shrink-0" />
+                                                    <span className="text-xs font-bold text-blue-300">
                                                         {flightNumber.toUpperCase()}
                                                     </span>
-                                                    <span className="text-[10px] text-blue-400 ml-1">
+                                                    <span className="text-[10px] text-blue-500 ml-1">
                                                         {new Date(departureDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
                                                     </span>
                                                     <button onClick={() => goTo(1)}
-                                                        className="ml-auto text-[10px] text-blue-400 hover:text-blue-600 flex items-center gap-0.5 font-medium">
+                                                        className="ml-auto text-[10px] text-blue-400 hover:text-blue-300 flex items-center gap-0.5 font-medium">
                                                         <ArrowLeft className="w-3 h-3" /> Edit
                                                     </button>
-                                                </div>
+                                                </motion.div>
 
-                                                <div>
-                                                    <p className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold mb-2">Select your departure</p>
+                                                <motion.div custom={1} variants={fieldVariants}>
+                                                    <p className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold mb-2">Select your departure</p>
 
                                                     {searching ? (
                                                         <div className="flex flex-col gap-2">
                                                             {[1, 2].map(i => (
                                                                 <motion.div key={i}
-                                                                    animate={{ opacity: [0.4, 0.9, 0.4] }}
+                                                                    animate={{ opacity: [0.3, 0.6, 0.3] }}
                                                                     transition={{ repeat: Infinity, duration: 1.4, delay: i * 0.2 }}
                                                                     className="h-20 rounded-xl"
-                                                                    style={{ background: '#f3f4f6' }} />
+                                                                    style={{ background: 'rgba(255,255,255,0.05)' }} />
                                                             ))}
-                                                            <p className="text-[11px] text-gray-400 text-center mt-1">Searching flights...</p>
+                                                            <p className="text-[11px] text-gray-500 text-center mt-1">Searching flights...</p>
                                                         </div>
                                                     ) : flightOptions.length === 0 ? (
                                                         <div className="text-center py-8">
-                                                            <p className="text-sm text-gray-400">No flights found.</p>
-                                                            <button onClick={() => goTo(1)} className="text-xs text-blue-500 mt-2 font-medium">← Go back</button>
+                                                            <p className="text-sm text-gray-500">No flights found.</p>
+                                                            <button onClick={() => goTo(1)} className="text-xs text-blue-400 mt-2 font-medium">← Go back</button>
                                                         </div>
                                                     ) : (
                                                         <div className="flex flex-col gap-2">
@@ -481,159 +512,158 @@ export default function Engine() {
                                                             const isDisabled = f.departed || f.canceled || f.is_boarding;
                                                             return (
                                                                 <motion.button key={i}
-                                                                    initial={{ opacity: 0, y: 12 }}
-                                                                    animate={{ opacity: 1, y: 0 }}
-                                                                    transition={{ delay: i * 0.08, duration: 0.3 }}
+                                                                    custom={i + 2}
+                                                                    variants={fieldVariants}
                                                                     onClick={() => !isDisabled && handleSelectFlight(f)}
                                                                     disabled={isDisabled}
-                                                                    className="w-full text-left rounded-xl px-4 py-3.5 transition-all duration-100"
+                                                                    className="w-full text-left rounded-xl px-4 py-3.5 transition-all duration-200"
                                                                     style={{
-                                                                        border: (f.departed || f.is_boarding) ? '1px solid #fca5a5' : '1px solid #e5e7eb',
-                                                                        background: (f.departed || f.is_boarding) ? '#fef2f2' : '#f9fafb',
+                                                                        border: (f.departed || f.is_boarding) ? '1px solid rgba(252,165,165,0.3)' : '1px solid rgba(255,255,255,0.1)',
+                                                                        background: (f.departed || f.is_boarding) ? 'rgba(239,68,68,0.08)' : 'rgba(255,255,255,0.04)',
                                                                         opacity: (f.departed || f.canceled || f.is_boarding) ? 0.5 : 1,
                                                                         cursor: (f.departed || f.canceled || f.is_boarding) ? 'not-allowed' : 'pointer',
                                                                     }}
-                                                                    whileHover={!isDisabled ? { borderColor: '#93c5fd', background: '#eff6ff', transition: { duration: 0.1 } } : {}}>
+                                                                    whileHover={!isDisabled ? { borderColor: 'rgba(147,197,253,0.4)', background: 'rgba(59,130,246,0.08)', transition: { duration: 0.15 } } : {}}>
                                                                     <div className="flex items-center justify-between mb-2">
                                                                         <div className="flex items-center gap-3">
-                                                                            <span className={`text-xl font-black ${(f.departed || f.canceled || f.is_boarding) ? 'text-gray-400 line-through' : 'text-gray-900'}`}>
+                                                                            <span className={`text-xl font-black ${(f.departed || f.canceled || f.is_boarding) ? 'text-gray-600 line-through' : 'text-white'}`}>
                                                                                 {formatLocalTime(f.departure_time)}
                                                                             </span>
                                                                             <div className="flex items-center gap-1">
-                                                                                <div className="w-8 h-px bg-gray-300" />
-                                                                                <Plane className="w-3 h-3 text-gray-400" />
-                                                                                <div className="w-8 h-px bg-gray-300" />
+                                                                                <div className="w-8 h-px" style={{ background: 'rgba(255,255,255,0.2)' }} />
+                                                                                <Plane className="w-3 h-3 text-gray-500" />
+                                                                                <div className="w-8 h-px" style={{ background: 'rgba(255,255,255,0.2)' }} />
                                                                             </div>
-                                                                            <span className="text-sm font-semibold text-gray-500">{formatLocalTime(f.arrival_time)}</span>
+                                                                            <span className="text-sm font-semibold text-gray-400">{formatLocalTime(f.arrival_time)}</span>
                                                                         </div>
                                                                         {f.departed && (
-                                                                            <span className="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full border border-red-200">
+                                                                            <span className="text-[10px] font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20">
                                                                                 Departed
                                                                             </span>
                                                                         )}
                                                                         {f.is_boarding && (
-                                                                            <span className="text-[10px] font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-full border border-amber-200">
+                                                                            <span className="text-[10px] font-bold text-amber-400 bg-amber-500/10 px-2 py-0.5 rounded-full border border-amber-500/20">
                                                                                 Boarding Now
                                                                             </span>
                                                                         )}
                                                                         {f.canceled && (
-                                                                            <span className="text-[10px] font-bold text-red-500 bg-red-50 px-2 py-0.5 rounded-full border border-red-200">
+                                                                            <span className="text-[10px] font-bold text-red-400 bg-red-500/10 px-2 py-0.5 rounded-full border border-red-500/20">
                                                                                 Canceled
                                                                             </span>
                                                                         )}
                                                                     </div>
                                                                     <div className="flex items-center gap-1.5">
-                                                                        <span className="text-[11px] font-semibold text-gray-600">{f.flight_number}</span>
-                                                                        <span className="text-[10px] text-gray-400 ml-1">·</span>
-                                                                        <span className="text-[11px] font-semibold text-gray-600 ml-1">{f.origin_code}</span>
-                                                                        <span className="text-[10px] text-gray-400">→</span>
-                                                                        <span className="text-[11px] font-semibold text-gray-600">{f.destination_code}</span>
-                                                                        <span className="text-[10px] text-gray-400 ml-2">· {f.terminal}</span>
+                                                                        <span className="text-[11px] font-semibold text-gray-400">{f.flight_number}</span>
+                                                                        <span className="text-[10px] text-gray-600 ml-1">·</span>
+                                                                        <span className="text-[11px] font-semibold text-gray-400 ml-1">{f.origin_code}</span>
+                                                                        <span className="text-[10px] text-gray-600">→</span>
+                                                                        <span className="text-[11px] font-semibold text-gray-400">{f.destination_code}</span>
+                                                                        <span className="text-[10px] text-gray-600 ml-2">· {f.terminal}</span>
                                                                     </div>
                                                                     {f.is_delayed && f.revised_departure_local && f.departure_time && (() => {
                                                                         const scheduled = parseTimeToDate(f.departure_time);
                                                                         const revised = parseTimeToDate(f.revised_departure_local);
                                                                         if (scheduled && revised && revised > scheduled) {
-                                                                            return <p className="text-[10px] text-orange-500 font-medium mt-1">⚠️ Delayed — now expected {formatLocalTime(f.revised_departure_local)}</p>;
+                                                                            return <p className="text-[10px] text-orange-400 font-medium mt-1">⚠️ Delayed — now expected {formatLocalTime(f.revised_departure_local)}</p>;
                                                                         }
                                                                         return null;
                                                                     })()}
                                                                     {f.time_warning && !isDisabled && (
-                                                                        <p className="text-[10px] text-amber-600 font-medium mt-1.5">⚠️ {f.time_warning}</p>
+                                                                        <p className="text-[10px] text-amber-400 font-medium mt-1.5">⚠️ {f.time_warning}</p>
                                                                     )}
                                                                 </motion.button>
                                                             );
                                                         })}
                                                         </div>
                                                     )}
-                                                </div>
+                                                </motion.div>
                                             </motion.div>
                                         )}
 
                                         {/* ── STEP 3 ── */}
                                         {step === 3 && (
-                                            <motion.div key="step3" custom={dir}
-                                                variants={slideVariants} initial="enter" animate="center" exit="exit"
-                                                transition={{ duration: 0.3, ease: [0.4, 0, 0.2, 1] }}
-                                                className="px-7 pt-4 pb-10 flex flex-col gap-4">
-                                                <StepDots step={3} />
+                                            <motion.div key="step3"
+                                                initial="hidden" animate="visible" exit="exit"
+                                                className="pt-2 pb-10 flex flex-col gap-5">
 
                                                 {selectedFlight && (
-                                                    <div className="flex items-center gap-2 px-3 py-2.5 rounded-xl"
-                                                        style={{ background: '#f0fdf4', border: '1px solid #bbf7d0' }}>
-                                                        <CheckCircle2 className="w-3.5 h-3.5 text-green-500 shrink-0" />
+                                                    <motion.div custom={0} variants={fieldVariants}
+                                                        className="flex items-center gap-2 px-3.5 py-2.5 rounded-xl"
+                                                        style={{ background: 'rgba(34,197,94,0.08)', border: '1px solid rgba(34,197,94,0.2)' }}>
+                                                        <CheckCircle2 className="w-3.5 h-3.5 text-green-400 shrink-0" />
                                                         <div className="flex-1 min-w-0">
-                                                            <p className="text-xs font-bold text-green-800">
+                                                            <p className="text-xs font-bold text-green-300">
                                                                 {flightNumber.toUpperCase()} · {formatLocalTime(selectedFlight.departure_time)}
                                                             </p>
-                                                            <p className="text-[10px] text-green-600">{selectedFlight.origin_code} → {selectedFlight.destination_code}</p>
+                                                            <p className="text-[10px] text-green-500">{selectedFlight.origin_code} → {selectedFlight.destination_code}</p>
                                                         </div>
                                                         <button onClick={() => goTo(2)}
-                                                            className="text-[10px] text-green-500 hover:text-green-700 flex items-center gap-0.5 font-medium shrink-0">
+                                                            className="text-[10px] text-green-400 hover:text-green-300 flex items-center gap-0.5 font-medium shrink-0">
                                                             <ArrowLeft className="w-3 h-3" /> Change
                                                         </button>
-                                                    </div>
+                                                    </motion.div>
                                                 )}
 
                                                 {/* Transport Mode */}
-                                                <div>
-                                                    <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">Transportation Mode</label>
+                                                <motion.div custom={1} variants={fieldVariants}>
+                                                    <label className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold block mb-2">Transportation Mode</label>
                                                     <div className="flex gap-1.5">
                                                         {transportModes.map(m => (
                                                             <button key={m.id} onClick={() => setTransport(m.id)}
                                                                 className="flex-1 flex flex-col items-center gap-1 py-2.5 rounded-xl text-[10px] font-semibold transition-all duration-200"
                                                                 style={{
-                                                                    border: transport === m.id ? '1.5px solid #3b82f6' : '1px solid #e5e7eb',
-                                                                    background: transport === m.id ? '#eff6ff' : '#f9fafb',
-                                                                    color: transport === m.id ? '#1d4ed8' : '#9ca3af',
+                                                                    border: transport === m.id ? '1.5px solid rgba(59,130,246,0.5)' : '1px solid rgba(255,255,255,0.1)',
+                                                                    background: transport === m.id ? 'rgba(59,130,246,0.12)' : 'rgba(255,255,255,0.04)',
+                                                                    color: transport === m.id ? '#93c5fd' : '#6b7280',
                                                                 }}>
                                                                 <m.icon className="w-4 h-4" />
                                                                 {m.label}
                                                             </button>
                                                         ))}
                                                     </div>
-                                                </div>
+                                                </motion.div>
 
                                                 {/* Confidence Profile */}
-                                                <div>
-                                                    <label className="text-[10px] text-gray-400 uppercase tracking-wider font-semibold block mb-1.5">How Much Time Do You Want?</label>
+                                                <motion.div custom={2} variants={fieldVariants}>
+                                                    <label className="text-[10px] text-gray-500 uppercase tracking-wider font-semibold block mb-2">How Much Time Do You Want?</label>
                                                     <div className="flex gap-2">
                                                         {confidenceProfiles.map(p => (
                                                             <button key={p.id} onClick={() => setSelectedProfile(p.id)}
                                                                 className="flex-1 flex flex-col items-center gap-1.5 px-2 py-3 rounded-xl text-center transition-all duration-200"
                                                                 style={{
-                                                                    border: selectedProfile === p.id ? '1.5px solid #93c5fd' : '1px solid #e5e7eb',
-                                                                    background: selectedProfile === p.id ? '#eff6ff' : '#f9fafb',
+                                                                    border: selectedProfile === p.id ? '1.5px solid rgba(147,197,253,0.4)' : '1px solid rgba(255,255,255,0.1)',
+                                                                    background: selectedProfile === p.id ? 'rgba(59,130,246,0.12)' : 'rgba(255,255,255,0.04)',
                                                                 }}>
                                                                 <div className="w-7 h-7 rounded-lg flex items-center justify-center"
-                                                                    style={{ background: selectedProfile === p.id ? 'linear-gradient(135deg,#3b82f6,#8b5cf6)' : '#e5e7eb' }}>
-                                                                    <p.icon className="w-3.5 h-3.5" style={{ color: selectedProfile === p.id ? '#fff' : '#9ca3af' }} />
+                                                                    style={{ background: selectedProfile === p.id ? 'linear-gradient(135deg,#3b82f6,#8b5cf6)' : 'rgba(255,255,255,0.08)' }}>
+                                                                    <p.icon className="w-3.5 h-3.5" style={{ color: selectedProfile === p.id ? '#fff' : '#6b7280' }} />
                                                                 </div>
-                                                                <p className="text-[11px] font-semibold leading-tight" style={{ color: selectedProfile === p.id ? '#1d4ed8' : '#111827' }}>{p.name}</p>
-                                                                <p className="text-[9px] text-gray-400 leading-tight">{p.desc}</p>
+                                                                <p className="text-[11px] font-semibold leading-tight" style={{ color: selectedProfile === p.id ? '#93c5fd' : '#d1d5db' }}>{p.name}</p>
+                                                                <p className="text-[9px] leading-tight" style={{ color: '#6b7280' }}>{p.desc}</p>
                                                             </button>
                                                         ))}
                                                     </div>
-                                                </div>
+                                                </motion.div>
 
                                                 {/* Advanced Options */}
-                                                <div className="rounded-xl overflow-hidden" style={{ border: '1px solid #e5e7eb' }}>
-                                                    <div className="px-4 py-3 text-[10px] font-semibold text-gray-400 uppercase tracking-wider" style={{ borderBottom: '1px solid #f1f5f9' }}>
+                                                <motion.div custom={3} variants={fieldVariants}
+                                                    className="rounded-xl overflow-hidden" style={{ border: '1px solid rgba(255,255,255,0.1)' }}>
+                                                    <div className="px-4 py-3 text-[10px] font-semibold text-gray-500 uppercase tracking-wider" style={{ borderBottom: '1px solid rgba(255,255,255,0.06)' }}>
                                                         Advanced Options
                                                     </div>
                                                     <div className="px-4 pb-4 space-y-4 pt-3">
                                                         <div className="flex items-center justify-between">
                                                             <div>
-                                                                <p className="text-xs text-gray-700 font-medium">Checked baggage</p>
+                                                                <p className="text-xs text-gray-300 font-medium">Checked baggage</p>
                                                                 <AnimatePresence>
                                                                     {hasBaggage && (
                                                                         <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
                                                                             className="flex items-center gap-1.5 mt-1 overflow-hidden">
-                                                                            <span className="text-[10px] text-gray-400">Bags:</span>
+                                                                            <span className="text-[10px] text-gray-500">Bags:</span>
                                                                             {[1, 2, 3].map(n => (
                                                                                 <button key={n} onClick={() => setBaggageCount(n)}
                                                                                     className="w-6 h-6 rounded text-[10px] font-semibold border transition-all"
-                                                                                    style={{ background: baggageCount === n ? '#2563eb' : '#f9fafb', color: baggageCount === n ? '#fff' : '#6b7280', borderColor: baggageCount === n ? '#2563eb' : '#e5e7eb' }}>
+                                                                                    style={{ background: baggageCount === n ? '#2563eb' : 'rgba(255,255,255,0.05)', color: baggageCount === n ? '#fff' : '#9ca3af', borderColor: baggageCount === n ? '#2563eb' : 'rgba(255,255,255,0.1)' }}>
                                                                                     {n}
                                                                                 </button>
                                                                             ))}
@@ -644,40 +674,41 @@ export default function Engine() {
                                                             <Toggle on={hasBaggage} onToggle={() => setHasBaggage(b => !b)} />
                                                         </div>
                                                         <div className="flex items-center justify-between">
-                                                            <p className="text-xs text-gray-700 font-medium">Traveling with children</p>
+                                                            <p className="text-xs text-gray-300 font-medium">Traveling with children</p>
                                                             <Toggle on={withChildren} onToggle={() => setWithChildren(prev => !prev)} />
                                                         </div>
                                                         <div>
-                                                            <p className="text-xs text-gray-700 font-medium mb-2">Extra airport time</p>
+                                                            <p className="text-xs text-gray-300 font-medium mb-2">Extra airport time</p>
                                                             <div className="flex gap-2">
                                                                 {['none', '+15', '+30'].map(v => (
                                                                     <button key={v} onClick={() => setExtraTime(v)}
                                                                         className="flex-1 text-[10px] py-1.5 rounded-lg font-semibold border transition-all"
-                                                                        style={{ background: extraTime === v ? '#2563eb' : '#f9fafb', color: extraTime === v ? '#fff' : '#6b7280', borderColor: extraTime === v ? '#2563eb' : '#e5e7eb' }}>
+                                                                        style={{ background: extraTime === v ? '#2563eb' : 'rgba(255,255,255,0.05)', color: extraTime === v ? '#fff' : '#9ca3af', borderColor: extraTime === v ? '#2563eb' : 'rgba(255,255,255,0.1)' }}>
                                                                         {v === 'none' ? 'None' : v + ' min'}
                                                                     </button>
                                                                 ))}
                                                             </div>
                                                         </div>
                                                     </div>
-                                                </div>
+                                                </motion.div>
                                             </motion.div>
                                         )}
                                     </AnimatePresence>
                                 </div>
 
                                 {/* CTA — pinned */}
-                                <div className="px-7 py-4 pb-6 md:pb-4 shrink-0" style={{ borderTop: '1px solid #f1f5f9' }}>
+                                <div className="py-4 pb-6 md:pb-4 shrink-0">
                                     <AnimatePresence mode="wait">
                                         {step === 1 && (
-                                            <motion.button key="search" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                            <motion.button key="search" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+                                                transition={{ duration: 0.25 }}
                                                 onClick={handleFindFlight}
                                                 disabled={!canSearch}
                                                 className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold transition-all"
                                                 style={{
-                                                    background: canSearch ? 'linear-gradient(135deg, #2563eb, #7c3aed)' : '#f3f4f6',
+                                                    background: canSearch ? 'linear-gradient(135deg, #2563eb, #7c3aed)' : 'rgba(255,255,255,0.05)',
                                                     boxShadow: canSearch ? '0 4px 24px rgba(37,99,235,0.3)' : 'none',
-                                                    color: canSearch ? '#fff' : '#9ca3af',
+                                                    color: canSearch ? '#fff' : '#4b5563',
                                                     cursor: canSearch ? 'pointer' : 'not-allowed',
                                                 }}>
                                                 <Search className="w-4 h-4" />
@@ -688,13 +719,15 @@ export default function Engine() {
                                         {step === 2 && !searching && flightOptions.length === 0 && (
                                             <motion.button key="back2" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
                                                 onClick={() => goTo(1)}
-                                                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold border border-gray-200 text-gray-600 hover:bg-gray-50 transition-all">
+                                                className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold transition-all"
+                                                style={{ border: '1px solid rgba(255,255,255,0.1)', color: '#9ca3af' }}>
                                                 <ArrowLeft className="w-4 h-4" /> Go back
                                             </motion.button>
                                         )}
 
                                         {step === 3 && (
-                                            <motion.button key="lock" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+                                            <motion.button key="lock" initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+                                                transition={{ duration: 0.25 }}
                                                 onClick={handleLockIn}
                                                 className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl text-sm font-semibold text-white transition-all"
                                                 style={{
@@ -709,7 +742,7 @@ export default function Engine() {
 
                                     {step === 3 && (
                                         <button onClick={handleReset}
-                                            className="w-full text-center text-[11px] text-gray-400 hover:text-gray-600 mt-2 transition-colors">
+                                            className="w-full text-center text-[11px] text-gray-600 hover:text-gray-400 mt-2 transition-colors">
                                             ← Start over
                                         </button>
                                     )}
@@ -801,6 +834,11 @@ export default function Engine() {
                         </motion.div>
                     )}
 
+                </AnimatePresence>
+            </div>
+        </div>
+    );
+}
                 </AnimatePresence>
             </div>
         </div>
