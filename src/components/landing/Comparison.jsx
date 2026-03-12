@@ -43,10 +43,10 @@ export default function Comparison() {
                     viewport={{ once: true }}
                     className="text-center mb-16"
                 >
-                    <h2 className="text-4xl lg:text-5xl font-bold text-foreground">
+                    <h2 className="text-3xl sm:text-4xl lg:text-5xl font-bold text-foreground">
                         Not Just Another Travel App
                     </h2>
-                    <p className="text-muted-foreground mt-4 text-lg">
+                    <p className="text-muted-foreground mt-4 text-base sm:text-lg">
                         See how AirBridge compares to what you're using today.
                     </p>
                 </motion.div>
@@ -57,8 +57,8 @@ export default function Comparison() {
                     viewport={{ once: true }}
                     className="bg-card rounded-3xl border border-border shadow-lg overflow-hidden"
                 >
-                    {/* Header */}
-                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-6 bg-secondary border-b border-border">
+                    {/* Header — responsive: stacks on small screens */}
+                    <div className="hidden sm:grid grid-cols-4 gap-4 p-6 bg-secondary border-b border-border">
                         <div className="text-sm font-medium text-muted-foreground">Feature</div>
                         <div className="text-center">
                             <div className="text-sm font-medium text-foreground">Google Maps</div>
@@ -73,6 +73,16 @@ export default function Comparison() {
                         </div>
                     </div>
 
+                    {/* Mobile header */}
+                    <div className="sm:hidden p-4 bg-secondary border-b border-border">
+                        <div className="flex items-center justify-between">
+                            <span className="text-xs font-medium text-muted-foreground">Feature comparison</span>
+                            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-primary">
+                                <span className="text-xs font-semibold text-primary-foreground">AirBridge</span>
+                            </div>
+                        </div>
+                    </div>
+
                     {/* Rows */}
                     <div className="divide-y divide-border">
                         {features.map((feature, index) => (
@@ -82,19 +92,40 @@ export default function Comparison() {
                                 whileInView={{ opacity: 1, x: 0 }}
                                 viewport={{ once: true }}
                                 transition={{ delay: index * 0.05 }}
-                                className="grid grid-cols-2 sm:grid-cols-4 gap-4 p-6 hover:bg-secondary/50 transition-colors"
                             >
-                                <div className="text-sm text-foreground font-medium flex items-center">
-                                    {feature.name}
+                                {/* Desktop row */}
+                                <div className="hidden sm:grid grid-cols-4 gap-4 p-6 hover:bg-secondary/50 transition-colors">
+                                    <div className="text-sm text-foreground font-medium flex items-center">
+                                        {feature.name}
+                                    </div>
+                                    <div className="flex justify-center">
+                                        <FeatureStatus value={feature.google} />
+                                    </div>
+                                    <div className="flex justify-center">
+                                        <FeatureStatus value={feature.airline} />
+                                    </div>
+                                    <div className="flex justify-center">
+                                        <FeatureStatus value={feature.airbridge} />
+                                    </div>
                                 </div>
-                                <div className="flex justify-center">
-                                    <FeatureStatus value={feature.google} />
-                                </div>
-                                <div className="flex justify-center">
-                                    <FeatureStatus value={feature.airline} />
-                                </div>
-                                <div className="flex justify-center">
-                                    <FeatureStatus value={feature.airbridge} />
+
+                                {/* Mobile row — card layout */}
+                                <div className="sm:hidden px-4 py-4 hover:bg-secondary/50 transition-colors">
+                                    <p className="text-sm font-medium text-foreground mb-2.5">{feature.name}</p>
+                                    <div className="flex items-center gap-4">
+                                        <div className="flex items-center gap-1.5">
+                                            <FeatureStatus value={feature.google} />
+                                            <span className="text-[10px] text-muted-foreground">Maps</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                            <FeatureStatus value={feature.airline} />
+                                            <span className="text-[10px] text-muted-foreground">Airline</span>
+                                        </div>
+                                        <div className="flex items-center gap-1.5">
+                                            <FeatureStatus value={feature.airbridge} />
+                                            <span className="text-[10px] text-primary font-semibold">AirBridge</span>
+                                        </div>
+                                    </div>
                                 </div>
                             </motion.div>
                         ))}
@@ -102,7 +133,7 @@ export default function Comparison() {
                 </motion.div>
 
                 {/* Legend */}
-                <div className="flex flex-wrap justify-center gap-8 mt-8 text-sm text-muted-foreground">
+                <div className="flex flex-wrap justify-center gap-6 sm:gap-8 mt-8 text-sm text-muted-foreground">
                     <div className="flex items-center gap-2">
                         <div className="w-5 h-5 rounded-full bg-emerald-100 flex items-center justify-center">
                             <Check className="w-3 h-3 text-emerald-600" />

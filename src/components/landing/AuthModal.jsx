@@ -6,7 +6,7 @@ function SocialButton({ icon, label, onClick }) {
     return (
         <button
             onClick={onClick}
-            className="flex items-center justify-center gap-2.5 w-full py-2.5 rounded-xl border border-gray-200 bg-white hover:bg-gray-50 transition-all text-sm font-medium text-gray-700"
+            className="flex items-center justify-center gap-2.5 w-full py-2.5 rounded-xl border border-border bg-background hover:bg-secondary transition-all text-sm font-medium text-foreground"
         >
             {icon}
             <span>{label}</span>
@@ -15,7 +15,7 @@ function SocialButton({ icon, label, onClick }) {
 }
 
 export default function AuthModal({ open, onClose }) {
-    const [mode, setMode] = useState('signin'); // 'signin' | 'signup'
+    const [mode, setMode] = useState('signin');
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
     const [showPassword, setShowPassword] = useState(false);
@@ -35,7 +35,7 @@ export default function AuthModal({ open, onClose }) {
                         animate={{ opacity: 1 }}
                         exit={{ opacity: 0 }}
                         onClick={onClose}
-                        className="fixed inset-0 z-50 bg-black/40 backdrop-blur-sm"
+                        className="fixed inset-0 z-50 bg-foreground/40 backdrop-blur-sm"
                     />
 
                     {/* Modal */}
@@ -50,33 +50,32 @@ export default function AuthModal({ open, onClose }) {
                         <div className="w-full max-w-md rounded-2xl overflow-hidden shadow-2xl pointer-events-auto">
 
                             {/* Header */}
-                            <div className="px-7 pt-7 pb-6 relative"
-                                style={{ background: 'linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #4c1d95 100%)' }}>
+                            <div className="px-7 pt-7 pb-6 relative bg-primary">
                                 <button
                                     onClick={onClose}
-                                    className="absolute top-5 right-5 text-white/50 hover:text-white transition-colors"
+                                    className="absolute top-5 right-5 text-primary-foreground/50 hover:text-primary-foreground transition-colors"
                                 >
                                     <X className="w-5 h-5" />
                                 </button>
 
                                 {/* Brand */}
                                 <div className="flex items-center gap-2 mb-5">
-                                    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-indigo-400 to-purple-500 flex items-center justify-center">
-                                        <Plane className="w-3.5 h-3.5 text-white" />
+                                    <div className="w-7 h-7 rounded-lg bg-primary-foreground/20 flex items-center justify-center">
+                                        <Plane className="w-3.5 h-3.5 text-primary-foreground" />
                                     </div>
-                                    <span className="font-bold text-white text-sm">AirBridge</span>
+                                    <span className="font-bold text-primary-foreground text-sm">AirBridge</span>
                                 </div>
 
-                                <h2 className="text-2xl font-black text-white mb-1">
+                                <h2 className="text-2xl font-black text-primary-foreground mb-1">
                                     {isSignIn ? 'Welcome back' : 'Create account'}
                                 </h2>
-                                <p className="text-white/50 text-sm">
+                                <p className="text-primary-foreground/50 text-sm">
                                     {isSignIn ? 'Access your saved departures' : 'Start your door-to-gate journey'}
                                 </p>
                             </div>
 
                             {/* Body */}
-                            <div className="bg-white px-7 pt-6 pb-7 space-y-4">
+                            <div className="bg-background px-7 pt-6 pb-7 space-y-4">
 
                                 {/* Social buttons */}
                                 <div className="grid grid-cols-3 gap-2">
@@ -111,63 +110,62 @@ export default function AuthModal({ open, onClose }) {
 
                                 {/* Divider */}
                                 <div className="flex items-center gap-3">
-                                    <div className="flex-1 h-px bg-gray-200" />
-                                    <span className="text-xs text-gray-400 font-medium">or continue with email</span>
-                                    <div className="flex-1 h-px bg-gray-200" />
+                                    <div className="flex-1 h-px bg-border" />
+                                    <span className="text-xs text-muted-foreground font-medium">or continue with email</span>
+                                    <div className="flex-1 h-px bg-border" />
                                 </div>
 
                                 {/* Email */}
                                 <div>
-                                    <label className="text-xs font-semibold text-gray-600 block mb-1.5">Email</label>
+                                    <label className="text-xs font-semibold text-muted-foreground block mb-1.5">Email</label>
                                     <input
                                         type="email"
                                         placeholder="you@example.com"
                                         value={email}
                                         onChange={e => setEmail(e.target.value)}
-                                        className="w-full px-4 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-all"
+                                        className="w-full px-4 py-2.5 rounded-xl border border-border bg-secondary text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
                                     />
                                 </div>
 
                                 {/* Password */}
                                 <div>
-                                    <label className="text-xs font-semibold text-gray-600 block mb-1.5">Password</label>
+                                    <label className="text-xs font-semibold text-muted-foreground block mb-1.5">Password</label>
                                     <div className="relative">
                                         <input
                                             type={showPassword ? 'text' : 'password'}
                                             placeholder="••••••••"
                                             value={password}
                                             onChange={e => setPassword(e.target.value)}
-                                            className="w-full px-4 py-2.5 pr-10 rounded-xl border border-gray-200 bg-gray-50 text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-indigo-400 focus:border-transparent transition-all"
+                                            className="w-full px-4 py-2.5 pr-10 rounded-xl border border-border bg-secondary text-sm text-foreground placeholder-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all"
                                         />
                                         <button
                                             type="button"
                                             onClick={() => setShowPassword(s => !s)}
-                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                                            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
                                         >
                                             {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                                         </button>
                                     </div>
                                     {isSignIn && (
                                         <div className="text-right mt-1">
-                                            <button className="text-xs text-indigo-500 hover:text-indigo-700 font-medium">Forgot password?</button>
+                                            <button className="text-xs text-primary hover:text-brand-accent font-medium">Forgot password?</button>
                                         </div>
                                     )}
                                 </div>
 
                                 {/* Submit */}
                                 <button
-                                    className="w-full py-3 rounded-xl text-white font-bold text-sm transition-all hover:scale-[1.02] active:scale-100"
-                                    style={{ background: 'linear-gradient(135deg, #4f46e5, #7c3aed)', boxShadow: '0 6px 24px rgba(79,70,229,0.35)' }}
+                                    className="w-full py-3 rounded-xl text-primary-foreground font-bold text-sm transition-all hover:scale-[1.02] active:scale-100 bg-primary hover:bg-brand-accent shadow-lg"
                                 >
                                     {isSignIn ? 'Sign In' : 'Create Account'}
                                 </button>
 
                                 {/* Toggle mode */}
-                                <p className="text-center text-sm text-gray-500">
+                                <p className="text-center text-sm text-muted-foreground">
                                     {isSignIn ? "Don't have an account? " : 'Already have an account? '}
                                     <button
                                         onClick={() => setMode(isSignIn ? 'signup' : 'signin')}
-                                        className="text-indigo-600 font-semibold hover:text-indigo-800 transition-colors"
+                                        className="text-primary font-semibold hover:text-brand-accent transition-colors"
                                     >
                                         {isSignIn ? 'Sign up' : 'Sign in'}
                                     </button>
