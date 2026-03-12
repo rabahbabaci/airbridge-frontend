@@ -204,7 +204,6 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                 transition={{ duration: 0.5, ease: 'easeOut' }}
                 className="rounded-3xl p-6 md:p-8 mb-6 bg-primary"
             >
-            >
                 <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
                     <div>
                         <div className="flex items-center gap-2 mb-2">
