@@ -402,10 +402,14 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                     {stats.map(({ label, value, unit, highlight }) => (
                         <div key={label} className="flex flex-col items-center gap-1 px-3 py-4 text-center">
                             <p className="text-[10px] md:text-xs uppercase tracking-wider font-bold text-gray-400">{label}</p>
-                            <p className={`text-xl md:text-2xl font-black ${highlight ? 'text-indigo-600' : 'text-gray-900'}`}>
-                                {value}
+                            <p className={`text-xl md:text-2xl font-black ${
+                                highlight
+                                    ? (value >= 90 ? 'text-emerald-600' : value >= 75 ? 'text-amber-600' : 'text-red-600')
+                                    : 'text-gray-900'
+                            }`}>
+                                {value}{highlight ? '%' : ''}
                             </p>
-                            <p className="text-[10px] text-gray-400">{unit}</p>
+                            {!highlight && <p className="text-[10px] text-gray-400">{unit}</p>}
                         </div>
                     ))}
                 </div>
