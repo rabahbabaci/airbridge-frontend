@@ -244,7 +244,7 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                     <div className="mt-4 pt-4 border-t border-white/20 flex flex-wrap items-center gap-2">
                         <span className="text-white/70 text-sm">{selectedFlight.flight_number}</span>
                         <span className="text-white/40">·</span>
-                        <span className="text-white text-sm font-semibold">{selectedFlight.origin_code} → {selectedFlight.destination_code}</span>
+                        <span className="text-white text-sm font-semibold">{selectedFlight.origin_name ? `${selectedFlight.origin_name} (${selectedFlight.origin_code})` : selectedFlight.origin_code} → {selectedFlight.destination_name ? `${selectedFlight.destination_name} (${selectedFlight.destination_code})` : selectedFlight.destination_code}</span>
                         <span className="text-white/40">·</span>
                         <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/20 text-white text-xs font-bold">
                             {selectedFlight.departure_terminal ? `Terminal ${selectedFlight.departure_terminal}` : 'Terminal TBD'}
