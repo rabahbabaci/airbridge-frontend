@@ -244,13 +244,6 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                 )}
             </motion.div>
 
-            {/* Backend explanation */}
-            {recommendation.explanation && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} transition={{ delay: 0.1 }}
-                    className="rounded-2xl px-5 py-4 mb-6 bg-indigo-50 border border-indigo-100">
-                    <p className="text-indigo-700 text-sm font-medium leading-relaxed">{recommendation.explanation}</p>
-                </motion.div>
-            )}
 
             {/* Late departure warning */}
             {recommendation.leave_home_at && new Date(recommendation.leave_home_at) < new Date() && (
