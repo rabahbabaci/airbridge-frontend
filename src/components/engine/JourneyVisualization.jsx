@@ -34,36 +34,43 @@ function parseDepartureAndGetBoardingTime(localTimeStr) {
     return { boarding: fmt(boardingDate), departure: fmt(d) };
 }
 
-function totalToHM(minutes) {
-    const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
-    return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`;
+function fmtMin(minutes) {
+    if (minutes == null) return '';
+    const m = Math.round(minutes);
+    if (m >= 60) {
+        const h = Math.floor(m / 60);
+        const r = m % 60;
+        return r > 0 ? `${h}h${String(r).padStart(2, '0')}m` : `${h}h`;
+    }
+    return `${m} min`;
 }
 
-function formatDuration(minutes) {
-    if (minutes >= 60) {
-        const h = Math.floor(minutes / 60);
-        const m = minutes % 60;
-        return m > 0 ? `${h}h ${m}m` : `${h}h`;
-    }
-    return `${minutes} min`;
+// alias used in hero / stats
+const totalToHM = fmtMin;
+const formatDuration = fmtMin;
+
+// ── Transport label builder ─────────────────────────────────────────────────
+function transportLabel(transport, airportCode) {
+    const modeLabels = { rideshare: 'Ride', driving: 'Drive', train: 'Train', bus: 'Bus', other: 'Ride' };
+    const mode = modeLabels[(transport || '').toLowerCase()] || 'Ride';
+    return `${mode} to ${airportCode || 'Airport'}`;
 }
 
 // ── Segment Icon Mapping ────────────────────────────────────────────────────
-function getSegmentMeta(seg) {
+function getSegmentMeta(seg, airportCode, transport) {
     const id = (seg.id || '').toLowerCase();
     const label = (seg.label || '').toLowerCase();
 
     if (id === 'transport' || label.includes('leave') || label.includes('depart') || label.includes('ride') || label.includes('drive') || label.includes('uber'))
-        return { Icon: Car, bg: 'bg-indigo-100', iconColor: 'text-indigo-600', shortLabel: 'Leave Home' };
+        return { Icon: Car, bg: 'bg-indigo-100', iconColor: 'text-indigo-600', shortLabel: transportLabel(transport, airportCode) };
     if (id === 'at_airport' || label.includes('check-in') || label.includes('terminal'))
-        return { Icon: Building2, bg: 'bg-indigo-100', iconColor: 'text-indigo-600', shortLabel: 'En Route' };
+        return { Icon: Building2, bg: 'bg-indigo-100', iconColor: 'text-indigo-600', shortLabel: `At ${airportCode || 'Airport'}` };
     if (id === 'bag_drop' || label.includes('bag') || label.includes('luggage'))
         return { Icon: Luggage, bg: 'bg-amber-100', iconColor: 'text-amber-600', shortLabel: 'Bag Drop' };
     if (id === 'tsa' || label.includes('security') || label.includes('tsa'))
         return { Icon: Shield, bg: 'bg-red-100', iconColor: 'text-red-600', shortLabel: 'TSA Security' };
     if (id === 'walk_to_gate' || label.includes('walk'))
-        return { Icon: PersonStanding, bg: 'bg-emerald-100', iconColor: 'text-emerald-600', shortLabel: 'Walk to Gate' };
+        return { Icon: PersonStanding, bg: 'bg-emerald-100', iconColor: 'text-emerald-600', shortLabel: 'At Gate' };
     if (id === 'boarding_buffer')
         return { Icon: Clock, bg: 'bg-indigo-100', iconColor: 'text-indigo-600', shortLabel: 'Buffer' };
     if (label.includes('gate'))
@@ -103,12 +110,13 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
     const segments = recommendation.segments || [];
     const comfortBuffer = segments.find(s => s.id === 'comfort_buffer');
     const displaySegments = segments.filter(s => s.id !== 'comfort_buffer');
+    const airportCode = selectedFlight?.origin_code || '';
 
     // Build step data for timeline
     const timelineSteps = displaySegments.map((seg, idx) => {
         const cumulativeBefore = displaySegments.slice(0, idx).reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
         const stepTime = addMinutesAndFormat(recommendation.leave_home_at, cumulativeBefore);
-        const meta = getSegmentMeta(seg);
+        const meta = getSegmentMeta(seg, airportCode, transport);
         const isLast = idx === displaySegments.length - 1;
 
         let displayTime = isLast
@@ -116,24 +124,35 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
             : stepTime;
 
         let subtitle = '';
-        // Surface all advice from backend
         if (seg.id === 'transport') {
-            subtitle = seg.advice || `${seg.duration_minutes} min`;
+            // Parse advice like "mode:rideshare|raw:101|buffer:35|distance_mi:23.7"
+            const rawMatch = seg.advice?.match(/raw:(\d+)/);
+            const bufferMatch = seg.advice?.match(/buffer:(\d+)/);
+            const distMatch = seg.advice?.match(/distance_mi:([\d.]+)/);
+            const rawMin = rawMatch ? parseInt(rawMatch[1], 10) : null;
+            const bufferMin = bufferMatch ? parseInt(bufferMatch[1], 10) : null;
+            const distMi = distMatch ? parseFloat(distMatch[1]) : null;
+            const parts = [];
+            if (rawMin != null) parts.push(fmtMin(rawMin));
+            if (distMi != null) parts.push(`${distMi} mi`);
+            subtitle = parts.length ? parts.join(' — ') : fmtMin(seg.duration_minutes);
         } else if (seg.id === 'tsa') {
             const waitMatch = seg.advice?.match(/wait:(\d+)/);
             const periodMatch = seg.advice?.match(/\|([^|]+)$/);
             const waitMin = waitMatch ? parseInt(waitMatch[1], 10) : seg.duration_minutes;
             const period = periodMatch ? periodMatch[1].trim() : '';
-            subtitle = `${formatDuration(waitMin)} wait${period ? ' · ' + period : ''}`;
+            subtitle = `${fmtMin(waitMin)} wait${period ? ' · ' + period : ''}`;
         } else if (seg.id === 'walk_to_gate') {
-            meta.shortLabel = 'At Gate';
-            if (comfortBuffer) subtitle = `+${formatDuration(comfortBuffer.duration_minutes)} buffer`;
+            if (comfortBuffer) subtitle = `+${fmtMin(comfortBuffer.duration_minutes)} buffer`;
+        } else if (seg.id === 'at_airport') {
+            subtitle = seg.advice || '';
+        } else if (seg.id === 'bag_drop') {
+            subtitle = seg.advice || 'Check bags';
         } else if (seg.advice) {
-            // Surface any other advice the backend sends
             subtitle = seg.advice;
         }
 
-        return { ...meta, time: displayTime, durationMinutes: seg.duration_minutes, duration: formatDuration(seg.duration_minutes), subtitle, seg, isLast };
+        return { ...meta, time: displayTime, durationMinutes: seg.duration_minutes, duration: fmtMin(seg.duration_minutes), subtitle, seg, isLast };
     });
 
     // Boarding step data
@@ -240,21 +259,29 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                 <div className="hidden md:block">
                     <div className="relative">
                         {/* Connecting line */}
-                        <div className="absolute top-6 left-8 right-8 h-0.5 bg-gray-200 z-0" />
-                        <div className="absolute top-6 left-8 h-0.5 bg-indigo-400 z-0"
-                            style={{ width: `calc(${((timelineSteps.length - 1) / Math.max(timelineSteps.length - 1, 1)) * 100}% - 64px)` }} />
+                        <div className="absolute top-6 left-8 right-8 h-0.5 bg-indigo-300 z-0" />
 
-                        {/* Duration labels between steps */}
+                        {/* Duration labels between steps — positioned on connector lines */}
+                        {timelineSteps.length > 1 && (
+                            <div className="absolute top-6 left-0 right-0 z-20 flex" style={{ pointerEvents: 'none' }}>
+                                {timelineSteps.map((step, idx) => {
+                                    if (idx >= timelineSteps.length - 1) return <div key={idx} style={{ flex: 1 }} />;
+                                    return (
+                                        <div key={idx} style={{ flex: 1 }} className="relative">
+                                            <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-2 py-0.5 rounded-md border border-gray-100 shadow-sm">
+                                                <span className="text-[10px] font-bold text-indigo-500 whitespace-nowrap">{step.duration}</span>
+                                            </div>
+                                        </div>
+                                    );
+                                })}
+                            </div>
+                        )}
+
+                        {/* Step icons + labels */}
                         <div className="relative z-10 flex justify-between">
                             {timelineSteps.map((step, idx) => (
-                                <div key={idx} className="relative flex flex-col items-center text-center"
+                                <div key={idx} className="flex flex-col items-center text-center"
                                     style={{ width: `${100 / timelineSteps.length}%` }}>
-                                    {/* Duration connector label (between this step and the next) */}
-                                    {idx < timelineSteps.length - 1 && (
-                                        <div className="absolute top-3 left-[60%] z-20 bg-white px-1.5 py-0.5 rounded-md border border-gray-100 shadow-sm">
-                                            <span className="text-[9px] font-bold text-indigo-500">{timelineSteps[idx].duration}</span>
-                                        </div>
-                                    )}
                                     <motion.div
                                         initial={{ opacity: 0, y: 10 }}
                                         animate={{ opacity: 1, y: 0 }}
@@ -266,7 +293,7 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                                         </div>
                                         <p className="font-bold text-gray-900 text-sm">{step.time}</p>
                                         <p className="text-xs text-gray-500 font-medium mt-0.5">{step.shortLabel}</p>
-                                        {step.subtitle && <p className="text-[10px] text-indigo-600 font-medium mt-1 max-w-[120px] leading-tight">{step.subtitle}</p>}
+                                        {step.subtitle && <p className="text-[10px] text-indigo-600 font-medium mt-1 max-w-[140px] leading-tight">{step.subtitle}</p>}
                                     </motion.div>
                                 </div>
                             ))}
