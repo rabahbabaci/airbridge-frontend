@@ -251,9 +251,7 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
     const displaySegments = segments.filter(s => s.id !== 'comfort_buffer');
 
     return (
-        <div className="w-full min-h-full px-3 md:px-6 pt-4 md:pt-5 flex flex-col items-center relative" style={{ paddingBottom: 20, backgroundImage: 'url(https://images.unsplash.com/photo-1436491865332-7a61a109cc05?w=1600&q=80)', backgroundSize: 'cover', backgroundPosition: 'center' }}>
-            {/* Dark overlay mask */}
-            <div className="absolute inset-0 pointer-events-none" style={{ background: 'linear-gradient(160deg, rgba(9,9,11,0.92) 0%, rgba(9,9,11,0.85) 40%, rgba(9,9,11,0.95) 100%)' }} />
+        <div className="w-full min-h-full px-3 md:px-6 pt-4 md:pt-5 flex flex-col items-center relative" style={{ paddingBottom: 20 }}>
             <div className="w-full mx-auto px-1 md:px-8 flex flex-col flex-1 relative z-10" style={{ maxWidth: 860 }}>
             <AnimatePresence mode="wait">
 
