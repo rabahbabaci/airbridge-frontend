@@ -490,7 +490,7 @@ export default function Engine() {
                                             <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
                                             <span className="text-sm font-semibold text-emerald-700 flex items-center gap-1.5 flex-wrap">
                                                 {flightNumber.toUpperCase()} · {formatLocalTime(selectedFlight.departure_time)} ·{' '}
-                                                {selectedFlight.origin_name || selectedFlight.origin_code}{' '}
+                                                {shortCity(selectedFlight.origin_name) || selectedFlight.origin_code}{' '}
                                                 <span className="font-mono font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded text-[10px]">{selectedFlight.origin_code}</span>
                                                 {' → '}
                                                 {selectedFlight.destination_name || selectedFlight.destination_code}{' '}
