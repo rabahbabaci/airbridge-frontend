@@ -60,6 +60,11 @@ function formatLocalTime(timeStr) {
     return `${h12}:${minutes} ${ampm}`;
 }
 
+function shortCity(name) {
+    if (!name) return '';
+    return name.split(/[\s-]+/).slice(0, 2).join(' ');
+}
+
 function parseTimeToDate(localTimeStr) {
     if (!localTimeStr) return null;
     const match = localTimeStr.match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/);
