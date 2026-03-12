@@ -232,18 +232,18 @@ export default function Engine() {
         <div className="min-h-screen bg-secondary/50 font-sans antialiased">
 
             {/* ── HEADER ── */}
-            <header className="bg-white border-b border-gray-100 sticky top-0 z-50">
-                <div className="max-w-6xl mx-auto px-6 py-3.5 flex items-center justify-between">
-                    <div className="flex items-center gap-6">
+            <header className="bg-card border-b border-border sticky top-0 z-50">
+                <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
+                    <div className="flex items-center gap-4 sm:gap-6">
                         <Link to={createPageUrl('Home')} className="flex items-center gap-2">
                             <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                                <Plane className="w-4 h-4 text-white" />
+                                <Plane className="w-4 h-4 text-primary-foreground" />
                             </div>
-                            <span className="font-bold text-lg text-gray-900">AirBridge</span>
+                            <span className="font-bold text-lg text-foreground">AirBridge</span>
                         </Link>
                         <nav className="hidden md:flex items-center gap-1 text-sm">
-                            <Link to={createPageUrl('Home')} className="text-gray-500 hover:text-gray-900 px-3 py-1.5 rounded-lg transition-colors">Home</Link>
-                            <span className="text-gray-900 font-semibold px-3 py-1.5 bg-gray-100 rounded-lg">Departure Engine</span>
+                            <Link to={createPageUrl('Home')} className="text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg transition-colors">Home</Link>
+                            <span className="text-foreground font-semibold px-3 py-1.5 bg-secondary rounded-lg">Departure Engine</span>
                         </nav>
                     </div>
                     <div className="flex items-center gap-3">
