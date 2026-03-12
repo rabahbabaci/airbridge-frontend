@@ -100,7 +100,7 @@ export default function Engine() {
 
     // Step 3
     const [selectedProfile, setSelectedProfile] = useState('sweet');
-    const [transport, setTransport] = useState('uber');
+    const [transport, setTransport] = useState('rideshare');
     const [hasBaggage, setHasBaggage] = useState(false);
     const [baggageCount, setBaggageCount] = useState(1);
     const [withChildren, setWithChildren] = useState(false);
