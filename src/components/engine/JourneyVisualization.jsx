@@ -148,7 +148,7 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
             // Parse advice like "walk_to_next:8" → show "Walking 8 min" on the connector
             const walkMatch = seg.advice?.match(/walk_to_next:(\d+)/);
             if (walkMatch) {
-                connectorExtra = `Walking ${fmtMin(parseInt(walkMatch[1], 10))}`;
+                connectorExtra = `${fmtMin(parseInt(walkMatch[1], 10))} walk`;
             }
             // Don't show raw advice as subtitle
             subtitle = '';
