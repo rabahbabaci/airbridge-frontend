@@ -222,24 +222,39 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                     </div>
                     <div className="flex flex-wrap gap-2">
                         <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/20 text-white text-sm font-semibold backdrop-blur-sm">
+                            <Clock className="w-3.5 h-3.5" />
                             Boarding in {totalToHM(boardingInMinutes)}
                         </span>
-                        <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/20 text-white text-sm font-semibold backdrop-blur-sm">
-                            <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
-                            {confidenceScore}% {confidenceLevelLabel} Confidence
+                        <span className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold backdrop-blur-sm ${
+                            confidenceScore >= 90 ? 'bg-emerald-400/30 text-emerald-100' :
+                            confidenceScore >= 75 ? 'bg-amber-400/30 text-amber-100' :
+                            'bg-red-400/30 text-red-100'
+                        }`}>
+                            <span className={`w-2 h-2 rounded-full animate-pulse ${
+                                confidenceScore >= 90 ? 'bg-emerald-300' :
+                                confidenceScore >= 75 ? 'bg-amber-300' :
+                                'bg-red-300'
+                            }`} />
+                            {confidenceScore}% Confidence
                         </span>
                     </div>
                 </div>
 
-                {/* Flight info */}
+                {/* Flight info — key details highlighted */}
                 {selectedFlight && (
-                    <div className="mt-4 pt-4 border-t border-white/20">
-                        <p className="text-white/80 text-sm">
-                            {selectedFlight.flight_number} · {selectedFlight.origin_code} → {selectedFlight.destination_code} ·{' '}
-                            {selectedFlight.departure_terminal ? `Terminal ${selectedFlight.departure_terminal}` : 'Terminal TBD'} ·{' '}
-                            {selectedFlight.departure_gate ? `Gate ${selectedFlight.departure_gate}` : 'Gate TBD'} ·{' '}
-                            {totalToHM(totalMinutes)} door-to-gate
-                        </p>
+                    <div className="mt-4 pt-4 border-t border-white/20 flex flex-wrap items-center gap-2">
+                        <span className="text-white/70 text-sm">{selectedFlight.flight_number}</span>
+                        <span className="text-white/40">·</span>
+                        <span className="text-white text-sm font-semibold">{selectedFlight.origin_code} → {selectedFlight.destination_code}</span>
+                        <span className="text-white/40">·</span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/20 text-white text-xs font-bold">
+                            {selectedFlight.departure_terminal ? `Terminal ${selectedFlight.departure_terminal}` : 'Terminal TBD'}
+                        </span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/20 text-white text-xs font-bold">
+                            {selectedFlight.departure_gate ? `Gate ${selectedFlight.departure_gate}` : 'Gate TBD'}
+                        </span>
+                        <span className="text-white/40">·</span>
+                        <span className="text-white/70 text-sm">{totalToHM(totalMinutes)} door-to-gate</span>
                     </div>
                 )}
             </motion.div>
