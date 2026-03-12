@@ -34,36 +34,43 @@ function parseDepartureAndGetBoardingTime(localTimeStr) {
     return { boarding: fmt(boardingDate), departure: fmt(d) };
 }
 
-function totalToHM(minutes) {
-    const h = Math.floor(minutes / 60);
-    const m = minutes % 60;
-    return h > 0 ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`;
+function fmtMin(minutes) {
+    if (minutes == null) return '';
+    const m = Math.round(minutes);
+    if (m >= 60) {
+        const h = Math.floor(m / 60);
+        const r = m % 60;
+        return r > 0 ? `${h}h${String(r).padStart(2, '0')}m` : `${h}h`;
+    }
+    return `${m} min`;
 }
 
-function formatDuration(minutes) {
-    if (minutes >= 60) {
-        const h = Math.floor(minutes / 60);
-        const m = minutes % 60;
-        return m > 0 ? `${h}h ${m}m` : `${h}h`;
-    }
-    return `${minutes} min`;
+// alias used in hero / stats
+const totalToHM = fmtMin;
+const formatDuration = fmtMin;
+
+// ── Transport label builder ─────────────────────────────────────────────────
+function transportLabel(transport, airportCode) {
+    const modeLabels = { rideshare: 'Ride', driving: 'Drive', train: 'Train', bus: 'Bus', other: 'Ride' };
+    const mode = modeLabels[(transport || '').toLowerCase()] || 'Ride';
+    return `${mode} to ${airportCode || 'Airport'}`;
 }
 
 // ── Segment Icon Mapping ────────────────────────────────────────────────────
-function getSegmentMeta(seg) {
+function getSegmentMeta(seg, airportCode, transport) {
     const id = (seg.id || '').toLowerCase();
     const label = (seg.label || '').toLowerCase();
 
     if (id === 'transport' || label.includes('leave') || label.includes('depart') || label.includes('ride') || label.includes('drive') || label.includes('uber'))
-        return { Icon: Car, bg: 'bg-indigo-100', iconColor: 'text-indigo-600', shortLabel: 'Leave Home' };
+        return { Icon: Car, bg: 'bg-indigo-100', iconColor: 'text-indigo-600', shortLabel: transportLabel(transport, airportCode) };
     if (id === 'at_airport' || label.includes('check-in') || label.includes('terminal'))
-        return { Icon: Building2, bg: 'bg-indigo-100', iconColor: 'text-indigo-600', shortLabel: 'En Route' };
+        return { Icon: Building2, bg: 'bg-indigo-100', iconColor: 'text-indigo-600', shortLabel: `At ${airportCode || 'Airport'}` };
     if (id === 'bag_drop' || label.includes('bag') || label.includes('luggage'))
         return { Icon: Luggage, bg: 'bg-amber-100', iconColor: 'text-amber-600', shortLabel: 'Bag Drop' };
     if (id === 'tsa' || label.includes('security') || label.includes('tsa'))
         return { Icon: Shield, bg: 'bg-red-100', iconColor: 'text-red-600', shortLabel: 'TSA Security' };
     if (id === 'walk_to_gate' || label.includes('walk'))
-        return { Icon: PersonStanding, bg: 'bg-emerald-100', iconColor: 'text-emerald-600', shortLabel: 'Walk to Gate' };
+        return { Icon: PersonStanding, bg: 'bg-emerald-100', iconColor: 'text-emerald-600', shortLabel: 'At Gate' };
     if (id === 'boarding_buffer')
         return { Icon: Clock, bg: 'bg-indigo-100', iconColor: 'text-indigo-600', shortLabel: 'Buffer' };
     if (label.includes('gate'))
