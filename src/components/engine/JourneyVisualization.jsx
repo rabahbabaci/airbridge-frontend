@@ -124,13 +124,13 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
             : stepTime;
 
         let subtitle = '';
+        // Extra info to show on the connector line TO the next step (parsed from advice)
+        let connectorExtra = '';
         if (seg.id === 'transport') {
             // Parse advice like "mode:rideshare|raw:101|buffer:35|distance_mi:23.7"
             const rawMatch = seg.advice?.match(/raw:(\d+)/);
-            const bufferMatch = seg.advice?.match(/buffer:(\d+)/);
             const distMatch = seg.advice?.match(/distance_mi:([\d.]+)/);
             const rawMin = rawMatch ? parseInt(rawMatch[1], 10) : null;
-            const bufferMin = bufferMatch ? parseInt(bufferMatch[1], 10) : null;
             const distMi = distMatch ? parseFloat(distMatch[1]) : null;
             const parts = [];
             if (rawMin != null) parts.push(fmtMin(rawMin));
@@ -145,14 +145,20 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
         } else if (seg.id === 'walk_to_gate') {
             if (comfortBuffer) subtitle = `+${fmtMin(comfortBuffer.duration_minutes)} buffer`;
         } else if (seg.id === 'at_airport') {
-            subtitle = seg.advice || '';
+            // Parse advice like "walk_to_next:8" → show "Walking 8 min" on the connector
+            const walkMatch = seg.advice?.match(/walk_to_next:(\d+)/);
+            if (walkMatch) {
+                connectorExtra = `Walking ${fmtMin(parseInt(walkMatch[1], 10))}`;
+            }
+            // Don't show raw advice as subtitle
+            subtitle = '';
         } else if (seg.id === 'bag_drop') {
             subtitle = seg.advice || 'Check bags';
         } else if (seg.advice) {
             subtitle = seg.advice;
         }
 
-        return { ...meta, time: displayTime, durationMinutes: seg.duration_minutes, duration: fmtMin(seg.duration_minutes), subtitle, seg, isLast };
+        return { ...meta, time: displayTime, durationMinutes: seg.duration_minutes, duration: fmtMin(seg.duration_minutes), connectorExtra, subtitle, seg, isLast };
     });
 
     // Boarding step data
@@ -261,15 +267,16 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                         {/* Connecting line */}
                         <div className="absolute top-6 left-8 right-8 h-0.5 bg-indigo-300 z-0" />
 
-                        {/* Duration labels between steps — positioned on connector lines */}
+                        {/* Duration labels on connector lines between steps */}
                         {timelineSteps.length > 1 && (
                             <div className="absolute top-6 left-0 right-0 z-20 flex" style={{ pointerEvents: 'none' }}>
                                 {timelineSteps.map((step, idx) => {
                                     if (idx >= timelineSteps.length - 1) return <div key={idx} style={{ flex: 1 }} />;
+                                    const label = step.connectorExtra || step.duration;
                                     return (
                                         <div key={idx} style={{ flex: 1 }} className="relative">
                                             <div className="absolute left-1/2 -translate-x-1/2 -translate-y-1/2 bg-white px-2 py-0.5 rounded-md border border-gray-100 shadow-sm">
-                                                <span className="text-[10px] font-bold text-indigo-500 whitespace-nowrap">{step.duration}</span>
+                                                <span className="text-[10px] font-bold text-indigo-500 whitespace-nowrap">{label}</span>
                                             </div>
                                         </div>
                                     );
