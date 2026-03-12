@@ -262,7 +262,7 @@ export default function Engine() {
                                 </motion.div>
                             )}
                         </AnimatePresence>
-                        <button className="text-sm text-gray-500 hover:text-gray-900 transition-colors hidden md:block">Sign In</button>
+                        <button className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden md:block">Sign In</button>
                     </div>
                 </div>
             </header>
