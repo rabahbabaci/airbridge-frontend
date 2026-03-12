@@ -10,6 +10,7 @@ function shortCity(name) {
     if (!name) return '';
     return name.split(/[\s-]+/).slice(0, 2).join(' ');
 }
+
 function formatUTCToLocal(utcStr) {
     if (!utcStr) return '';
     const d = new Date(utcStr);
@@ -49,9 +50,7 @@ function fmtMin(minutes) {
     return `${m} min`;
 }
 
-// alias used in hero / stats
 const totalToHM = fmtMin;
-const formatDuration = fmtMin;
 
 // ── Transport label builder ─────────────────────────────────────────────────
 function transportLabel(transport, airportCode) {
@@ -66,9 +65,9 @@ function getSegmentMeta(seg, airportCode, transport) {
     const label = (seg.label || '').toLowerCase();
 
     if (id === 'transport' || label.includes('leave') || label.includes('depart') || label.includes('ride') || label.includes('drive') || label.includes('uber'))
-        return { Icon: Car, bg: 'bg-indigo-100', iconColor: 'text-indigo-600', shortLabel: transportLabel(transport, airportCode) };
+        return { Icon: Car, bg: 'bg-accent', iconColor: 'text-primary', shortLabel: transportLabel(transport, airportCode) };
     if (id === 'at_airport' || label.includes('check-in') || label.includes('terminal'))
-        return { Icon: Building2, bg: 'bg-indigo-100', iconColor: 'text-indigo-600', shortLabel: `At ${airportCode || 'Airport'}` };
+        return { Icon: Building2, bg: 'bg-accent', iconColor: 'text-primary', shortLabel: `At ${airportCode || 'Airport'}` };
     if (id === 'bag_drop' || label.includes('bag') || label.includes('luggage'))
         return { Icon: Luggage, bg: 'bg-amber-100', iconColor: 'text-amber-600', shortLabel: 'Bag Drop' };
     if (id === 'tsa' || label.includes('security') || label.includes('tsa'))
@@ -76,16 +75,16 @@ function getSegmentMeta(seg, airportCode, transport) {
     if (id === 'walk_to_gate' || label.includes('walk'))
         return { Icon: PersonStanding, bg: 'bg-emerald-100', iconColor: 'text-emerald-600', shortLabel: 'At Gate' };
     if (id === 'boarding_buffer')
-        return { Icon: Clock, bg: 'bg-indigo-100', iconColor: 'text-indigo-600', shortLabel: 'Buffer' };
+        return { Icon: Clock, bg: 'bg-accent', iconColor: 'text-primary', shortLabel: 'Buffer' };
     if (label.includes('gate'))
         return { Icon: Ticket, bg: 'bg-emerald-100', iconColor: 'text-emerald-600', shortLabel: 'At Gate' };
     if (label.includes('board'))
         return { Icon: Plane, bg: 'bg-emerald-100', iconColor: 'text-emerald-600', shortLabel: 'Board' };
-    return { Icon: MapPin, bg: 'bg-gray-100', iconColor: 'text-gray-600', shortLabel: seg.label || 'Step' };
+    return { Icon: MapPin, bg: 'bg-secondary', iconColor: 'text-muted-foreground', shortLabel: seg.label || 'Step' };
 }
 
 // ── Main Component ──────────────────────────────────────────────────────────
-export default function JourneyVisualization({ locked, recommendation, selectedFlight, transport, profile, confidenceColorMap, onReady }) {
+export default function JourneyVisualization({ locked, recommendation, selectedFlight, transport, profile, onReady }) {
 
     useEffect(() => {
         if (locked && recommendation && onReady) {
@@ -128,10 +127,8 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
             : stepTime;
 
         let subtitle = '';
-        // Extra info to show on the connector line TO the next step (parsed from advice)
         let connectorExtra = '';
         if (seg.id === 'transport') {
-            // Parse advice like "mode:rideshare|raw:101|buffer:35|distance_mi:23.7"
             const rawMatch = seg.advice?.match(/raw:(\d+)/);
             const distMatch = seg.advice?.match(/distance_mi:([\d.]+)/);
             const rawMin = rawMatch ? parseInt(rawMatch[1], 10) : null;
@@ -149,15 +146,12 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
         } else if (seg.id === 'walk_to_gate') {
             if (comfortBuffer) subtitle = `+${fmtMin(comfortBuffer.duration_minutes)} buffer`;
         } else if (seg.id === 'at_airport') {
-            // Parse advice like "walk_to_next:8" → show "Walking 8 min" on the connector
             const walkMatch = seg.advice?.match(/walk_to_next:(\d+)/);
             if (walkMatch) {
                 connectorExtra = `${fmtMin(parseInt(walkMatch[1], 10))} walk`;
             }
-            // Don't show raw advice as subtitle
             subtitle = '';
         } else if (seg.id === 'bag_drop') {
-            // Parse advice like "1 bag(s)|drop:5|walk_to_next:3"
             const bagMatch = seg.advice?.match(/(\d+)\s*bag/);
             const dropMatch = seg.advice?.match(/drop:(\d+)/);
             const walkMatch = seg.advice?.match(/walk_to_next:(\d+)/);
@@ -167,7 +161,6 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
             if (bags != null) parts.push(`${bags} bag${bags !== 1 ? 's' : ''}`);
             if (dropMin != null) parts.push(`${fmtMin(dropMin)} drop`);
             subtitle = parts.length ? parts.join(' · ') : 'Check bags';
-            // Use walk_to_next for connector label
             if (walkMatch) connectorExtra = `${fmtMin(parseInt(walkMatch[1], 10))} walk`;
         } else if (seg.advice) {
             subtitle = seg.advice;
@@ -194,10 +187,6 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
     if (comfortBuffer) stats.push({ label: 'Buffer', value: comfortBuffer.duration_minutes, unit: 'minutes' });
     stats.push({ label: 'Confidence', value: confidenceScore, unit: 'percent', highlight: true });
 
-    // Confidence level label from backend
-    const confidenceLevel = recommendation.confidence || '';
-    const confidenceLevelLabel = confidenceLevel === 'high' ? 'High' : confidenceLevel === 'medium' ? 'Medium' : confidenceLevel === 'low' ? 'Low' : '';
-
     return (
         <div className="max-w-5xl mx-auto px-4 md:px-8 py-8">
 
@@ -211,20 +200,20 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                 <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
                     <div>
                         <div className="flex items-center gap-2 mb-2">
-                            <Clock className="w-4 h-4 text-white/80" />
-                            <p className="text-sm font-semibold text-white/80">Leave Now at</p>
+                            <Clock className="w-4 h-4 text-primary-foreground/80" />
+                            <p className="text-sm font-semibold text-primary-foreground/80">Leave Now at</p>
                         </div>
                         <motion.p
                             key={formatUTCToLocal(recommendation.leave_home_at)}
                             initial={{ scale: 0.95 }}
                             animate={{ scale: 1 }}
-                            className="text-5xl md:text-6xl font-black text-white tracking-tight"
+                            className="text-5xl md:text-6xl font-black text-primary-foreground tracking-tight"
                         >
                             {formatUTCToLocal(recommendation.leave_home_at)}
                         </motion.p>
                     </div>
                     <div className="flex flex-wrap gap-2">
-                        <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-white/20 text-white text-sm font-semibold backdrop-blur-sm">
+                        <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary-foreground/20 text-primary-foreground text-sm font-semibold backdrop-blur-sm">
                             <Clock className="w-3.5 h-3.5" />
                             Boarding in {totalToHM(boardingInMinutes)}
                         </span>
@@ -243,27 +232,27 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                     </div>
                 </div>
 
-                {/* Flight info — key details highlighted */}
+                {/* Flight info */}
                 {selectedFlight && (
-                    <div className="mt-4 pt-4 border-t border-white/20 flex flex-wrap items-center gap-2">
-                        <span className="text-white/70 text-sm">{selectedFlight.flight_number}</span>
-                        <span className="text-white/40">·</span>
-                        <span className="text-white text-sm font-semibold inline-flex items-center gap-1.5 flex-wrap">
+                    <div className="mt-4 pt-4 border-t border-primary-foreground/20 flex flex-wrap items-center gap-2">
+                        <span className="text-primary-foreground/70 text-sm">{selectedFlight.flight_number}</span>
+                        <span className="text-primary-foreground/40">·</span>
+                        <span className="text-primary-foreground text-sm font-semibold inline-flex items-center gap-1.5 flex-wrap">
                             {shortCity(selectedFlight.origin_name) || selectedFlight.origin_code}{' '}
-                            <span className="font-mono font-bold bg-white/25 px-1.5 py-0.5 rounded text-[11px] tracking-wider">{selectedFlight.origin_code}</span>
+                            <span className="font-mono font-bold bg-primary-foreground/25 px-1.5 py-0.5 rounded text-[11px] tracking-wider">{selectedFlight.origin_code}</span>
                             <span className="mx-0.5">→</span>
                             {shortCity(selectedFlight.destination_name) || selectedFlight.destination_code}{' '}
-                            <span className="font-mono font-bold bg-white/25 px-1.5 py-0.5 rounded text-[11px] tracking-wider">{selectedFlight.destination_code}</span>
+                            <span className="font-mono font-bold bg-primary-foreground/25 px-1.5 py-0.5 rounded text-[11px] tracking-wider">{selectedFlight.destination_code}</span>
                         </span>
-                        <span className="text-white/40">·</span>
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/20 text-white text-xs font-bold">
+                        <span className="text-primary-foreground/40">·</span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary-foreground/20 text-primary-foreground text-xs font-bold">
                             {selectedFlight.departure_terminal ? `Terminal ${selectedFlight.departure_terminal}` : 'Terminal TBD'}
                         </span>
-                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-white/20 text-white text-xs font-bold">
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary-foreground/20 text-primary-foreground text-xs font-bold">
                             {selectedFlight.departure_gate ? `Gate ${selectedFlight.departure_gate}` : 'Gate TBD'}
                         </span>
-                        <span className="text-white/40">·</span>
-                        <span className="text-white/70 text-sm">{totalToHM(totalMinutes)} door-to-gate</span>
+                        <span className="text-primary-foreground/40">·</span>
+                        <span className="text-primary-foreground/70 text-sm">{totalToHM(totalMinutes)} door-to-gate</span>
                     </div>
                 )}
             </motion.div>
@@ -272,9 +261,9 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
             {/* Late departure warning */}
             {recommendation.leave_home_at && new Date(recommendation.leave_home_at) < new Date() && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                    className="rounded-2xl px-5 py-4 mb-6 flex items-center gap-3 bg-red-50 border border-red-200">
+                    className="rounded-2xl px-5 py-4 mb-6 flex items-center gap-3 bg-destructive/10 border border-destructive/20">
                     <span className="text-lg">⚠️</span>
-                    <p className="text-red-700 text-sm font-medium">
+                    <p className="text-destructive text-sm font-medium">
                         You needed to leave by {formatUTCToLocal(recommendation.leave_home_at)} — you may not make this flight on time
                     </p>
                 </motion.div>
@@ -285,17 +274,16 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.15, duration: 0.4 }}
-                className="bg-white rounded-3xl border border-gray-200 px-6 py-4 md:px-8 md:py-5 mb-6"
+                className="bg-card rounded-3xl border border-border px-6 py-4 md:px-8 md:py-5 mb-6"
             >
-                <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-6">Your Journey Timeline</h3>
+                <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-6">Your Journey Timeline</h3>
 
                 {/* Desktop: Horizontal */}
                 <div className="hidden md:block">
                     <div className="relative pt-8">
-                        {/* Connecting line — vertically centered on icons */}
-                        <div className="absolute top-14 left-8 right-8 h-0.5 bg-indigo-300 z-0" />
+                        <div className="absolute top-14 left-8 right-8 h-0.5 bg-primary/30 z-0" />
 
-                        {/* Duration labels centered on the line between step pairs */}
+                        {/* Duration labels */}
                         {timelineSteps.length > 1 && (() => {
                             const stepWidth = 100 / timelineSteps.length;
                             return timelineSteps.slice(0, -1).map((step, idx) => {
@@ -304,8 +292,8 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                                 return (
                                     <div key={`dur-${idx}`} className="absolute z-20"
                                         style={{ top: '3.15rem', left: `${leftPercent}%`, transform: 'translate(-50%, -50%)' }}>
-                                        <div className="bg-white px-2.5 py-0.5 rounded-md border border-gray-100 shadow-sm">
-                                            <span className="text-[10px] font-bold text-indigo-500 whitespace-nowrap">{label}</span>
+                                        <div className="bg-card px-2.5 py-0.5 rounded-md border border-border shadow-sm">
+                                            <span className="text-[10px] font-bold text-primary whitespace-nowrap">{label}</span>
                                         </div>
                                     </div>
                                 );
@@ -326,9 +314,9 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                                         <div className={`w-12 h-12 rounded-2xl ${step.bg} flex items-center justify-center mb-3 shadow-sm`}>
                                             <step.Icon className={`w-5 h-5 ${step.iconColor}`} />
                                         </div>
-                                        <p className="font-bold text-gray-900 text-sm">{step.time}</p>
-                                        <p className="text-xs text-gray-500 font-medium mt-0.5">{step.shortLabel}</p>
-                                        {step.subtitle && <p className="text-[10px] text-indigo-600 font-medium mt-1 max-w-[140px] leading-tight">{step.subtitle}</p>}
+                                        <p className="font-bold text-foreground text-sm">{step.time}</p>
+                                        <p className="text-xs text-muted-foreground font-medium mt-0.5">{step.shortLabel}</p>
+                                        {step.subtitle && <p className="text-[10px] text-primary font-medium mt-1 max-w-[140px] leading-tight">{step.subtitle}</p>}
                                     </motion.div>
                                 </div>
                             ))}
@@ -351,9 +339,8 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                                         <step.Icon className={`w-4 h-4 ${step.iconColor}`} />
                                     </div>
                                     {idx < timelineSteps.length - 1 && (
-                                        <div className="relative w-0.5 h-10 bg-gray-200 my-1">
-                                            {/* Duration label on the connector */}
-                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-indigo-500 bg-white px-1.5 py-0.5 rounded border border-gray-100 shadow-sm whitespace-nowrap">
+                                        <div className="relative w-0.5 h-10 bg-border my-1">
+                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-primary bg-card px-1.5 py-0.5 rounded border border-border shadow-sm whitespace-nowrap">
                                                 {step.duration}
                                             </span>
                                         </div>
@@ -363,10 +350,10 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                                 {/* Content */}
                                 <div className="pb-4 pt-1">
                                     <div className="flex items-center gap-2">
-                                        <p className="font-bold text-gray-900 text-sm">{step.shortLabel}</p>
-                                        <span className="text-xs font-mono text-indigo-600 font-bold bg-indigo-50 px-2 py-0.5 rounded-md">{step.time}</span>
+                                        <p className="font-bold text-foreground text-sm">{step.shortLabel}</p>
+                                        <span className="text-xs font-mono text-primary font-bold bg-accent px-2 py-0.5 rounded-md">{step.time}</span>
                                     </div>
-                                    {step.subtitle && <p className="text-xs text-indigo-600 font-medium mt-0.5">{step.subtitle}</p>}
+                                    {step.subtitle && <p className="text-xs text-primary font-medium mt-0.5">{step.subtitle}</p>}
                                 </div>
                             </div>
                         </motion.div>
@@ -381,18 +368,18 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                 transition={{ delay: 0.3, duration: 0.4 }}
                 className="grid grid-cols-2 gap-4 mb-6"
             >
-                <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Boarding</p>
+                <div className="bg-card rounded-2xl border border-border p-5">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Boarding</p>
                     <p className="text-2xl md:text-3xl font-black text-emerald-600">{boarding}</p>
                     {gateCushionMinutes > 0 && (
                         <p className="text-xs font-semibold text-emerald-600 mt-1">✓ {gateCushionMinutes} min cushion at gate</p>
                     )}
                 </div>
-                <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                    <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-1">Flight Departs</p>
-                    <p className="text-2xl md:text-3xl font-black text-gray-900">{departureTime}</p>
+                <div className="bg-card rounded-2xl border border-border p-5">
+                    <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Flight Departs</p>
+                    <p className="text-2xl md:text-3xl font-black text-foreground">{departureTime}</p>
                     {selectedFlight?.departure_gate && (
-                        <span className="inline-flex items-center mt-1.5 px-2 py-0.5 rounded-md bg-indigo-50 text-indigo-700 text-xs font-bold">
+                        <span className="inline-flex items-center mt-1.5 px-2 py-0.5 rounded-md bg-accent text-primary text-xs font-bold">
                             Gate {selectedFlight.departure_gate}
                         </span>
                     )}
@@ -404,33 +391,33 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                 initial={{ opacity: 0, y: 16 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.4, duration: 0.4 }}
-                className="bg-white rounded-2xl border border-gray-200 overflow-hidden"
+                className="bg-card rounded-2xl border border-border overflow-hidden"
             >
-                <div className={`grid divide-x divide-gray-100`}
+                <div className={`grid divide-x divide-border`}
                     style={{ gridTemplateColumns: `repeat(${stats.length}, 1fr)` }}>
                     {stats.map(({ label, value, unit, highlight }) => (
                         <div key={label} className="flex flex-col items-center gap-1 px-3 py-4 text-center">
-                            <p className="text-[10px] md:text-xs uppercase tracking-wider font-bold text-gray-400">{label}</p>
+                            <p className="text-[10px] md:text-xs uppercase tracking-wider font-bold text-muted-foreground">{label}</p>
                             <p className={`text-xl md:text-2xl font-black ${
                                 highlight
-                                    ? (value >= 90 ? 'text-emerald-600' : value >= 75 ? 'text-amber-600' : 'text-red-600')
-                                    : 'text-gray-900'
+                                    ? (value >= 90 ? 'text-emerald-600' : value >= 75 ? 'text-amber-600' : 'text-destructive')
+                                    : 'text-foreground'
                             }`}>
                                 {value}{highlight ? '%' : ''}
                             </p>
-                            {!highlight && <p className="text-[10px] text-gray-400">{unit}</p>}
+                            {!highlight && <p className="text-[10px] text-muted-foreground">{unit}</p>}
                         </div>
                     ))}
                 </div>
             </motion.div>
 
-            {/* ── COMPUTED AT (data freshness signal) ── */}
+            {/* ── COMPUTED AT ── */}
             {recommendation.computed_at && (
                 <motion.p
                     initial={{ opacity: 0 }}
                     animate={{ opacity: 1 }}
                     transition={{ delay: 0.5 }}
-                    className="text-center text-[11px] text-gray-400 mt-4"
+                    className="text-center text-[11px] text-muted-foreground mt-4"
                 >
                     Computed {new Date(recommendation.computed_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} · Powered by real-time data
                 </motion.p>
