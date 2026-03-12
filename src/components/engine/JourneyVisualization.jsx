@@ -202,8 +202,8 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, ease: 'easeOut' }}
-                className="rounded-3xl p-6 md:p-8 mb-6"
-                style={{ background: 'linear-gradient(135deg, #059669, #10b981)' }}
+                className="rounded-3xl p-6 md:p-8 mb-6 bg-primary"
+            >
             >
                 <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
                     <div>
