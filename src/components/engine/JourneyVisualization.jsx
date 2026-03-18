@@ -141,10 +141,12 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
             subtitle = parts.length ? parts.join(' — ') : fmtMin(seg.duration_minutes);
         } else if (seg.id === 'tsa') {
             const waitMatch = seg.advice?.match(/wait:(\d+)/);
-            const periodMatch = seg.advice?.match(/\|([^|]+)$/);
+            const secMatch = seg.advice?.match(/\|([^|]+)$/);
             const waitMin = waitMatch ? parseInt(waitMatch[1], 10) : seg.duration_minutes;
-            const period = periodMatch ? periodMatch[1].trim() : '';
-            subtitle = `${fmtMin(waitMin)} wait${period ? ' · ' + period : ''}`;
+            const secType = secMatch ? secMatch[1].trim() : '';
+            const secLabels = { precheck: 'PreCheck', clear: 'CLEAR', clear_precheck: 'PreCheck + CLEAR', priority_lane: 'Priority Lane' };
+            const secLabel = secLabels[secType] || '';
+            subtitle = `${fmtMin(waitMin)} wait${secLabel ? ' · ' + secLabel : ''}`;
         } else if (seg.id === 'walk_to_gate') {
             if (comfortBuffer) subtitle = `+${fmtMin(comfortBuffer.duration_minutes)} buffer`;
         } else if (seg.id === 'at_airport') {
