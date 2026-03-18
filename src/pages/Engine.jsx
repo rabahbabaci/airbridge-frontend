@@ -718,7 +718,7 @@ export default function Engine() {
                             recommendation={recommendation}
                             selectedFlight={selectedFlight}
                             transport={transport}
-                            profile={profile}
+                            profile={null}
                             onReady={() => setJourneyReady(true)}
                         />
                     </motion.div>
