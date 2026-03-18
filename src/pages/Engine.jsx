@@ -175,6 +175,13 @@ export default function Engine() {
         setLocked(true);
         setJourneyReady(false);
         setViewMode('loading');
+
+        // Build security_access from toggles
+        let securityAccess = 'none';
+        if (hasTsaPreCheck && hasClear) securityAccess = 'clear_precheck';
+        else if (hasClear) securityAccess = 'clear';
+        else if (hasTsaPreCheck) securityAccess = 'precheck';
+
         try {
             const tripRes = await fetch(`${API_BASE}/v1/trips`, {
                 method: 'POST',
@@ -187,13 +194,13 @@ export default function Engine() {
                     selected_departure_utc: selectedFlight.departure_time_utc,
                     preferences: {
                         transport_mode: transport,
-                        confidence_profile: selectedProfile,
-                        bag_count: hasBaggage ? baggageCount : 0,
+                        confidence_profile: 'sweet',
+                        bag_count: bagCount,
                         traveling_with_children: withChildren,
-                        extra_time_minutes: extraTime === '+15' ? 15 : extraTime === '+30' ? 30 : 0,
-                        tsa_precheck: hasTsaPreCheck,
-                        clear_member: hasClear,
-                        boarding_pass_ready: hasBoardingPass,
+                        extra_time_minutes: 0,
+                        has_boarding_pass: hasBoardingPass,
+                        security_access: securityAccess,
+                        gate_time_minutes: gateTime,
                     }
                 })
             });
