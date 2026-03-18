@@ -190,7 +190,7 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
         if (seg.id === 'transport') stats.push({ label: 'Transport', value: fmtMin(seg.duration_minutes) });
         if (seg.id === 'tsa') {
             const waitMatch = seg.advice?.match(/wait:(\d+)/);
-            stats.push({ label: 'TSA Wait', value: waitMatch ? parseInt(waitMatch[1]) : seg.duration_minutes, unit: 'minutes' });
+            stats.push({ label: 'TSA Wait', value: fmtMin(waitMatch ? parseInt(waitMatch[1]) : seg.duration_minutes) });
         }
         if (seg.id === 'walk_to_gate') stats.push({ label: 'Gate Walk', value: seg.duration_minutes, unit: 'minutes' });
     });
