@@ -226,7 +226,7 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                             'bg-emerald-400/30 text-emerald-100'
                         }`}>
                             <span className={`w-2 h-2 rounded-full ${
-                                gateBufferMinutes === 0 ? 'bg-red-300' :
+                                gateBufferMinutes === 0 ? 'bg-white' :
                                 gateBufferMinutes <= 30 ? 'bg-orange-300' :
                                 'bg-emerald-300'
                             }`} />
