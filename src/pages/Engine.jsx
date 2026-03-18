@@ -499,178 +499,149 @@ export default function Engine() {
                                         </motion.div>
                                     )}
 
-                                    {/* Two-column grid */}
-                                    <div className="grid md:grid-cols-2 gap-5 mb-6">
-                                        {/* LEFT COLUMN: Transport Mode */}
-                                        <motion.div custom={2} variants={stagger} initial="hidden" animate="visible"
-                                            className="bg-card border border-border rounded-2xl overflow-hidden">
-                                            <div className="px-5 py-4 border-b border-border">
-                                                <h3 className="font-bold text-foreground">Transportation Mode</h3>
-                                            </div>
-                                            <div className="px-5 py-4 space-y-4">
-                                                {transportGroups.map(group => (
-                                                    <div key={group.label}>
-                                                        <p className="text-xs font-semibold text-muted-foreground mb-2">{group.label}</p>
-                                                        {group.sublabel && <p className="text-[10px] text-muted-foreground/70 -mt-1.5 mb-2">{group.sublabel}</p>}
-                                                        <div className="flex gap-2 flex-wrap">
-                                                            {group.options.map(opt => {
-                                                                const isActive = transport === opt.id;
-                                                                return (
-                                                                    <button key={opt.id} onClick={() => setTransport(opt.id)}
-                                                                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all ${
-                                                                            isActive
-                                                                                ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                                                                                : 'bg-secondary text-foreground/70 border-border hover:border-muted-foreground/30'
-                                                                        }`}>
-                                                                        <opt.icon className="w-4 h-4" />
-                                                                        {opt.label}
-                                                                    </button>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </motion.div>
-
-                                        {/* RIGHT COLUMN: Advanced Options + Security */}
-                                        <div className="space-y-5">
-                                            <motion.div custom={3} variants={stagger} initial="hidden" animate="visible"
-                                                className="bg-card border border-border rounded-2xl overflow-hidden">
-                                                <div className="px-5 py-4 border-b border-border">
-                                                    <h3 className="font-bold text-foreground">Advanced Options</h3>
-                                                </div>
-                                                <div className="px-5 py-4 space-y-4">
-                                                    {/* Checked Baggage */}
-                                                    <div className="flex items-start justify-between">
-                                                        <div className="flex items-start gap-3">
-                                                            <Luggage className="w-4 h-4 text-muted-foreground mt-0.5" />
-                                                            <div>
-                                                                <p className="text-sm font-medium text-foreground">Checked Baggage</p>
-                                                                <p className="text-xs text-muted-foreground">Adds check-in time</p>
-                                                                <AnimatePresence>
-                                                                    {hasBaggage && (
-                                                                        <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }}
-                                                                            className="flex items-center gap-1.5 mt-2 overflow-hidden">
-                                                                            {[1, 2, 3].map(n => (
-                                                                                <button key={n} onClick={() => setBaggageCount(n)}
-                                                                                    className={`w-7 h-7 rounded-lg text-xs font-bold border transition-all ${
-                                                                                        baggageCount === n ? 'bg-primary text-primary-foreground border-primary' : 'bg-secondary text-muted-foreground border-border'
-                                                                                    }`}>{n}</button>
-                                                                            ))}
-                                                                        </motion.div>
-                                                                    )}
-                                                                </AnimatePresence>
-                                                            </div>
-                                                        </div>
-                                                        <Switch checked={hasBaggage} onCheckedChange={setHasBaggage} />
-                                                    </div>
-
-                                                    {/* Traveling with Children */}
-                                                    <div className="flex items-center justify-between">
-                                                        <div className="flex items-center gap-3">
-                                                            <Baby className="w-4 h-4 text-muted-foreground" />
-                                                            <div>
-                                                                <p className="text-sm font-medium text-foreground">Traveling with Children</p>
-                                                                <p className="text-xs text-muted-foreground">Extra buffer time</p>
-                                                            </div>
-                                                        </div>
-                                                        <Switch checked={withChildren} onCheckedChange={setWithChildren} />
-                                                    </div>
-
-                                                    {/* Extra Airport Time */}
-                                                    <div>
-                                                        <div className="flex items-center gap-3 mb-2">
-                                                            <Timer className="w-4 h-4 text-muted-foreground" />
-                                                            <p className="text-sm font-medium text-foreground">Extra Airport Time</p>
-                                                        </div>
-                                                        <div className="flex gap-2 ml-7">
-                                                            {['none', '+15', '+30'].map(v => (
-                                                                <button key={v} onClick={() => setExtraTime(v)}
-                                                                    className={`px-4 py-2 rounded-xl text-xs font-semibold border transition-all ${
-                                                                        extraTime === v
-                                                                            ? 'bg-primary text-primary-foreground border-primary'
-                                                                            : 'bg-secondary text-muted-foreground border-border hover:border-muted-foreground/30'
-                                                                    }`}>
-                                                                    {v === 'none' ? 'None' : v + 'm'}
-                                                                </button>
-                                                            ))}
-                                                        </div>
-                                                    </div>
-                                                </div>
-                                            </motion.div>
-
-                                            {/* Security & Check-in */}
-                                            <motion.div custom={4} variants={stagger} initial="hidden" animate="visible"
-                                                className="bg-card border border-border rounded-2xl overflow-hidden">
-                                                <div className="px-5 py-4 border-b border-border">
-                                                    <h3 className="font-bold text-foreground">Security & Check-in</h3>
-                                                </div>
-                                                <div className="px-5 py-4 space-y-3">
-                                                    <div className="flex items-center justify-between opacity-50">
-                                                        <div className="flex items-center gap-3">
-                                                            <ShieldCheck className="w-4 h-4 text-muted-foreground" />
-                                                            <div>
-                                                                <p className="text-sm font-medium text-foreground">TSA PreCheck</p>
-                                                                <p className="text-xs text-muted-foreground">Coming soon</p>
-                                                            </div>
-                                                        </div>
-                                                        <Switch checked={false} disabled />
-                                                    </div>
-                                                    <div className="flex items-center justify-between opacity-50">
-                                                        <div className="flex items-center gap-3">
-                                                            <Sparkles className="w-4 h-4 text-muted-foreground" />
-                                                            <div>
-                                                                <p className="text-sm font-medium text-foreground">Clear</p>
-                                                                <p className="text-xs text-muted-foreground">Coming soon</p>
-                                                            </div>
-                                                        </div>
-                                                        <Switch checked={false} disabled />
-                                                    </div>
-                                                    <div className="flex items-center justify-between opacity-50">
-                                                        <div className="flex items-center gap-3">
-                                                            <Smartphone className="w-4 h-4 text-muted-foreground" />
-                                                            <div>
-                                                                <p className="text-sm font-medium text-foreground">Boarding Pass Ready</p>
-                                                                <p className="text-xs text-muted-foreground">Coming soon</p>
-                                                            </div>
-                                                        </div>
-                                                        <Switch checked={false} disabled />
-                                                    </div>
-                                                </div>
-                                            </motion.div>
+                                    {/* Section 1: Transport Mode */}
+                                    <motion.div custom={2} variants={stagger} initial="hidden" animate="visible"
+                                        className="bg-card border border-border rounded-2xl overflow-hidden mb-5">
+                                        <div className="px-5 py-4 border-b border-border">
+                                            <h3 className="font-bold text-foreground">How are you getting there?</h3>
                                         </div>
-                                    </div>
+                                        <div className="px-5 py-4 space-y-4">
+                                            {transportGroups.map(group => (
+                                                <div key={group.label}>
+                                                    <p className="text-xs font-semibold text-muted-foreground mb-2">{group.label}</p>
+                                                    {group.sublabel && <p className="text-[10px] text-muted-foreground/70 -mt-1.5 mb-2">{group.sublabel}</p>}
+                                                    <div className="flex gap-2 flex-wrap">
+                                                        {group.options.map(opt => {
+                                                            const isActive = transport === opt.id;
+                                                            return (
+                                                                <button key={opt.id} onClick={() => setTransport(opt.id)}
+                                                                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all ${
+                                                                        isActive
+                                                                            ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                                                                            : 'bg-secondary text-foreground/70 border-border hover:border-muted-foreground/30'
+                                                                    }`}>
+                                                                    <opt.icon className="w-4 h-4" />
+                                                                    {opt.label}
+                                                                </button>
+                                                            );
+                                                        })}
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    </motion.div>
 
-                                    {/* Confidence Profile */}
+                                    {/* Section 2: Security & Check-in */}
+                                    <motion.div custom={3} variants={stagger} initial="hidden" animate="visible"
+                                        className="bg-card border border-border rounded-2xl overflow-hidden mb-5">
+                                        <div className="px-5 py-4 border-b border-border">
+                                            <h3 className="font-bold text-foreground">Security & Check-in</h3>
+                                        </div>
+                                        <div className="px-5 py-4 space-y-4">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <ShieldCheck className="w-4 h-4 text-muted-foreground" />
+                                                    <div>
+                                                        <p className="text-sm font-medium text-foreground">TSA PreCheck</p>
+                                                        <p className="text-xs text-muted-foreground">Dedicated screening lane</p>
+                                                    </div>
+                                                </div>
+                                                <Switch checked={hasTsaPreCheck} onCheckedChange={setHasTsaPreCheck} />
+                                            </div>
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <Sparkles className="w-4 h-4 text-muted-foreground" />
+                                                    <div>
+                                                        <p className="text-sm font-medium text-foreground">CLEAR</p>
+                                                        <p className="text-xs text-muted-foreground">Skip the ID check line</p>
+                                                    </div>
+                                                </div>
+                                                <Switch checked={hasClear} onCheckedChange={setHasClear} />
+                                            </div>
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <Smartphone className="w-4 h-4 text-muted-foreground" />
+                                                    <div>
+                                                        <p className="text-sm font-medium text-foreground">Boarding Pass</p>
+                                                        <p className="text-xs text-muted-foreground">Already have your boarding pass?</p>
+                                                    </div>
+                                                </div>
+                                                <Switch checked={hasBoardingPass} onCheckedChange={setHasBoardingPass} />
+                                            </div>
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <Luggage className="w-4 h-4 text-muted-foreground" />
+                                                    <div>
+                                                        <p className="text-sm font-medium text-foreground">Checked Bags</p>
+                                                        <p className="text-xs text-muted-foreground">Number of bags to check</p>
+                                                    </div>
+                                                </div>
+                                                <div className="flex items-center gap-2">
+                                                    <button onClick={() => setBagCount(Math.max(0, bagCount - 1))} disabled={bagCount === 0}
+                                                        className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all ${
+                                                            bagCount === 0
+                                                                ? 'bg-secondary text-muted-foreground/40 border-border cursor-not-allowed'
+                                                                : 'bg-secondary text-foreground border-border hover:border-muted-foreground/30'
+                                                        }`}>
+                                                        <Minus className="w-3.5 h-3.5" />
+                                                    </button>
+                                                    <span className="w-8 text-center text-sm font-bold text-foreground">{bagCount}</span>
+                                                    <button onClick={() => setBagCount(Math.min(10, bagCount + 1))}
+                                                        className="w-8 h-8 rounded-lg border bg-secondary text-foreground border-border hover:border-muted-foreground/30 flex items-center justify-center transition-all">
+                                                        <Plus className="w-3.5 h-3.5" />
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    </motion.div>
+
+                                    {/* Section 3: Traveling with Children */}
+                                    <motion.div custom={4} variants={stagger} initial="hidden" animate="visible"
+                                        className="bg-card border border-border rounded-2xl overflow-hidden mb-5">
+                                        <div className="px-5 py-4">
+                                            <div className="flex items-center justify-between">
+                                                <div className="flex items-center gap-3">
+                                                    <Baby className="w-4 h-4 text-muted-foreground" />
+                                                    <div>
+                                                        <p className="text-sm font-bold text-foreground">Traveling with children?</p>
+                                                        <p className="text-xs text-muted-foreground">Adjusts walking pace at the airport</p>
+                                                    </div>
+                                                </div>
+                                                <Switch checked={withChildren} onCheckedChange={setWithChildren} />
+                                            </div>
+                                        </div>
+                                    </motion.div>
+
+                                    {/* Section 4: Gate Time Slider */}
                                     <motion.div custom={5} variants={stagger} initial="hidden" animate="visible"
                                         className="bg-card border border-border rounded-2xl overflow-hidden mb-6">
                                         <div className="px-5 py-4 border-b border-border">
-                                            <h3 className="font-bold text-foreground">How Much Time Do You Want?</h3>
+                                            <h3 className="font-bold text-foreground">How early at your gate?</h3>
                                         </div>
-                                        <div className="p-5 space-y-3">
-                                            {confidenceProfiles.map(p => {
-                                                const isActive = selectedProfile === p.id;
-                                                const colorClass = p.color === 'green' ? 'text-emerald-600 bg-emerald-50' :
-                                                                   p.color === 'blue'  ? 'text-primary bg-accent' :
-                                                                                         'text-amber-600 bg-amber-50';
-                                                return (
-                                                    <button key={p.id} onClick={() => setSelectedProfile(p.id)}
-                                                        className={`w-full flex items-center justify-between p-4 rounded-xl border-2 transition-all text-left ${
-                                                            isActive
-                                                                ? 'border-primary bg-accent/50'
-                                                                : 'border-border bg-card hover:border-muted-foreground/30'
-                                                        }`}>
-                                                        <div>
-                                                            <p className="font-bold text-foreground">{p.name}</p>
-                                                            <p className="text-sm text-muted-foreground">{p.desc}</p>
-                                                        </div>
-                                                        <span className={`text-sm font-bold px-3 py-1 rounded-full shrink-0 ml-4 ${colorClass}`}>
-                                                            {p.confidenceScore}% Confidence
-                                                        </span>
-                                                    </button>
-                                                );
-                                            })}
+                                        <div className="px-5 py-5">
+                                            <div className="relative px-1">
+                                                <Slider
+                                                    value={[gateTime]}
+                                                    min={0}
+                                                    max={180}
+                                                    step={1}
+                                                    onValueChange={([val]) => setGateTime(snapToNearest(val))}
+                                                    className="w-full"
+                                                />
+                                                <div className="relative w-full h-3 mt-1">
+                                                    {GATE_TIME_SNAPS.map(snap => (
+                                                        <div key={snap}
+                                                            className={`absolute top-0 w-0.5 h-2 rounded-full transition-colors ${
+                                                                snap === gateTime ? 'bg-primary' : 'bg-border'
+                                                            }`}
+                                                            style={{ left: `${(snap / 180) * 100}%`, transform: 'translateX(-50%)' }}
+                                                        />
+                                                    ))}
+                                                </div>
+                                            </div>
+                                            <div className="mt-4 text-center">
+                                                <p className="text-lg font-bold text-foreground">{GATE_TIME_LABELS[gateTime]}</p>
+                                            </div>
                                         </div>
                                     </motion.div>
 
