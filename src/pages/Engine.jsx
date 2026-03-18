@@ -18,11 +18,28 @@ import JourneyVisualization from '@/components/engine/JourneyVisualization';
 const API_BASE = 'https://airbridge-backend-production.up.railway.app';
 
 // ── Data ────────────────────────────────────────────────────────────────────
-const confidenceProfiles = [
-    { id: 'safety', name: 'Stress-Free',  desc: 'Arrive extra early, lots of buffer at the gate', icon: Shield,      confidenceScore: 99, color: 'green' },
-    { id: 'sweet',  name: 'Just Right',   desc: 'Balanced time to security',                      icon: Zap,         confidenceScore: 92, color: 'blue'  },
-    { id: 'risk',   name: 'Cut It Close', desc: 'Minimal buffer, tighter ride',                   icon: AlertCircle, confidenceScore: 75, color: 'amber' },
-];
+const GATE_TIME_SNAPS = [0, 15, 30, 45, 60, 90, 120, 150, 180];
+const GATE_TIME_LABELS = {
+    0: '0 min — Board on arrival',
+    15: '15 min — Quick settle-in',
+    30: '30 min — Time to relax',
+    45: '45 min — Grab a bite',
+    60: '1 hour — Work or explore',
+    90: '1h 30m — Plenty of time',
+    120: '2 hours — Full airport experience',
+    150: '2h 30m — Extended airport time',
+    180: '3 hours — Maximum comfort',
+};
+
+function snapToNearest(val) {
+    let closest = GATE_TIME_SNAPS[0];
+    let minDist = Math.abs(val - closest);
+    for (const snap of GATE_TIME_SNAPS) {
+        const dist = Math.abs(val - snap);
+        if (dist < minDist) { closest = snap; minDist = dist; }
+    }
+    return closest;
+}
 
 const transportGroups = [
     { label: 'Rideshare', options: [{ id: 'rideshare', label: 'Rideshare', icon: Car }] },
