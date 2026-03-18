@@ -1,9 +1,9 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { shortCity, formatLocalTime } from '@/utils/format';
 import {
     Plane, Car, Shield, Clock, MapPin, Luggage,
-    Building2, PersonStanding, Ticket, ChevronDown, ChevronUp, AlertTriangle
+    Building2, PersonStanding, Ticket, AlertTriangle
 } from 'lucide-react';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -128,24 +128,12 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
         let subtitle = '';
         let connectorExtra = '';
         if (seg.id === 'transport') {
-            // Backend advice: "{raw_duration_text} — {distance_text}" e.g. "34 min — 23.7 mi"
-            // duration_minutes is the adjusted planning time (profile + rideshare pickup).
-            // Use duration_minutes for time, extract only distance from advice.
-            const parts = (seg.advice || '').split(/[—–-]/).map(s => s.trim()).filter(Boolean);
-            const distPart = parts.length >= 2 ? parts.slice(1).join(' ').trim() : null;
-            subtitle = distPart ? `${fmtMin(seg.duration_minutes)} · ${distPart}` : fmtMin(seg.duration_minutes);
+            // No subtitle under transport — duration shown on connector
+            subtitle = '';
         } else if (seg.id === 'tsa') {
             const waitMatch = seg.advice?.match(/wait:(\d+)/);
-            const rangeMatch = seg.advice?.match(/range:(\d+)-(\d+)/);
-            const secMatch = seg.advice?.match(/\|([^|]+)$/);
             const waitMin = waitMatch ? parseInt(waitMatch[1], 10) : seg.duration_minutes;
-            const secType = secMatch ? secMatch[1].trim() : '';
-            const secLabels = { precheck: 'PreCheck', clear: 'CLEAR', clear_precheck: 'PreCheck + CLEAR', priority_lane: 'Priority Lane', none: '' };
-            const secLabel = secLabels[secType] || '';
-            let tsaParts = [`${fmtMin(waitMin)} wait`];
-            if (rangeMatch) tsaParts.push(`typically ${rangeMatch[1]}–${rangeMatch[2]} min`);
-            if (secLabel) tsaParts.push(secLabel);
-            subtitle = tsaParts.join(' · ');
+            subtitle = `${fmtMin(waitMin)} wait`;
         } else if (seg.id === 'walk_to_gate') {
             if (comfortBuffer) subtitle = `+${fmtMin(comfortBuffer.duration_minutes)} buffer`;
         } else if (seg.id === 'at_airport') {
@@ -174,6 +162,20 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
 
         return { ...meta, time: displayTime, durationMinutes: seg.duration_minutes, duration: fmtMin(seg.duration_minutes), connectorExtra, subtitle, seg, isLast };
     });
+
+    // Connector label: what to show on the line between step[idx] and step[idx+1]
+    function connectorLabel(idx) {
+        const step = timelineSteps[idx];
+        const nextStep = timelineSteps[idx + 1];
+        // connectorExtra is set by at_airport/bag_drop for embedded walking transitions
+        if (step.connectorExtra) return step.connectorExtra;
+        // transport connector shows the ride/drive duration
+        if (step.seg.id === 'transport') return step.duration;
+        // walk_to_gate shows with " walk" suffix for consistency
+        if (nextStep.seg.id === 'walk_to_gate') return `${nextStep.duration} walk`;
+        // default: show the next step's duration
+        return nextStep.duration;
+    }
 
     // Boarding step data
     const boardingInMinutes = boardingTime && recommendation.leave_home_at
@@ -309,9 +311,8 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                         {timelineSteps.length > 1 && (() => {
                             const stepWidth = 100 / timelineSteps.length;
                             return timelineSteps.slice(0, -1).map((step, idx) => {
-                                const nextStep = timelineSteps[idx + 1];
                                 const leftPercent = stepWidth * idx + stepWidth / 2 + stepWidth / 2;
-                                const label = step.connectorExtra || nextStep.duration;
+                                const label = connectorLabel(idx);
                                 return (
                                     <div key={`dur-${idx}`} className="absolute z-20"
                                         style={{ top: '3.5rem', left: `${leftPercent}%`, transform: 'translate(-50%, -50%)' }}>
@@ -364,7 +365,7 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                                     {idx < timelineSteps.length - 1 && (
                                         <div className="relative w-0.5 h-10 bg-border my-1">
                                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-primary bg-card px-1.5 py-0.5 rounded border border-border shadow-sm whitespace-nowrap">
-                                                {step.connectorExtra || timelineSteps[idx + 1].duration}
+                                                {connectorLabel(idx)}
                                             </span>
                                         </div>
                                     )}
