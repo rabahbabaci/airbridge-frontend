@@ -187,7 +187,7 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
     // Stats for the bottom bar
     const stats = [];
     displaySegments.forEach(seg => {
-        if (seg.id === 'transport') stats.push({ label: 'Transport', value: seg.duration_minutes, unit: 'minutes' });
+        if (seg.id === 'transport') stats.push({ label: 'Transport', value: fmtMin(seg.duration_minutes) });
         if (seg.id === 'tsa') {
             const waitMatch = seg.advice?.match(/wait:(\d+)/);
             stats.push({ label: 'TSA Wait', value: waitMatch ? parseInt(waitMatch[1]) : seg.duration_minutes, unit: 'minutes' });
