@@ -454,7 +454,13 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                             animate={{ opacity: 1, height: 'auto' }}
                             className="bg-card rounded-2xl border border-border px-5 py-4 mt-1"
                         >
-                            <p className="text-sm text-muted-foreground leading-relaxed">{recommendation.explanation}</p>
+                            <p className="text-sm text-muted-foreground leading-relaxed">
+                                {(recommendation.explanation || '')
+                                    .replace(/\b(Safe|Sweet|Risk)\s+profile[.:,]?\s*/gi, '')
+                                    .replace(/\bconfidence\s+profile[:\s]*(safe|sweet|risk)\b[.,;]?\s*/gi, '')
+                                    .replace(/^\s+/, '')
+                                }
+                            </p>
                         </motion.div>
                     )}
                 </motion.div>
