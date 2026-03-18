@@ -104,7 +104,7 @@ export default function Engine() {
     const [bagCount, setBagCount] = useState(0);
     const [withChildren, setWithChildren] = useState(false);
     const [gateTime, setGateTime] = useState(15);
-    const [extraTime, setExtraTime] = useState(0);
+    
 
     // Results
     const [locked, setLocked] = useState(false);
