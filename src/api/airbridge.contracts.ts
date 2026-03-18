@@ -31,11 +31,12 @@ export type TripInputMode = "flight_number" | "route_search";
 export type TripPreferences = {
   transport_mode: TransportMode;
   confidence_profile: ConfidenceProfile;
-  bag_count: number; // 0..3
+  bag_count: number; // 0..10
   traveling_with_children: boolean;
   extra_time_minutes: ExtraTimeMinutes;
   has_boarding_pass: boolean;
   security_access: SecurityAccess;
+  gate_time_minutes?: number | null; // 0..180
 };
 
 export type TripPreferenceOverrides = Partial<TripPreferences>;
@@ -51,6 +52,7 @@ export type TripContext = {
 
   // flight_number mode fields
   flight_number?: string | null;
+  selected_departure_utc?: string | null;
 
   // route_search mode fields
   airline?: string | null;
@@ -73,11 +75,19 @@ export type SegmentDetail = {
 export type RecommendationResponse = {
   trip_id: string;
   leave_home_at: ISODateTime;
+  gate_arrival_utc?: ISODateTime | null;
   confidence: ConfidenceLevel;
   confidence_score: number; // 0..1
   explanation: string;
   segments: SegmentDetail[];
   computed_at: ISODateTime;
+  leave_home_in_past: boolean;
+};
+
+export type RecommendationRecomputeRequest = {
+  trip_id: string;
+  reason?: string | null;
+  preference_overrides?: TripPreferenceOverrides | null;
 };
 
 // UI helpers (exact backend values).
@@ -103,4 +113,3 @@ export const AIRBRIDGE_ENUMS = {
   confidenceLevel: ["high", "medium", "low"] as const,
   tripInputMode: ["flight_number", "route_search"] as const,
 } as const;
-
