@@ -49,19 +49,6 @@ const transportGroups = [
     { label: 'Other / Custom', sublabel: 'AI estimates travel time', options: [{ id: 'other', label: 'Other', icon: User }] },
 ];
 
-const confidenceProfiles = [
-    { id: 'safety', label: 'Play it safe', icon: Shield, description: 'Maximum buffer time' },
-    { id: 'sweet', label: 'Sweet spot', icon: Star, description: 'Balanced timing' },
-    { id: 'risk', label: 'Cut it close', icon: Clock, description: 'Minimum buffer' },
-];
-
-const securityAccessOptions = [
-    { id: 'none', label: 'Standard' },
-    { id: 'precheck', label: 'TSA PreCheck' },
-    { id: 'clear', label: 'CLEAR' },
-    { id: 'clear_precheck', label: 'CLEAR + PreCheck' },
-    { id: 'priority_lane', label: 'Priority Lane' },
-];
 
 // ── Animations ──────────────────────────────────────────────────────────────
 const pageTransition = {
