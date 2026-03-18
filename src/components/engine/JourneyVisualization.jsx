@@ -424,11 +424,10 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
             >
                 <div className={`grid divide-x divide-border`}
                     style={{ gridTemplateColumns: `repeat(${stats.length}, 1fr)` }}>
-                    {stats.map(({ label, value, unit }) => (
+                    {stats.map(({ label, value }) => (
                         <div key={label} className="flex flex-col items-center gap-1 px-3 py-4 text-center">
                             <p className="text-[10px] md:text-xs uppercase tracking-wider font-bold text-muted-foreground">{label}</p>
                             <p className="text-xl md:text-2xl font-black text-foreground">{value}</p>
-                            <p className="text-[10px] text-muted-foreground">{unit}</p>
                         </div>
                     ))}
                 </div>
