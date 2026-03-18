@@ -8,10 +8,10 @@ import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import {
-    Plane, Car, Train, Bus, User, Shield, AlertCircle,
+    Plane, Car, Train, Bus, User, AlertCircle,
     CheckCircle2, Calendar, Search, ArrowLeft, MapPin,
     Sparkles, Clock, Luggage, Baby, ShieldCheck, Smartphone,
-    Minus, Plus, RefreshCw, Star
+    Minus, Plus, RefreshCw
 } from 'lucide-react';
 
 import JourneyVisualization from '@/components/engine/JourneyVisualization';
