@@ -83,7 +83,7 @@ function getSegmentMeta(seg, airportCode, transport) {
 
 // ── Main Component ──────────────────────────────────────────────────────────
 export default function JourneyVisualization({ locked, recommendation, selectedFlight, transport, onReady }) {
-    const [explanationOpen, setExplanationOpen] = useState(false);
+    
 
     useEffect(() => {
         if (locked && recommendation && onReady) {
