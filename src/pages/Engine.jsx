@@ -1,16 +1,17 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
+import { shortCity, formatLocalTime, parseTimeToDate } from '@/utils/format';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Input } from "@/components/ui/input";
 import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import {
-    Plane, Car, Train, Bus, User, Shield, Zap, AlertCircle,
+    Plane, Car, Train, Bus, User, Shield, AlertCircle,
     CheckCircle2, Calendar, Search, ArrowLeft, MapPin,
-    Sparkles, Clock, Luggage, Baby, Timer, ShieldCheck, Smartphone,
-    Minus, Plus
+    Sparkles, Clock, Luggage, Baby, ShieldCheck, Smartphone,
+    Minus, Plus, RefreshCw, Star
 } from 'lucide-react';
 
 import JourneyVisualization from '@/components/engine/JourneyVisualization';
@@ -48,28 +49,19 @@ const transportGroups = [
     { label: 'Other / Custom', sublabel: 'AI estimates travel time', options: [{ id: 'other', label: 'Other', icon: User }] },
 ];
 
-function formatLocalTime(timeStr) {
-    if (!timeStr) return '';
-    const match = timeStr.match(/(\d{4}-\d{2}-\d{2})\s+(\d{2}):(\d{2})/);
-    if (!match) return timeStr;
-    const hours = parseInt(match[2]);
-    const minutes = match[3];
-    const ampm = hours >= 12 ? 'PM' : 'AM';
-    const h12 = hours === 0 ? 12 : hours > 12 ? hours - 12 : hours;
-    return `${h12}:${minutes} ${ampm}`;
-}
+const confidenceProfiles = [
+    { id: 'safety', label: 'Play it safe', icon: Shield, description: 'Maximum buffer time' },
+    { id: 'sweet', label: 'Sweet spot', icon: Star, description: 'Balanced timing' },
+    { id: 'risk', label: 'Cut it close', icon: Clock, description: 'Minimum buffer' },
+];
 
-function shortCity(name) {
-    if (!name) return '';
-    return name.split(/[\s-]+/).slice(0, 2).join(' ');
-}
-
-function parseTimeToDate(localTimeStr) {
-    if (!localTimeStr) return null;
-    const match = localTimeStr.match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/);
-    if (!match) return null;
-    return new Date(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3]), parseInt(match[4]), parseInt(match[5]));
-}
+const securityAccessOptions = [
+    { id: 'none', label: 'Standard' },
+    { id: 'precheck', label: 'TSA PreCheck' },
+    { id: 'clear', label: 'CLEAR' },
+    { id: 'clear_precheck', label: 'CLEAR + PreCheck' },
+    { id: 'priority_lane', label: 'Priority Lane' },
+];
 
 // ── Animations ──────────────────────────────────────────────────────────────
 const pageTransition = {
@@ -101,34 +93,59 @@ export default function Engine() {
     const [searching, setSearching] = useState(false);
     const [flightOptions, setFlightOptions] = useState([]);
     const [selectedFlight, setSelectedFlight] = useState(null);
+    const [searchError, setSearchError] = useState(null);
 
     // Step 3
     const [transport, setTransport] = useState('rideshare');
-    const [hasTsaPreCheck, setHasTsaPreCheck] = useState(false);
-    const [hasClear, setHasClear] = useState(false);
+    const [confidenceProfile, setConfidenceProfile] = useState('sweet');
+    const [securityAccess, setSecurityAccess] = useState('none');
     const [hasBoardingPass, setHasBoardingPass] = useState(true);
     const [bagCount, setBagCount] = useState(0);
     const [withChildren, setWithChildren] = useState(false);
     const [gateTime, setGateTime] = useState(15);
+    const [extraTime, setExtraTime] = useState(0);
 
     // Results
     const [locked, setLocked] = useState(false);
     const [recommendation, setRecommendation] = useState(null);
     const [journeyReady, setJourneyReady] = useState(false);
     const [viewMode, setViewMode] = useState('setup');
+    const [apiError, setApiError] = useState(null);
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [currentTripId, setCurrentTripId] = useState(null);
+    const [isRecomputing, setIsRecomputing] = useState(false);
 
     const goTo = (next) => { setDir(next > step ? 1 : -1); setStep(next); };
+
+    const buildSecurityAccess = () => securityAccess;
+
+    const buildPreferences = () => ({
+        transport_mode: transport,
+        confidence_profile: confidenceProfile,
+        bag_count: bagCount,
+        traveling_with_children: withChildren,
+        extra_time_minutes: extraTime,
+        has_boarding_pass: hasBoardingPass,
+        security_access: buildSecurityAccess(),
+        gate_time_minutes: gateTime,
+    });
 
     // ── Handlers ────────────────────────────────────────────────────────────
     const handleFindFlight = async () => {
         if (!flightNumber.trim() || !departureDate) return;
         setSearching(true);
         setSelectedFlight(null);
+        setSearchError(null);
         goTo(2);
         try {
             const addrParam = startingAddress.trim() ? `?home_address=${encodeURIComponent(startingAddress.trim())}` : '';
             const res = await fetch(`${API_BASE}/v1/flights/${encodeURIComponent(flightNumber.trim())}/${departureDate}${addrParam}`);
-            if (!res.ok) { setFlightOptions([]); setSearching(false); return; }
+            if (!res.ok) {
+                setFlightOptions([]);
+                setSearchError('Could not look up flights. Please check the flight number and try again.');
+                setSearching(false);
+                return;
+            }
             const data = await res.json();
             const mapped = (data.flights || []).map(f => ({
                 flight_number: f.flight_number,
@@ -159,6 +176,7 @@ export default function Engine() {
         } catch (err) {
             console.error('Flight lookup failed:', err);
             setFlightOptions([]);
+            setSearchError('Network error — could not reach the server. Please check your connection and try again.');
         }
         setSearching(false);
     };
@@ -166,21 +184,18 @@ export default function Engine() {
     const handleFlightClick = (f) => {
         if (f.departed || f.canceled || f.is_boarding) return;
         setSelectedFlight(f);
-        if (locked) { setLocked(false); setRecommendation(null); setJourneyReady(false); }
+        if (locked) { setLocked(false); setRecommendation(null); setJourneyReady(false); setCurrentTripId(null); }
     };
 
     const handleContinueToSetup = () => { if (selectedFlight) goTo(3); };
 
     const handleLockIn = async () => {
+        if (isSubmitting) return;
+        setIsSubmitting(true);
         setLocked(true);
         setJourneyReady(false);
+        setApiError(null);
         setViewMode('loading');
-
-        // Build security_access from toggles
-        let securityAccess = 'none';
-        if (hasTsaPreCheck && hasClear) securityAccess = 'clear_precheck';
-        else if (hasClear) securityAccess = 'clear';
-        else if (hasTsaPreCheck) securityAccess = 'precheck';
 
         try {
             const tripRes = await fetch(`${API_BASE}/v1/trips`, {
@@ -192,41 +207,96 @@ export default function Engine() {
                     departure_date: departureDate,
                     home_address: startingAddress,
                     selected_departure_utc: selectedFlight.departure_time_utc,
-                    preferences: {
-                        transport_mode: transport,
-                        confidence_profile: 'sweet',
-                        bag_count: bagCount,
-                        traveling_with_children: withChildren,
-                        extra_time_minutes: 0,
-                        has_boarding_pass: hasBoardingPass,
-                        security_access: securityAccess,
-                        gate_time_minutes: gateTime,
-                    }
+                    preferences: buildPreferences(),
                 })
             });
+            if (!tripRes.ok) {
+                const errBody = await tripRes.text();
+                throw new Error(`Trip creation failed (${tripRes.status}): ${errBody}`);
+            }
             const trip = await tripRes.json();
+            setCurrentTripId(trip.trip_id);
+
             const recRes = await fetch(`${API_BASE}/v1/recommendations`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ trip_id: trip.trip_id })
             });
+            if (!recRes.ok) {
+                const errBody = await recRes.text();
+                throw new Error(`Recommendation failed (${recRes.status}): ${errBody}`);
+            }
             const rec = await recRes.json();
             setRecommendation(rec);
             setJourneyReady(true);
             setTimeout(() => setViewMode('results'), 500);
         } catch (err) {
             console.error('Recommendation failed:', err);
-            setJourneyReady(true);
+            setApiError(err.message || 'Something went wrong. Please try again.');
+            setLocked(false);
+            setJourneyReady(false);
             setViewMode('setup');
+        } finally {
+            setIsSubmitting(false);
+        }
+    };
+
+    const handleRecompute = async () => {
+        if (!currentTripId || isRecomputing) return;
+        setIsRecomputing(true);
+        setApiError(null);
+
+        try {
+            const recRes = await fetch(`${API_BASE}/v1/recommendations/recompute`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    trip_id: currentTripId,
+                    reason: 'preference_change',
+                    preference_overrides: buildPreferences(),
+                })
+            });
+            if (!recRes.ok) {
+                const errBody = await recRes.text();
+                throw new Error(`Recompute failed (${recRes.status}): ${errBody}`);
+            }
+            const rec = await recRes.json();
+            setRecommendation(rec);
+        } catch (err) {
+            console.error('Recompute failed:', err);
+            setApiError(err.message || 'Could not update your recommendation. Please try again.');
+        } finally {
+            setIsRecomputing(false);
         }
     };
 
     const handleReset = () => {
         setLocked(false); setJourneyReady(false); setRecommendation(null);
-        setSelectedFlight(null); setFlightOptions([]); setDir(-1); setStep(1); setViewMode('setup');
+        setSelectedFlight(null); setFlightOptions([]); setDir(-1); setStep(1);
+        setViewMode('setup'); setApiError(null); setCurrentTripId(null);
+        setSearchError(null);
     };
 
-    const handleEditSetup = () => { setLocked(false); setJourneyReady(false); setViewMode('setup'); };
+    const handleEditSetup = () => {
+        setLocked(false);
+        setJourneyReady(false);
+        setViewMode('setup');
+        setApiError(null);
+    };
+
+    const handleRecalculate = async () => {
+        if (currentTripId) {
+            setLocked(true);
+            setJourneyReady(false);
+            setViewMode('loading');
+            setApiError(null);
+            await handleRecompute();
+            setJourneyReady(true);
+            setViewMode('results');
+        } else {
+            await handleLockIn();
+        }
+    };
 
     const canSearch = flightNumber.trim().length > 0 && departureDate.length > 0;
 
@@ -371,6 +441,21 @@ export default function Engine() {
                                         </span>
                                     </motion.div>
 
+                                    {/* Error state */}
+                                    {searchError && !searching && (
+                                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                                            className="rounded-2xl px-5 py-4 mb-5 flex items-start gap-3 bg-destructive/10 border border-destructive/20">
+                                            <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+                                            <div>
+                                                <p className="text-destructive text-sm font-medium">{searchError}</p>
+                                                <button onClick={handleFindFlight}
+                                                    className="text-sm text-destructive font-semibold underline mt-1 hover:text-destructive/80">
+                                                    Try again
+                                                </button>
+                                            </div>
+                                        </motion.div>
+                                    )}
+
                                     {/* Flight list */}
                                     {searching ? (
                                         <div className="space-y-3">
@@ -381,7 +466,7 @@ export default function Engine() {
                                             ))}
                                             <p className="text-sm text-muted-foreground text-center mt-2">Searching flights...</p>
                                         </div>
-                                    ) : flightOptions.length === 0 ? (
+                                    ) : !searchError && flightOptions.length === 0 ? (
                                         <div className="text-center py-16">
                                             <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-4">
                                                 <Search className="w-6 h-6 text-muted-foreground" />
@@ -437,10 +522,10 @@ export default function Engine() {
                                                             const scheduled = parseTimeToDate(f.departure_time);
                                                             const revised = parseTimeToDate(f.revised_departure_local);
                                                             if (scheduled && revised && revised > scheduled)
-                                                                return <p className="text-xs text-amber-600 font-medium mt-2">⚠ Delayed — now {formatLocalTime(f.revised_departure_local)}</p>;
+                                                                return <p className="text-xs text-amber-600 font-medium mt-2">Delayed — now {formatLocalTime(f.revised_departure_local)}</p>;
                                                             return null;
                                                         })()}
-                                                        {f.time_warning && !isDisabled && <p className="text-xs text-amber-600 font-medium mt-2">⚠ {f.time_warning}</p>}
+                                                        {f.time_warning && !isDisabled && <p className="text-xs text-amber-600 font-medium mt-2">{f.time_warning}</p>}
 
                                                         {isSelected && !isDisabled && (
                                                             <div className="flex items-center gap-1.5 mt-2">
@@ -479,9 +564,26 @@ export default function Engine() {
                                         </button>
                                         <div>
                                             <h1 className="text-2xl font-black text-foreground tracking-tight">Departure Setup</h1>
-                                            <p className="text-sm text-muted-foreground">Customize your travel preferences</p>
+                                            <p className="text-sm text-muted-foreground">
+                                                {currentTripId ? 'Adjust preferences — your trip will be recomputed' : 'Customize your travel preferences'}
+                                            </p>
                                         </div>
                                     </motion.div>
+
+                                    {/* Error banner */}
+                                    {apiError && (
+                                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                                            className="rounded-2xl px-5 py-4 mb-5 flex items-start gap-3 bg-destructive/10 border border-destructive/20">
+                                            <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+                                            <div>
+                                                <p className="text-destructive text-sm font-medium">{apiError}</p>
+                                                <button onClick={() => setApiError(null)}
+                                                    className="text-sm text-destructive font-semibold underline mt-1 hover:text-destructive/80">
+                                                    Dismiss
+                                                </button>
+                                            </div>
+                                        </motion.div>
+                                    )}
 
                                     {/* Selected flight badge */}
                                     {selectedFlight && (
@@ -533,32 +635,31 @@ export default function Engine() {
                                             </div>
                                         </motion.div>
 
-                                        {/* Right: Security & Check-in (includes Traveling with Children) */}
+                                        {/* Right: Security & Check-in */}
                                         <motion.div custom={3} variants={stagger} initial="hidden" animate="visible"
                                             className="bg-card border border-border rounded-2xl overflow-hidden flex flex-col">
                                             <div className="px-5 py-4 border-b border-border">
                                                 <h3 className="font-bold text-foreground">Security & Check-in</h3>
                                             </div>
                                             <div className="px-5 py-4 space-y-4 flex-1">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-3">
+                                                {/* Security access selector */}
+                                                <div>
+                                                    <div className="flex items-center gap-3 mb-2">
                                                         <ShieldCheck className="w-4 h-4 text-muted-foreground" />
-                                                        <div>
-                                                            <p className="text-sm font-medium text-foreground">TSA PreCheck</p>
-                                                            <p className="text-xs text-muted-foreground">Dedicated screening lane</p>
-                                                        </div>
+                                                        <p className="text-sm font-medium text-foreground">Security Access</p>
                                                     </div>
-                                                    <Switch checked={hasTsaPreCheck} onCheckedChange={setHasTsaPreCheck} />
-                                                </div>
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-3">
-                                                        <Sparkles className="w-4 h-4 text-muted-foreground" />
-                                                        <div>
-                                                            <p className="text-sm font-medium text-foreground">CLEAR</p>
-                                                            <p className="text-xs text-muted-foreground">Skip the ID check line</p>
-                                                        </div>
+                                                    <div className="flex flex-wrap gap-1.5">
+                                                        {securityAccessOptions.map(opt => (
+                                                            <button key={opt.id} onClick={() => setSecurityAccess(opt.id)}
+                                                                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
+                                                                    securityAccess === opt.id
+                                                                        ? 'bg-primary text-primary-foreground border-primary'
+                                                                        : 'bg-secondary text-foreground/70 border-border hover:border-muted-foreground/30'
+                                                                }`}>
+                                                                {opt.label}
+                                                            </button>
+                                                        ))}
                                                     </div>
-                                                    <Switch checked={hasClear} onCheckedChange={setHasClear} />
                                                 </div>
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-3">
@@ -608,62 +709,130 @@ export default function Engine() {
                                         </motion.div>
                                     </div>
 
-                                    {/* Row 2: Gate Time Slider (full width) */}
-                                    <motion.div custom={4} variants={stagger} initial="hidden" animate="visible"
-                                        className="bg-card border border-border rounded-2xl overflow-hidden mb-6">
+                                    {/* Row 2: Confidence Profile */}
+                                    <motion.div custom={3.5} variants={stagger} initial="hidden" animate="visible"
+                                        className="bg-card border border-border rounded-2xl overflow-hidden mb-5">
                                         <div className="px-5 py-4 border-b border-border">
-                                            <h3 className="font-bold text-foreground">How early at your gate?</h3>
+                                            <h3 className="font-bold text-foreground">How do you like to travel?</h3>
                                         </div>
-                                        <div className="px-5 py-5">
-                                            <div className="relative h-8">
-                                                <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 rounded-full bg-primary/20" />
-                                                <div
-                                                    className="absolute left-0 top-1/2 -translate-y-1/2 h-1 rounded-full bg-primary"
-                                                    style={{ width: `${(gateTime / 180) * 100}%` }}
-                                                />
-
-                                                <input
-                                                    type="range"
-                                                    min={0}
-                                                    max={180}
-                                                    step={1}
-                                                    value={gateTime}
-                                                    onChange={(e) => setGateTime(snapToNearest(Number(e.target.value)))}
-                                                    className="absolute inset-0 z-20 w-full h-full opacity-0 cursor-pointer"
-                                                    aria-label="Gate arrival buffer minutes"
-                                                />
-
-                                                <div
-                                                    className="absolute z-10 w-5 h-5 rounded-full border-2 border-primary bg-background shadow-md pointer-events-none"
-                                                    style={{ left: `${(gateTime / 180) * 100}%`, top: '50%', transform: 'translate(-50%, -50%)' }}
-                                                />
-
-                                                <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 pointer-events-none">
-                                                    {GATE_TIME_SNAPS.map(snap => (
-                                                        <div key={snap}
-                                                            className={`absolute w-0.5 h-2 rounded-full transition-colors ${
-                                                                snap === gateTime ? 'bg-primary' : 'bg-border'
-                                                            }`}
-                                                            style={{ left: `${(snap / 180) * 100}%`, top: '50%', transform: 'translate(-50%, -50%)' }}
-                                                        />
-                                                    ))}
-                                                </div>
-                                            </div>
-                                            <div className="mt-4 text-center">
-                                                <p className="text-lg font-bold text-foreground">{GATE_TIME_LABELS[gateTime]}</p>
+                                        <div className="px-5 py-4">
+                                            <div className="grid grid-cols-3 gap-3">
+                                                {confidenceProfiles.map(p => {
+                                                    const isActive = confidenceProfile === p.id;
+                                                    return (
+                                                        <button key={p.id} onClick={() => setConfidenceProfile(p.id)}
+                                                            className={`flex flex-col items-center gap-2 px-4 py-4 rounded-xl border-2 transition-all text-center ${
+                                                                isActive
+                                                                    ? 'border-primary bg-accent/50 shadow-sm'
+                                                                    : 'border-border hover:border-muted-foreground/30'
+                                                            }`}>
+                                                            <p.icon className={`w-5 h-5 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
+                                                            <div>
+                                                                <p className={`text-sm font-semibold ${isActive ? 'text-primary' : 'text-foreground'}`}>{p.label}</p>
+                                                                <p className="text-[10px] text-muted-foreground mt-0.5">{p.description}</p>
+                                                            </div>
+                                                        </button>
+                                                    );
+                                                })}
                                             </div>
                                         </div>
                                     </motion.div>
 
+                                    {/* Row 3: Gate Time Slider + Extra Time (side by side) */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-6">
+                                        <motion.div custom={4} variants={stagger} initial="hidden" animate="visible"
+                                            className="bg-card border border-border rounded-2xl overflow-hidden sm:col-span-2">
+                                            <div className="px-5 py-4 border-b border-border">
+                                                <h3 className="font-bold text-foreground">How early at your gate?</h3>
+                                            </div>
+                                            <div className="px-5 py-5">
+                                                <div className="relative h-8">
+                                                    <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 rounded-full bg-primary/20" />
+                                                    <div
+                                                        className="absolute left-0 top-1/2 -translate-y-1/2 h-1 rounded-full bg-primary"
+                                                        style={{ width: `${(gateTime / 180) * 100}%` }}
+                                                    />
+
+                                                    <input
+                                                        type="range"
+                                                        min={0}
+                                                        max={180}
+                                                        step={1}
+                                                        value={gateTime}
+                                                        onChange={(e) => setGateTime(snapToNearest(Number(e.target.value)))}
+                                                        className="absolute inset-0 z-20 w-full h-full opacity-0 cursor-pointer"
+                                                        aria-label="Gate arrival buffer minutes"
+                                                    />
+
+                                                    <div
+                                                        className="absolute z-10 w-5 h-5 rounded-full border-2 border-primary bg-background shadow-md pointer-events-none"
+                                                        style={{ left: `${(gateTime / 180) * 100}%`, top: '50%', transform: 'translate(-50%, -50%)' }}
+                                                    />
+
+                                                    <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 pointer-events-none">
+                                                        {GATE_TIME_SNAPS.map(snap => (
+                                                            <div key={snap}
+                                                                className={`absolute w-0.5 h-2 rounded-full transition-colors ${
+                                                                    snap === gateTime ? 'bg-primary' : 'bg-border'
+                                                                }`}
+                                                                style={{ left: `${(snap / 180) * 100}%`, top: '50%', transform: 'translate(-50%, -50%)' }}
+                                                            />
+                                                        ))}
+                                                    </div>
+                                                </div>
+                                                <div className="mt-4 text-center">
+                                                    <p className="text-lg font-bold text-foreground">{GATE_TIME_LABELS[gateTime]}</p>
+                                                </div>
+                                            </div>
+                                        </motion.div>
+
+                                        {/* Extra Time */}
+                                        <motion.div custom={4.5} variants={stagger} initial="hidden" animate="visible"
+                                            className="bg-card border border-border rounded-2xl overflow-hidden">
+                                            <div className="px-5 py-4 border-b border-border">
+                                                <h3 className="font-bold text-foreground">Extra buffer</h3>
+                                            </div>
+                                            <div className="px-5 py-4 space-y-2">
+                                                {[0, 15, 30].map(val => (
+                                                    <button key={val} onClick={() => setExtraTime(val)}
+                                                        className={`w-full px-4 py-2.5 rounded-xl text-sm font-medium border transition-all text-left ${
+                                                            extraTime === val
+                                                                ? 'bg-primary text-primary-foreground border-primary'
+                                                                : 'bg-secondary text-foreground/70 border-border hover:border-muted-foreground/30'
+                                                        }`}>
+                                                        {val === 0 ? 'None' : `+${val} min`}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </motion.div>
+                                    </div>
+
                                     {/* CTA */}
                                     <motion.div custom={5} variants={stagger} initial="hidden" animate="visible">
-                                        <button onClick={handleLockIn}
-                                            className="w-full py-4 rounded-2xl text-base font-semibold bg-foreground hover:bg-foreground/90 text-background transition-all shadow-lg shadow-foreground/10 hover:shadow-xl">
-                                            Calculate My Departure
+                                        <button onClick={handleRecalculate} disabled={isSubmitting}
+                                            className={`w-full py-4 rounded-2xl text-base font-semibold transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 ${
+                                                isSubmitting
+                                                    ? 'bg-muted text-muted-foreground cursor-not-allowed shadow-none'
+                                                    : 'bg-foreground hover:bg-foreground/90 text-background shadow-foreground/10'
+                                            }`}>
+                                            {isSubmitting ? (
+                                                <>
+                                                    <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
+                                                        className="w-4 h-4 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full" />
+                                                    Calculating...
+                                                </>
+                                            ) : currentTripId ? (
+                                                <>
+                                                    <RefreshCw className="w-4 h-4" />
+                                                    Update My Departure
+                                                </>
+                                            ) : (
+                                                'Calculate My Departure'
+                                            )}
                                         </button>
                                         <button onClick={handleReset}
                                             className="w-full text-center text-sm text-muted-foreground hover:text-foreground mt-3 transition-colors">
-                                            ← Start over
+                                            Start over
                                         </button>
                                     </motion.div>
                                 </motion.div>
@@ -682,7 +851,9 @@ export default function Engine() {
                             className="w-14 h-14 rounded-full border-[3px] border-border border-t-primary"
                         />
                         <div>
-                            <h2 className="text-xl font-bold text-foreground mb-2">Calculating your journey</h2>
+                            <h2 className="text-xl font-bold text-foreground mb-2">
+                                {currentTripId ? 'Updating your journey' : 'Calculating your journey'}
+                            </h2>
                             <p className="text-muted-foreground text-sm max-w-xs mx-auto">
                                 Analyzing traffic, TSA wait times,<br />and airport conditions…
                             </p>
@@ -728,7 +899,6 @@ export default function Engine() {
                             recommendation={recommendation}
                             selectedFlight={selectedFlight}
                             transport={transport}
-                            profile={null}
                             onReady={() => setJourneyReady(true)}
                         />
                     </motion.div>

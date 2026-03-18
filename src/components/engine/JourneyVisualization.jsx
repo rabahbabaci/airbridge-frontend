@@ -1,16 +1,12 @@
-import React, { useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useEffect, useState } from 'react';
+import { motion } from 'framer-motion';
+import { shortCity, formatLocalTime } from '@/utils/format';
 import {
-    Plane, Car, Train, Bus, Shield, Clock, MapPin, Luggage,
-    Building2, PersonStanding, Ticket, CheckCircle2
+    Plane, Car, Shield, Clock, MapPin, Luggage,
+    Building2, PersonStanding, Ticket, ChevronDown, ChevronUp, AlertTriangle
 } from 'lucide-react';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
-function shortCity(name) {
-    if (!name) return '';
-    return name.split(/[\s-]+/).slice(0, 2).join(' ');
-}
-
 function formatUTCToLocal(utcStr) {
     if (!utcStr) return '';
     const d = new Date(utcStr);
@@ -66,15 +62,17 @@ function getSegmentMeta(seg, airportCode, transport) {
 
     if (id === 'transport' || label.includes('leave') || label.includes('depart') || label.includes('ride') || label.includes('drive') || label.includes('uber'))
         return { Icon: Car, bg: 'bg-accent', iconColor: 'text-primary', shortLabel: transportLabel(transport, airportCode) };
-    if (id === 'at_airport' || label.includes('check-in') || label.includes('terminal'))
+    if (id === 'at_airport' || label.includes('terminal'))
         return { Icon: Building2, bg: 'bg-accent', iconColor: 'text-primary', shortLabel: `At ${airportCode || 'Airport'}` };
+    if (id === 'checkin' || label.includes('check-in') || label.includes('counter'))
+        return { Icon: Ticket, bg: 'bg-accent', iconColor: 'text-primary', shortLabel: 'Check-in' };
     if (id === 'bag_drop' || label.includes('bag') || label.includes('luggage'))
         return { Icon: Luggage, bg: 'bg-amber-100', iconColor: 'text-amber-600', shortLabel: 'Bag Drop' };
     if (id === 'tsa' || label.includes('security') || label.includes('tsa'))
         return { Icon: Shield, bg: 'bg-red-100', iconColor: 'text-red-600', shortLabel: 'TSA Security' };
     if (id === 'walk_to_gate' || label.includes('walk'))
         return { Icon: PersonStanding, bg: 'bg-emerald-100', iconColor: 'text-emerald-600', shortLabel: 'At Gate' };
-    if (id === 'boarding_buffer')
+    if (id === 'gate_buffer')
         return { Icon: Clock, bg: 'bg-accent', iconColor: 'text-primary', shortLabel: 'Buffer' };
     if (label.includes('gate'))
         return { Icon: Ticket, bg: 'bg-emerald-100', iconColor: 'text-emerald-600', shortLabel: 'At Gate' };
@@ -84,7 +82,8 @@ function getSegmentMeta(seg, airportCode, transport) {
 }
 
 // ── Main Component ──────────────────────────────────────────────────────────
-export default function JourneyVisualization({ locked, recommendation, selectedFlight, transport, profile, onReady }) {
+export default function JourneyVisualization({ locked, recommendation, selectedFlight, transport, onReady }) {
+    const [explanationOpen, setExplanationOpen] = useState(false);
 
     useEffect(() => {
         if (locked && recommendation && onReady) {
@@ -98,8 +97,6 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
     const totalMinutes = recommendation.segments
         ? recommendation.segments.reduce((sum, s) => sum + (s.duration_minutes || 0), 0)
         : 0;
-
-    const confidenceScore = profile?.confidenceScore || Math.round((recommendation.confidence_score || 0) * 100);
 
     const gateArrival = recommendation.gate_arrival_utc ? new Date(recommendation.gate_arrival_utc) : null;
     const departureDateObj = selectedFlight?.departure_time ? parseDepartureTime(selectedFlight.departure_time) : null;
@@ -131,22 +128,21 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
         let subtitle = '';
         let connectorExtra = '';
         if (seg.id === 'transport') {
-            const rawMatch = seg.advice?.match(/raw:(\d+)/);
-            const distMatch = seg.advice?.match(/distance_mi:([\d.]+)/);
-            const rawMin = rawMatch ? parseInt(rawMatch[1], 10) : null;
-            const distMi = distMatch ? parseFloat(distMatch[1]) : null;
-            const parts = [];
-            if (rawMin != null) parts.push(fmtMin(rawMin));
-            if (distMi != null) parts.push(`${distMi} mi`);
+            // Backend format: "{duration_text} — {distance_text}" e.g. "45 min drive — 32.1 mi"
+            const parts = (seg.advice || '').split('—').map(s => s.trim()).filter(Boolean);
             subtitle = parts.length ? parts.join(' — ') : fmtMin(seg.duration_minutes);
         } else if (seg.id === 'tsa') {
             const waitMatch = seg.advice?.match(/wait:(\d+)/);
+            const rangeMatch = seg.advice?.match(/range:(\d+)-(\d+)/);
             const secMatch = seg.advice?.match(/\|([^|]+)$/);
             const waitMin = waitMatch ? parseInt(waitMatch[1], 10) : seg.duration_minutes;
             const secType = secMatch ? secMatch[1].trim() : '';
-            const secLabels = { precheck: 'PreCheck', clear: 'CLEAR', clear_precheck: 'PreCheck + CLEAR', priority_lane: 'Priority Lane' };
+            const secLabels = { precheck: 'PreCheck', clear: 'CLEAR', clear_precheck: 'PreCheck + CLEAR', priority_lane: 'Priority Lane', none: '' };
             const secLabel = secLabels[secType] || '';
-            subtitle = `${fmtMin(waitMin)} wait${secLabel ? ' · ' + secLabel : ''}`;
+            let tsaParts = [`${fmtMin(waitMin)} wait`];
+            if (rangeMatch) tsaParts.push(`typically ${rangeMatch[1]}–${rangeMatch[2]} min`);
+            if (secLabel) tsaParts.push(secLabel);
+            subtitle = tsaParts.join(' · ');
         } else if (seg.id === 'walk_to_gate') {
             if (comfortBuffer) subtitle = `+${fmtMin(comfortBuffer.duration_minutes)} buffer`;
         } else if (seg.id === 'at_airport') {
@@ -155,16 +151,19 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                 connectorExtra = `${fmtMin(parseInt(walkMatch[1], 10))} walk`;
             }
             subtitle = '';
-        } else if (seg.id === 'bag_drop') {
+        } else if (seg.id === 'bag_drop' || seg.id === 'checkin') {
             const bagMatch = seg.advice?.match(/(\d+)\s*bag/);
             const dropMatch = seg.advice?.match(/drop:(\d+)/);
+            const counterMatch = seg.advice?.match(/counter:(\d+)/);
             const walkMatch = seg.advice?.match(/walk_to_next:(\d+)/);
             const bags = bagMatch ? parseInt(bagMatch[1], 10) : null;
             const dropMin = dropMatch ? parseInt(dropMatch[1], 10) : null;
+            const counterMin = counterMatch ? parseInt(counterMatch[1], 10) : null;
             const parts = [];
             if (bags != null) parts.push(`${bags} bag${bags !== 1 ? 's' : ''}`);
             if (dropMin != null) parts.push(`${fmtMin(dropMin)} drop`);
-            subtitle = parts.length ? parts.join(' · ') : 'Check bags';
+            if (counterMin != null && !dropMin) parts.push(`${fmtMin(counterMin)} at counter`);
+            subtitle = parts.length ? parts.join(' · ') : (seg.id === 'checkin' ? 'Get boarding pass' : 'Check bags');
             if (walkMatch) connectorExtra = `${fmtMin(parseInt(walkMatch[1], 10))} walk`;
         } else if (seg.advice) {
             subtitle = seg.advice;
@@ -189,6 +188,10 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
         if (seg.id === 'walk_to_gate') stats.push({ label: 'Gate Walk', value: seg.duration_minutes, unit: 'minutes' });
     });
     if (comfortBuffer) stats.push({ label: 'Buffer', value: comfortBuffer.duration_minutes, unit: 'minutes' });
+
+    // Delay info
+    const isDelayed = selectedFlight?.is_delayed && selectedFlight?.revised_departure_local;
+    const revisedDepartureTime = isDelayed ? formatLocalTime(selectedFlight.revised_departure_local) : null;
 
     return (
         <div className="max-w-5xl mx-auto px-4 md:px-8 py-8">
@@ -260,15 +263,28 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                 )}
             </motion.div>
 
-
-            {/* Late departure warning */}
-            {recommendation.leave_home_at && new Date(recommendation.leave_home_at) < new Date() && (
+            {/* Late departure warning — use backend leave_home_in_past */}
+            {recommendation.leave_home_in_past && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                     className="rounded-2xl px-5 py-4 mb-6 flex items-center gap-3 bg-destructive/10 border border-destructive/20">
-                    <span className="text-lg">⚠️</span>
+                    <AlertTriangle className="w-5 h-5 text-destructive shrink-0" />
                     <p className="text-destructive text-sm font-medium">
                         You needed to leave by {formatUTCToLocal(recommendation.leave_home_at)} — you may not make this flight on time
                     </p>
+                </motion.div>
+            )}
+
+            {/* Delay warning */}
+            {isDelayed && (
+                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                    className="rounded-2xl px-5 py-4 mb-6 flex items-center gap-3 bg-amber-50 border border-amber-200">
+                    <AlertTriangle className="w-5 h-5 text-amber-600 shrink-0" />
+                    <div>
+                        <p className="text-amber-800 text-sm font-semibold">Flight Delayed</p>
+                        <p className="text-amber-700 text-xs mt-0.5">
+                            Originally {formatLocalTime(selectedFlight.departure_time)} — now departing at {revisedDepartureTime}
+                        </p>
+                    </div>
                 </motion.div>
             )}
 
@@ -375,12 +391,15 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Boarding</p>
                     <p className="text-2xl md:text-3xl font-black text-emerald-600">{boarding}</p>
                     {gateCushionMinutes > 0 && (
-                        <p className="text-xs font-semibold text-emerald-600 mt-1">✓ {gateCushionMinutes} min cushion at gate</p>
+                        <p className="text-xs font-semibold text-emerald-600 mt-1">{gateCushionMinutes} min cushion at gate</p>
                     )}
                 </div>
                 <div className="bg-card rounded-2xl border border-border p-5">
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Flight Departs</p>
-                    <p className="text-2xl md:text-3xl font-black text-foreground">{departureTime}</p>
+                    <p className={`text-2xl md:text-3xl font-black ${isDelayed ? 'text-amber-600' : 'text-foreground'}`}>{departureTime}</p>
+                    {isDelayed && (
+                        <p className="text-xs font-semibold text-amber-600 mt-1">Delayed — now {revisedDepartureTime}</p>
+                    )}
                     {selectedFlight?.departure_gate && (
                         <span className="inline-flex items-center mt-1.5 px-2 py-0.5 rounded-md bg-accent text-primary text-xs font-bold">
                             Gate {selectedFlight.departure_gate}
@@ -398,21 +417,42 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
             >
                 <div className={`grid divide-x divide-border`}
                     style={{ gridTemplateColumns: `repeat(${stats.length}, 1fr)` }}>
-                    {stats.map(({ label, value, unit, highlight }) => (
+                    {stats.map(({ label, value, unit }) => (
                         <div key={label} className="flex flex-col items-center gap-1 px-3 py-4 text-center">
                             <p className="text-[10px] md:text-xs uppercase tracking-wider font-bold text-muted-foreground">{label}</p>
-                            <p className={`text-xl md:text-2xl font-black ${
-                                highlight
-                                    ? (value >= 90 ? 'text-emerald-600' : value >= 75 ? 'text-amber-600' : 'text-destructive')
-                                    : 'text-foreground'
-                            }`}>
-                                {value}{highlight ? '%' : ''}
-                            </p>
-                            {!highlight && <p className="text-[10px] text-muted-foreground">{unit}</p>}
+                            <p className="text-xl md:text-2xl font-black text-foreground">{value}</p>
+                            <p className="text-[10px] text-muted-foreground">{unit}</p>
                         </div>
                     ))}
                 </div>
             </motion.div>
+
+            {/* ── HOW WE CALCULATED THIS ── */}
+            {recommendation.explanation && (
+                <motion.div
+                    initial={{ opacity: 0 }}
+                    animate={{ opacity: 1 }}
+                    transition={{ delay: 0.45 }}
+                    className="mt-4"
+                >
+                    <button
+                        onClick={() => setExplanationOpen(!explanationOpen)}
+                        className="w-full flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors py-2"
+                    >
+                        <span className="font-semibold">How we calculated this</span>
+                        {explanationOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                    </button>
+                    {explanationOpen && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            className="bg-card rounded-2xl border border-border px-5 py-4 mt-1"
+                        >
+                            <p className="text-sm text-muted-foreground leading-relaxed">{recommendation.explanation}</p>
+                        </motion.div>
+                    )}
+                </motion.div>
+            )}
 
             {/* ── COMPUTED AT ── */}
             {recommendation.computed_at && (
