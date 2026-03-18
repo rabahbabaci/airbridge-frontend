@@ -128,16 +128,12 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
         let subtitle = '';
         let connectorExtra = '';
         if (seg.id === 'transport') {
-            // Format: "34 min · 23.7 mi" from raw advice like "34 mins — 23.7 mi"
+            // Backend advice: "{raw_duration_text} — {distance_text}" e.g. "34 min — 23.7 mi"
+            // duration_minutes is the adjusted planning time (profile + rideshare pickup).
+            // Use duration_minutes for time, extract only distance from advice.
             const parts = (seg.advice || '').split(/[—–-]/).map(s => s.trim()).filter(Boolean);
-            if (parts.length >= 2) {
-                // Clean duration part: "34 mins" → "34 min", "34 mins drive" → "34 min"
-                const durPart = parts[0].replace(/\bmins?\b.*/, 'min').trim();
-                const distPart = parts.slice(1).join(' ').trim();
-                subtitle = `${durPart} · ${distPart}`;
-            } else {
-                subtitle = fmtMin(seg.duration_minutes);
-            }
+            const distPart = parts.length >= 2 ? parts.slice(1).join(' ').trim() : null;
+            subtitle = distPart ? `${fmtMin(seg.duration_minutes)} · ${distPart}` : fmtMin(seg.duration_minutes);
         } else if (seg.id === 'tsa') {
             const waitMatch = seg.advice?.match(/wait:(\d+)/);
             const rangeMatch = seg.advice?.match(/range:(\d+)-(\d+)/);
@@ -313,8 +309,9 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                         {timelineSteps.length > 1 && (() => {
                             const stepWidth = 100 / timelineSteps.length;
                             return timelineSteps.slice(0, -1).map((step, idx) => {
+                                const nextStep = timelineSteps[idx + 1];
                                 const leftPercent = stepWidth * idx + stepWidth / 2 + stepWidth / 2;
-                                const label = step.connectorExtra || step.duration;
+                                const label = step.connectorExtra || nextStep.duration;
                                 return (
                                     <div key={`dur-${idx}`} className="absolute z-20"
                                         style={{ top: '3.5rem', left: `${leftPercent}%`, transform: 'translate(-50%, -50%)' }}>
@@ -367,7 +364,7 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                                     {idx < timelineSteps.length - 1 && (
                                         <div className="relative w-0.5 h-10 bg-border my-1">
                                             <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[10px] font-bold text-primary bg-card px-1.5 py-0.5 rounded border border-border shadow-sm whitespace-nowrap">
-                                                {step.duration}
+                                                {step.connectorExtra || timelineSteps[idx + 1].duration}
                                             </span>
                                         </div>
                                     )}
