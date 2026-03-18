@@ -433,8 +433,6 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                 </div>
             </motion.div>
 
-                </motion.div>
-            )}
 
             {/* ── COMPUTED AT ── */}
             {recommendation.computed_at && (
