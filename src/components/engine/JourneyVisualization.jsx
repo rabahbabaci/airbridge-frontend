@@ -112,7 +112,9 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
 
     const segments = recommendation.segments || [];
     const comfortBuffer = segments.find(s => s.id === 'comfort_buffer');
-    const displaySegments = segments.filter(s => s.id !== 'comfort_buffer');
+    const gateBuffer = segments.find(s => s.id === 'gate_buffer');
+    const gateBufferMinutes = gateBuffer ? gateBuffer.duration_minutes : 0;
+    const displaySegments = segments.filter(s => s.id !== 'comfort_buffer' && s.id !== 'gate_buffer');
     const airportCode = selectedFlight?.origin_code || '';
 
     // Build step data for timeline
@@ -185,7 +187,6 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
         if (seg.id === 'walk_to_gate') stats.push({ label: 'Gate Walk', value: seg.duration_minutes, unit: 'minutes' });
     });
     if (comfortBuffer) stats.push({ label: 'Buffer', value: comfortBuffer.duration_minutes, unit: 'minutes' });
-    stats.push({ label: 'Confidence', value: confidenceScore, unit: 'percent', highlight: true });
 
     return (
         <div className="max-w-5xl mx-auto px-4 md:px-8 py-8">
@@ -218,16 +219,18 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                             Boarding in {totalToHM(boardingInMinutes)}
                         </span>
                         <span className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold backdrop-blur-sm ${
-                            confidenceScore >= 90 ? 'bg-emerald-400/30 text-emerald-100' :
-                            confidenceScore >= 75 ? 'bg-amber-400/30 text-amber-100' :
-                            'bg-red-400/30 text-red-100'
+                            gateBufferMinutes === 0 ? 'bg-orange-400/30 text-orange-100' :
+                            gateBufferMinutes <= 30 ? 'bg-amber-400/30 text-amber-100' :
+                            gateBufferMinutes <= 60 ? 'bg-emerald-400/30 text-emerald-100' :
+                            'bg-blue-400/30 text-blue-100'
                         }`}>
-                            <span className={`w-2 h-2 rounded-full animate-pulse ${
-                                confidenceScore >= 90 ? 'bg-emerald-300' :
-                                confidenceScore >= 75 ? 'bg-amber-300' :
-                                'bg-red-300'
+                            <span className={`w-2 h-2 rounded-full ${
+                                gateBufferMinutes === 0 ? 'bg-orange-300' :
+                                gateBufferMinutes <= 30 ? 'bg-amber-300' :
+                                gateBufferMinutes <= 60 ? 'bg-emerald-300' :
+                                'bg-blue-300'
                             }`} />
-                            {confidenceScore}% Confidence
+                            {gateBufferMinutes === 0 ? 'No buffer' : `${gateBufferMinutes} min buffer`}
                         </span>
                     </div>
                 </div>
