@@ -103,15 +103,13 @@ export default function Engine() {
     const [selectedFlight, setSelectedFlight] = useState(null);
 
     // Step 3
-    const [selectedProfile, setSelectedProfile] = useState('sweet');
     const [transport, setTransport] = useState('rideshare');
-    const [hasBaggage, setHasBaggage] = useState(false);
-    const [baggageCount, setBaggageCount] = useState(1);
-    const [withChildren, setWithChildren] = useState(false);
-    const [extraTime, setExtraTime] = useState('none');
     const [hasTsaPreCheck, setHasTsaPreCheck] = useState(false);
     const [hasClear, setHasClear] = useState(false);
-    const [hasBoardingPass, setHasBoardingPass] = useState(false);
+    const [hasBoardingPass, setHasBoardingPass] = useState(true);
+    const [bagCount, setBagCount] = useState(0);
+    const [withChildren, setWithChildren] = useState(false);
+    const [gateTime, setGateTime] = useState(15);
 
     // Results
     const [locked, setLocked] = useState(false);
