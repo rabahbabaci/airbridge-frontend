@@ -118,16 +118,22 @@ export default function Engine() {
 
     const goTo = (next) => { setDir(next > step ? 1 : -1); setStep(next); };
 
-    const buildSecurityAccess = () => securityAccess;
+    const computeSecurityAccess = () => {
+        if (hasPriorityLane) return 'priority_lane';
+        if (hasPrecheck && hasClear) return 'clear_precheck';
+        if (hasPrecheck) return 'precheck';
+        if (hasClear) return 'clear';
+        return 'none';
+    };
 
     const buildPreferences = () => ({
         transport_mode: transport,
-        confidence_profile: confidenceProfile,
+        confidence_profile: 'sweet',
         bag_count: bagCount,
         traveling_with_children: withChildren,
-        extra_time_minutes: extraTime,
+        extra_time_minutes: 0,
         has_boarding_pass: hasBoardingPass,
-        security_access: buildSecurityAccess(),
+        security_access: computeSecurityAccess(),
         gate_time_minutes: gateTime,
     });
 
