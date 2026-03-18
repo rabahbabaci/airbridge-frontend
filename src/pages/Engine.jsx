@@ -8,10 +8,10 @@ import { Switch } from "@/components/ui/switch";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import {
-    Plane, Car, Train, Bus, User, Shield, AlertCircle,
+    Plane, Car, Train, Bus, User, AlertCircle,
     CheckCircle2, Calendar, Search, ArrowLeft, MapPin,
     Sparkles, Clock, Luggage, Baby, ShieldCheck, Smartphone,
-    Minus, Plus, RefreshCw, Star
+    Minus, Plus, RefreshCw
 } from 'lucide-react';
 
 import JourneyVisualization from '@/components/engine/JourneyVisualization';
@@ -49,19 +49,6 @@ const transportGroups = [
     { label: 'Other / Custom', sublabel: 'AI estimates travel time', options: [{ id: 'other', label: 'Other', icon: User }] },
 ];
 
-const confidenceProfiles = [
-    { id: 'safety', label: 'Play it safe', icon: Shield, description: 'Maximum buffer time' },
-    { id: 'sweet', label: 'Sweet spot', icon: Star, description: 'Balanced timing' },
-    { id: 'risk', label: 'Cut it close', icon: Clock, description: 'Minimum buffer' },
-];
-
-const securityAccessOptions = [
-    { id: 'none', label: 'Standard' },
-    { id: 'precheck', label: 'TSA PreCheck' },
-    { id: 'clear', label: 'CLEAR' },
-    { id: 'clear_precheck', label: 'CLEAR + PreCheck' },
-    { id: 'priority_lane', label: 'Priority Lane' },
-];
 
 // ── Animations ──────────────────────────────────────────────────────────────
 const pageTransition = {
@@ -97,13 +84,14 @@ export default function Engine() {
 
     // Step 3
     const [transport, setTransport] = useState('rideshare');
-    const [confidenceProfile, setConfidenceProfile] = useState('sweet');
-    const [securityAccess, setSecurityAccess] = useState('none');
+    const [hasPrecheck, setHasPrecheck] = useState(false);
+    const [hasClear, setHasClear] = useState(false);
+    const [hasPriorityLane, setHasPriorityLane] = useState(false);
     const [hasBoardingPass, setHasBoardingPass] = useState(true);
     const [bagCount, setBagCount] = useState(0);
     const [withChildren, setWithChildren] = useState(false);
     const [gateTime, setGateTime] = useState(15);
-    const [extraTime, setExtraTime] = useState(0);
+    
 
     // Results
     const [locked, setLocked] = useState(false);
@@ -117,16 +105,22 @@ export default function Engine() {
 
     const goTo = (next) => { setDir(next > step ? 1 : -1); setStep(next); };
 
-    const buildSecurityAccess = () => securityAccess;
+    const computeSecurityAccess = () => {
+        if (hasPriorityLane) return 'priority_lane';
+        if (hasPrecheck && hasClear) return 'clear_precheck';
+        if (hasPrecheck) return 'precheck';
+        if (hasClear) return 'clear';
+        return 'none';
+    };
 
     const buildPreferences = () => ({
         transport_mode: transport,
-        confidence_profile: confidenceProfile,
+        confidence_profile: 'sweet',
         bag_count: bagCount,
         traveling_with_children: withChildren,
-        extra_time_minutes: extraTime,
+        extra_time_minutes: 0,
         has_boarding_pass: hasBoardingPass,
-        security_access: buildSecurityAccess(),
+        security_access: computeSecurityAccess(),
         gate_time_minutes: gateTime,
     });
 
@@ -642,24 +636,35 @@ export default function Engine() {
                                                 <h3 className="font-bold text-foreground">Security & Check-in</h3>
                                             </div>
                                             <div className="px-5 py-4 space-y-4 flex-1">
-                                                {/* Security access selector */}
-                                                <div>
-                                                    <div className="flex items-center gap-3 mb-2">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
                                                         <ShieldCheck className="w-4 h-4 text-muted-foreground" />
-                                                        <p className="text-sm font-medium text-foreground">Security Access</p>
+                                                        <div>
+                                                            <p className="text-sm font-medium text-foreground">TSA PreCheck</p>
+                                                            <p className="text-xs text-muted-foreground">Dedicated screening lane</p>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex flex-wrap gap-1.5">
-                                                        {securityAccessOptions.map(opt => (
-                                                            <button key={opt.id} onClick={() => setSecurityAccess(opt.id)}
-                                                                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                                                                    securityAccess === opt.id
-                                                                        ? 'bg-primary text-primary-foreground border-primary'
-                                                                        : 'bg-secondary text-foreground/70 border-border hover:border-muted-foreground/30'
-                                                                }`}>
-                                                                {opt.label}
-                                                            </button>
-                                                        ))}
+                                                    <Switch checked={hasPrecheck} onCheckedChange={setHasPrecheck} />
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <ShieldCheck className="w-4 h-4 text-muted-foreground" />
+                                                        <div>
+                                                            <p className="text-sm font-medium text-foreground">CLEAR</p>
+                                                            <p className="text-xs text-muted-foreground">Skip the ID check line</p>
+                                                        </div>
                                                     </div>
+                                                    <Switch checked={hasClear} onCheckedChange={setHasClear} />
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <ShieldCheck className="w-4 h-4 text-muted-foreground" />
+                                                        <div>
+                                                            <p className="text-sm font-medium text-foreground">Priority Lane</p>
+                                                            <p className="text-xs text-muted-foreground">Airline status or business class</p>
+                                                        </div>
+                                                    </div>
+                                                    <Switch checked={hasPriorityLane} onCheckedChange={setHasPriorityLane} />
                                                 </div>
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-3">
@@ -709,39 +714,10 @@ export default function Engine() {
                                         </motion.div>
                                     </div>
 
-                                    {/* Row 2: Confidence Profile */}
-                                    <motion.div custom={3.5} variants={stagger} initial="hidden" animate="visible"
-                                        className="bg-card border border-border rounded-2xl overflow-hidden mb-5">
-                                        <div className="px-5 py-4 border-b border-border">
-                                            <h3 className="font-bold text-foreground">How do you like to travel?</h3>
-                                        </div>
-                                        <div className="px-5 py-4">
-                                            <div className="grid grid-cols-3 gap-3">
-                                                {confidenceProfiles.map(p => {
-                                                    const isActive = confidenceProfile === p.id;
-                                                    return (
-                                                        <button key={p.id} onClick={() => setConfidenceProfile(p.id)}
-                                                            className={`flex flex-col items-center gap-2 px-4 py-4 rounded-xl border-2 transition-all text-center ${
-                                                                isActive
-                                                                    ? 'border-primary bg-accent/50 shadow-sm'
-                                                                    : 'border-border hover:border-muted-foreground/30'
-                                                            }`}>
-                                                            <p.icon className={`w-5 h-5 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
-                                                            <div>
-                                                                <p className={`text-sm font-semibold ${isActive ? 'text-primary' : 'text-foreground'}`}>{p.label}</p>
-                                                                <p className="text-[10px] text-muted-foreground mt-0.5">{p.description}</p>
-                                                            </div>
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    </motion.div>
-
-                                    {/* Row 3: Gate Time Slider + Extra Time (side by side) */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-6">
+                                    {/* Row 2: Gate Time Slider (full width) */}
+                                    <div className="mb-6">
                                         <motion.div custom={4} variants={stagger} initial="hidden" animate="visible"
-                                            className="bg-card border border-border rounded-2xl overflow-hidden sm:col-span-2">
+                                            className="bg-card border border-border rounded-2xl overflow-hidden">
                                             <div className="px-5 py-4 border-b border-border">
                                                 <h3 className="font-bold text-foreground">How early at your gate?</h3>
                                             </div>
@@ -783,26 +759,6 @@ export default function Engine() {
                                                 <div className="mt-4 text-center">
                                                     <p className="text-lg font-bold text-foreground">{GATE_TIME_LABELS[gateTime]}</p>
                                                 </div>
-                                            </div>
-                                        </motion.div>
-
-                                        {/* Extra Time */}
-                                        <motion.div custom={4.5} variants={stagger} initial="hidden" animate="visible"
-                                            className="bg-card border border-border rounded-2xl overflow-hidden">
-                                            <div className="px-5 py-4 border-b border-border">
-                                                <h3 className="font-bold text-foreground">Extra buffer</h3>
-                                            </div>
-                                            <div className="px-5 py-4 space-y-2">
-                                                {[0, 15, 30].map(val => (
-                                                    <button key={val} onClick={() => setExtraTime(val)}
-                                                        className={`w-full px-4 py-2.5 rounded-xl text-sm font-medium border transition-all text-left ${
-                                                            extraTime === val
-                                                                ? 'bg-primary text-primary-foreground border-primary'
-                                                                : 'bg-secondary text-foreground/70 border-border hover:border-muted-foreground/30'
-                                                        }`}>
-                                                        {val === 0 ? 'None' : `+${val} min`}
-                                                    </button>
-                                                ))}
                                             </div>
                                         </motion.div>
                                     </div>
