@@ -128,9 +128,16 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
         let subtitle = '';
         let connectorExtra = '';
         if (seg.id === 'transport') {
-            // Backend format: "{duration_text} — {distance_text}" e.g. "45 min drive — 32.1 mi"
-            const parts = (seg.advice || '').split('—').map(s => s.trim()).filter(Boolean);
-            subtitle = parts.length ? parts.join(' — ') : fmtMin(seg.duration_minutes);
+            // Format: "34 min · 23.7 mi" from raw advice like "34 mins — 23.7 mi"
+            const parts = (seg.advice || '').split(/[—–-]/).map(s => s.trim()).filter(Boolean);
+            if (parts.length >= 2) {
+                // Clean duration part: "34 mins" → "34 min", "34 mins drive" → "34 min"
+                const durPart = parts[0].replace(/\bmins?\b.*/, 'min').trim();
+                const distPart = parts.slice(1).join(' ').trim();
+                subtitle = `${durPart} · ${distPart}`;
+            } else {
+                subtitle = fmtMin(seg.duration_minutes);
+            }
         } else if (seg.id === 'tsa') {
             const waitMatch = seg.advice?.match(/wait:(\d+)/);
             const rangeMatch = seg.advice?.match(/range:(\d+)-(\d+)/);
