@@ -228,7 +228,6 @@ export default function Engine() {
 
     const handleEditSetup = () => { setLocked(false); setJourneyReady(false); setViewMode('setup'); };
 
-    const profile = confidenceProfiles.find(p => p.id === selectedProfile);
     const canSearch = flightNumber.trim().length > 0 && departureDate.length > 0;
 
     // ── Render ──────────────────────────────────────────────────────────────
