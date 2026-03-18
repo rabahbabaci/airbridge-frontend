@@ -12,7 +12,7 @@ import {
     Sparkles, Clock, Luggage, Baby, Timer, ShieldCheck, Smartphone,
     Minus, Plus
 } from 'lucide-react';
-import { Slider } from "@/components/ui/slider";
+
 import JourneyVisualization from '@/components/engine/JourneyVisualization';
 
 const API_BASE = 'https://airbridge-backend-production.up.railway.app';
