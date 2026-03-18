@@ -636,24 +636,35 @@ export default function Engine() {
                                                 <h3 className="font-bold text-foreground">Security & Check-in</h3>
                                             </div>
                                             <div className="px-5 py-4 space-y-4 flex-1">
-                                                {/* Security access selector */}
-                                                <div>
-                                                    <div className="flex items-center gap-3 mb-2">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
                                                         <ShieldCheck className="w-4 h-4 text-muted-foreground" />
-                                                        <p className="text-sm font-medium text-foreground">Security Access</p>
+                                                        <div>
+                                                            <p className="text-sm font-medium text-foreground">TSA PreCheck</p>
+                                                            <p className="text-xs text-muted-foreground">Dedicated screening lane</p>
+                                                        </div>
                                                     </div>
-                                                    <div className="flex flex-wrap gap-1.5">
-                                                        {securityAccessOptions.map(opt => (
-                                                            <button key={opt.id} onClick={() => setSecurityAccess(opt.id)}
-                                                                className={`px-3 py-1.5 rounded-lg text-xs font-medium border transition-all ${
-                                                                    securityAccess === opt.id
-                                                                        ? 'bg-primary text-primary-foreground border-primary'
-                                                                        : 'bg-secondary text-foreground/70 border-border hover:border-muted-foreground/30'
-                                                                }`}>
-                                                                {opt.label}
-                                                            </button>
-                                                        ))}
+                                                    <Switch checked={hasPrecheck} onCheckedChange={setHasPrecheck} />
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <ShieldCheck className="w-4 h-4 text-muted-foreground" />
+                                                        <div>
+                                                            <p className="text-sm font-medium text-foreground">CLEAR</p>
+                                                            <p className="text-xs text-muted-foreground">Skip the ID check line</p>
+                                                        </div>
                                                     </div>
+                                                    <Switch checked={hasClear} onCheckedChange={setHasClear} />
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <ShieldCheck className="w-4 h-4 text-muted-foreground" />
+                                                        <div>
+                                                            <p className="text-sm font-medium text-foreground">Priority Lane</p>
+                                                            <p className="text-xs text-muted-foreground">Airline status or business class</p>
+                                                        </div>
+                                                    </div>
+                                                    <Switch checked={hasPriorityLane} onCheckedChange={setHasPriorityLane} />
                                                 </div>
                                                 <div className="flex items-center justify-between">
                                                     <div className="flex items-center gap-3">
