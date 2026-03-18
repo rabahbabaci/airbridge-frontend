@@ -9,8 +9,10 @@ import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import {
     Plane, Car, Train, Bus, User, Shield, Zap, AlertCircle,
     CheckCircle2, Calendar, Search, ArrowLeft, MapPin,
-    Sparkles, Clock, Luggage, Baby, Timer, ShieldCheck, Smartphone
+    Sparkles, Clock, Luggage, Baby, Timer, ShieldCheck, Smartphone,
+    Minus, Plus
 } from 'lucide-react';
+import { Slider } from "@/components/ui/slider";
 import JourneyVisualization from '@/components/engine/JourneyVisualization';
 
 const API_BASE = 'https://airbridge-backend-production.up.railway.app';
