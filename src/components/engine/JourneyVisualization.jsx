@@ -128,9 +128,16 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
         let subtitle = '';
         let connectorExtra = '';
         if (seg.id === 'transport') {
-            // Backend format: "{duration_text} — {distance_text}" e.g. "45 min drive — 32.1 mi"
-            const parts = (seg.advice || '').split('—').map(s => s.trim()).filter(Boolean);
-            subtitle = parts.length ? parts.join(' — ') : fmtMin(seg.duration_minutes);
+            // Format: "34 min · 23.7 mi" from raw advice like "34 mins — 23.7 mi"
+            const parts = (seg.advice || '').split(/[—–-]/).map(s => s.trim()).filter(Boolean);
+            if (parts.length >= 2) {
+                // Clean duration part: "34 mins" → "34 min", "34 mins drive" → "34 min"
+                const durPart = parts[0].replace(/\bmins?\b.*/, 'min').trim();
+                const distPart = parts.slice(1).join(' ').trim();
+                subtitle = `${durPart} · ${distPart}`;
+            } else {
+                subtitle = fmtMin(seg.duration_minutes);
+            }
         } else if (seg.id === 'tsa') {
             const waitMatch = seg.advice?.match(/wait:(\d+)/);
             const rangeMatch = seg.advice?.match(/range:(\d+)-(\d+)/);
@@ -180,14 +187,14 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
     // Stats for the bottom bar
     const stats = [];
     displaySegments.forEach(seg => {
-        if (seg.id === 'transport') stats.push({ label: 'Transport', value: seg.duration_minutes, unit: 'minutes' });
+        if (seg.id === 'transport') stats.push({ label: 'Transport', value: fmtMin(seg.duration_minutes) });
         if (seg.id === 'tsa') {
             const waitMatch = seg.advice?.match(/wait:(\d+)/);
-            stats.push({ label: 'TSA Wait', value: waitMatch ? parseInt(waitMatch[1]) : seg.duration_minutes, unit: 'minutes' });
+            stats.push({ label: 'TSA Wait', value: fmtMin(waitMatch ? parseInt(waitMatch[1]) : seg.duration_minutes) });
         }
-        if (seg.id === 'walk_to_gate') stats.push({ label: 'Gate Walk', value: seg.duration_minutes, unit: 'minutes' });
+        if (seg.id === 'walk_to_gate') stats.push({ label: 'Gate Walk', value: fmtMin(seg.duration_minutes) });
     });
-    if (comfortBuffer) stats.push({ label: 'Buffer', value: comfortBuffer.duration_minutes, unit: 'minutes' });
+    if (comfortBuffer) stats.push({ label: 'Buffer', value: fmtMin(comfortBuffer.duration_minutes) });
 
     // Delay info
     const isDelayed = selectedFlight?.is_delayed && selectedFlight?.revised_departure_local;
@@ -417,11 +424,10 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
             >
                 <div className={`grid divide-x divide-border`}
                     style={{ gridTemplateColumns: `repeat(${stats.length}, 1fr)` }}>
-                    {stats.map(({ label, value, unit }) => (
+                    {stats.map(({ label, value }) => (
                         <div key={label} className="flex flex-col items-center gap-1 px-3 py-4 text-center">
                             <p className="text-[10px] md:text-xs uppercase tracking-wider font-bold text-muted-foreground">{label}</p>
                             <p className="text-xl md:text-2xl font-black text-foreground">{value}</p>
-                            <p className="text-[10px] text-muted-foreground">{unit}</p>
                         </div>
                     ))}
                 </div>
@@ -448,7 +454,13 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                             animate={{ opacity: 1, height: 'auto' }}
                             className="bg-card rounded-2xl border border-border px-5 py-4 mt-1"
                         >
-                            <p className="text-sm text-muted-foreground leading-relaxed">{recommendation.explanation}</p>
+                            <p className="text-sm text-muted-foreground leading-relaxed">
+                                {(recommendation.explanation || '')
+                                    .replace(/\b(Safe|Sweet|Risk)\s+profile[.:,]?\s*/gi, '')
+                                    .replace(/\bconfidence\s+profile[:\s]*(safe|sweet|risk)\b[.,;]?\s*/gi, '')
+                                    .replace(/^\s+/, '')
+                                }
+                            </p>
                         </motion.div>
                     )}
                 </motion.div>
