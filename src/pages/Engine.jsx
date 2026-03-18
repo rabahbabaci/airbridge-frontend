@@ -472,7 +472,7 @@ export default function Engine() {
 
                             {/* ── STEP 3: Departure Setup ── */}
                             {step === 3 && (
-                                <motion.div key="s3" {...pageTransition} className="w-full max-w-lg mx-auto">
+                                <motion.div key="s3" {...pageTransition} className="w-full max-w-4xl mx-auto">
                                     <motion.div custom={0} variants={stagger} initial="hidden" animate="visible" className="flex items-center gap-3 mb-6">
                                         <button onClick={() => goTo(2)} className="w-9 h-9 rounded-xl border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 transition-all">
                                             <ArrowLeft className="w-4 h-4" />
@@ -499,121 +499,117 @@ export default function Engine() {
                                         </motion.div>
                                     )}
 
-                                    {/* Section 1: Transport Mode */}
-                                    <motion.div custom={2} variants={stagger} initial="hidden" animate="visible"
-                                        className="bg-card border border-border rounded-2xl overflow-hidden mb-5">
-                                        <div className="px-5 py-4 border-b border-border">
-                                            <h3 className="font-bold text-foreground">How are you getting there?</h3>
-                                        </div>
-                                        <div className="px-5 py-4 space-y-4">
-                                            {transportGroups.map(group => (
-                                                <div key={group.label}>
-                                                    <p className="text-xs font-semibold text-muted-foreground mb-2">{group.label}</p>
-                                                    {group.sublabel && <p className="text-[10px] text-muted-foreground/70 -mt-1.5 mb-2">{group.sublabel}</p>}
-                                                    <div className="flex gap-2 flex-wrap">
-                                                        {group.options.map(opt => {
-                                                            const isActive = transport === opt.id;
-                                                            return (
-                                                                <button key={opt.id} onClick={() => setTransport(opt.id)}
-                                                                    className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all ${
-                                                                        isActive
-                                                                            ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                                                                            : 'bg-secondary text-foreground/70 border-border hover:border-muted-foreground/30'
-                                                                    }`}>
-                                                                    <opt.icon className="w-4 h-4" />
-                                                                    {opt.label}
-                                                                </button>
-                                                            );
-                                                        })}
+                                    {/* Row 1: Two cards side by side */}
+                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
+                                        {/* Left: Transport Mode */}
+                                        <motion.div custom={2} variants={stagger} initial="hidden" animate="visible"
+                                            className="bg-card border border-border rounded-2xl overflow-hidden flex flex-col">
+                                            <div className="px-5 py-4 border-b border-border">
+                                                <h3 className="font-bold text-foreground">How are you getting there?</h3>
+                                            </div>
+                                            <div className="px-5 py-4 space-y-4 flex-1">
+                                                {transportGroups.map(group => (
+                                                    <div key={group.label}>
+                                                        <p className="text-xs font-semibold text-muted-foreground mb-2">{group.label}</p>
+                                                        {group.sublabel && <p className="text-[10px] text-muted-foreground/70 -mt-1.5 mb-2">{group.sublabel}</p>}
+                                                        <div className="flex gap-2 flex-wrap">
+                                                            {group.options.map(opt => {
+                                                                const isActive = transport === opt.id;
+                                                                return (
+                                                                    <button key={opt.id} onClick={() => setTransport(opt.id)}
+                                                                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all ${
+                                                                            isActive
+                                                                                ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                                                                                : 'bg-secondary text-foreground/70 border-border hover:border-muted-foreground/30'
+                                                                        }`}>
+                                                                        <opt.icon className="w-4 h-4" />
+                                                                        {opt.label}
+                                                                    </button>
+                                                                );
+                                                            })}
+                                                        </div>
                                                     </div>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    </motion.div>
+                                                ))}
+                                            </div>
+                                        </motion.div>
 
-                                    {/* Section 2: Security & Check-in */}
-                                    <motion.div custom={3} variants={stagger} initial="hidden" animate="visible"
-                                        className="bg-card border border-border rounded-2xl overflow-hidden mb-5">
-                                        <div className="px-5 py-4 border-b border-border">
-                                            <h3 className="font-bold text-foreground">Security & Check-in</h3>
-                                        </div>
-                                        <div className="px-5 py-4 space-y-4">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-3">
-                                                    <ShieldCheck className="w-4 h-4 text-muted-foreground" />
-                                                    <div>
-                                                        <p className="text-sm font-medium text-foreground">TSA PreCheck</p>
-                                                        <p className="text-xs text-muted-foreground">Dedicated screening lane</p>
+                                        {/* Right: Security & Check-in (includes Traveling with Children) */}
+                                        <motion.div custom={3} variants={stagger} initial="hidden" animate="visible"
+                                            className="bg-card border border-border rounded-2xl overflow-hidden flex flex-col">
+                                            <div className="px-5 py-4 border-b border-border">
+                                                <h3 className="font-bold text-foreground">Security & Check-in</h3>
+                                            </div>
+                                            <div className="px-5 py-4 space-y-4 flex-1">
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <ShieldCheck className="w-4 h-4 text-muted-foreground" />
+                                                        <div>
+                                                            <p className="text-sm font-medium text-foreground">TSA PreCheck</p>
+                                                            <p className="text-xs text-muted-foreground">Dedicated screening lane</p>
+                                                        </div>
+                                                    </div>
+                                                    <Switch checked={hasTsaPreCheck} onCheckedChange={setHasTsaPreCheck} />
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <Sparkles className="w-4 h-4 text-muted-foreground" />
+                                                        <div>
+                                                            <p className="text-sm font-medium text-foreground">CLEAR</p>
+                                                            <p className="text-xs text-muted-foreground">Skip the ID check line</p>
+                                                        </div>
+                                                    </div>
+                                                    <Switch checked={hasClear} onCheckedChange={setHasClear} />
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <Smartphone className="w-4 h-4 text-muted-foreground" />
+                                                        <div>
+                                                            <p className="text-sm font-medium text-foreground">Boarding Pass</p>
+                                                            <p className="text-xs text-muted-foreground">Already have your boarding pass?</p>
+                                                        </div>
+                                                    </div>
+                                                    <Switch checked={hasBoardingPass} onCheckedChange={setHasBoardingPass} />
+                                                </div>
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <Luggage className="w-4 h-4 text-muted-foreground" />
+                                                        <div>
+                                                            <p className="text-sm font-medium text-foreground">Checked Bags</p>
+                                                            <p className="text-xs text-muted-foreground">Number of bags to check</p>
+                                                        </div>
+                                                    </div>
+                                                    <div className="flex items-center gap-2">
+                                                        <button onClick={() => setBagCount(Math.max(0, bagCount - 1))} disabled={bagCount === 0}
+                                                            className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all ${
+                                                                bagCount === 0
+                                                                    ? 'bg-secondary text-muted-foreground/40 border-border cursor-not-allowed'
+                                                                    : 'bg-secondary text-foreground border-border hover:border-muted-foreground/30'
+                                                            }`}>
+                                                            <Minus className="w-3.5 h-3.5" />
+                                                        </button>
+                                                        <span className="w-8 text-center text-sm font-bold text-foreground">{bagCount}</span>
+                                                        <button onClick={() => setBagCount(Math.min(10, bagCount + 1))}
+                                                            className="w-8 h-8 rounded-lg border bg-secondary text-foreground border-border hover:border-muted-foreground/30 flex items-center justify-center transition-all">
+                                                            <Plus className="w-3.5 h-3.5" />
+                                                        </button>
                                                     </div>
                                                 </div>
-                                                <Switch checked={hasTsaPreCheck} onCheckedChange={setHasTsaPreCheck} />
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-3">
-                                                    <Sparkles className="w-4 h-4 text-muted-foreground" />
-                                                    <div>
-                                                        <p className="text-sm font-medium text-foreground">CLEAR</p>
-                                                        <p className="text-xs text-muted-foreground">Skip the ID check line</p>
+                                                <div className="flex items-center justify-between">
+                                                    <div className="flex items-center gap-3">
+                                                        <Baby className="w-4 h-4 text-muted-foreground" />
+                                                        <div>
+                                                            <p className="text-sm font-medium text-foreground">Traveling with children?</p>
+                                                            <p className="text-xs text-muted-foreground">Adjusts walking pace at the airport</p>
+                                                        </div>
                                                     </div>
-                                                </div>
-                                                <Switch checked={hasClear} onCheckedChange={setHasClear} />
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-3">
-                                                    <Smartphone className="w-4 h-4 text-muted-foreground" />
-                                                    <div>
-                                                        <p className="text-sm font-medium text-foreground">Boarding Pass</p>
-                                                        <p className="text-xs text-muted-foreground">Already have your boarding pass?</p>
-                                                    </div>
-                                                </div>
-                                                <Switch checked={hasBoardingPass} onCheckedChange={setHasBoardingPass} />
-                                            </div>
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-3">
-                                                    <Luggage className="w-4 h-4 text-muted-foreground" />
-                                                    <div>
-                                                        <p className="text-sm font-medium text-foreground">Checked Bags</p>
-                                                        <p className="text-xs text-muted-foreground">Number of bags to check</p>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center gap-2">
-                                                    <button onClick={() => setBagCount(Math.max(0, bagCount - 1))} disabled={bagCount === 0}
-                                                        className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all ${
-                                                            bagCount === 0
-                                                                ? 'bg-secondary text-muted-foreground/40 border-border cursor-not-allowed'
-                                                                : 'bg-secondary text-foreground border-border hover:border-muted-foreground/30'
-                                                        }`}>
-                                                        <Minus className="w-3.5 h-3.5" />
-                                                    </button>
-                                                    <span className="w-8 text-center text-sm font-bold text-foreground">{bagCount}</span>
-                                                    <button onClick={() => setBagCount(Math.min(10, bagCount + 1))}
-                                                        className="w-8 h-8 rounded-lg border bg-secondary text-foreground border-border hover:border-muted-foreground/30 flex items-center justify-center transition-all">
-                                                        <Plus className="w-3.5 h-3.5" />
-                                                    </button>
+                                                    <Switch checked={withChildren} onCheckedChange={setWithChildren} />
                                                 </div>
                                             </div>
-                                        </div>
-                                    </motion.div>
+                                        </motion.div>
+                                    </div>
 
-                                    {/* Section 3: Traveling with Children */}
+                                    {/* Row 2: Gate Time Slider (full width) */}
                                     <motion.div custom={4} variants={stagger} initial="hidden" animate="visible"
-                                        className="bg-card border border-border rounded-2xl overflow-hidden mb-5">
-                                        <div className="px-5 py-4">
-                                            <div className="flex items-center justify-between">
-                                                <div className="flex items-center gap-3">
-                                                    <Baby className="w-4 h-4 text-muted-foreground" />
-                                                    <div>
-                                                        <p className="text-sm font-bold text-foreground">Traveling with children?</p>
-                                                        <p className="text-xs text-muted-foreground">Adjusts walking pace at the airport</p>
-                                                    </div>
-                                                </div>
-                                                <Switch checked={withChildren} onCheckedChange={setWithChildren} />
-                                            </div>
-                                        </div>
-                                    </motion.div>
-
-                                    {/* Section 4: Gate Time Slider */}
-                                    <motion.div custom={5} variants={stagger} initial="hidden" animate="visible"
                                         className="bg-card border border-border rounded-2xl overflow-hidden mb-6">
                                         <div className="px-5 py-4 border-b border-border">
                                             <h3 className="font-bold text-foreground">How early at your gate?</h3>
@@ -646,7 +642,7 @@ export default function Engine() {
                                     </motion.div>
 
                                     {/* CTA */}
-                                    <motion.div custom={6} variants={stagger} initial="hidden" animate="visible">
+                                    <motion.div custom={5} variants={stagger} initial="hidden" animate="visible">
                                         <button onClick={handleLockIn}
                                             className="w-full py-4 rounded-2xl text-base font-semibold bg-foreground hover:bg-foreground/90 text-background transition-all shadow-lg shadow-foreground/10 hover:shadow-xl">
                                             Calculate My Departure
