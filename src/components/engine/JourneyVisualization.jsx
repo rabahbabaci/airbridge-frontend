@@ -221,12 +221,12 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                             Boarding in {totalToHM(boardingInMinutes)}
                         </span>
                         <span className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold backdrop-blur-sm ${
-                            gateBufferMinutes === 0 ? 'bg-red-600 text-white' :
+                            gateBufferMinutes === 0 ? 'bg-red-100 text-red-600' :
                             gateBufferMinutes <= 30 ? 'bg-orange-400/30 text-orange-100' :
                             'bg-emerald-400/30 text-emerald-100'
                         }`}>
                             <span className={`w-2 h-2 rounded-full ${
-                                gateBufferMinutes === 0 ? 'bg-white' :
+                                gateBufferMinutes === 0 ? 'bg-red-500' :
                                 gateBufferMinutes <= 30 ? 'bg-orange-300' :
                                 'bg-emerald-300'
                             }`} />
