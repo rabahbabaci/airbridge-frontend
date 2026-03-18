@@ -97,8 +97,9 @@ export default function Engine() {
 
     // Step 3
     const [transport, setTransport] = useState('rideshare');
-    const [confidenceProfile, setConfidenceProfile] = useState('sweet');
-    const [securityAccess, setSecurityAccess] = useState('none');
+    const [hasPrecheck, setHasPrecheck] = useState(false);
+    const [hasClear, setHasClear] = useState(false);
+    const [hasPriorityLane, setHasPriorityLane] = useState(false);
     const [hasBoardingPass, setHasBoardingPass] = useState(true);
     const [bagCount, setBagCount] = useState(0);
     const [withChildren, setWithChildren] = useState(false);
