@@ -714,39 +714,10 @@ export default function Engine() {
                                         </motion.div>
                                     </div>
 
-                                    {/* Row 2: Confidence Profile */}
-                                    <motion.div custom={3.5} variants={stagger} initial="hidden" animate="visible"
-                                        className="bg-card border border-border rounded-2xl overflow-hidden mb-5">
-                                        <div className="px-5 py-4 border-b border-border">
-                                            <h3 className="font-bold text-foreground">How do you like to travel?</h3>
-                                        </div>
-                                        <div className="px-5 py-4">
-                                            <div className="grid grid-cols-3 gap-3">
-                                                {confidenceProfiles.map(p => {
-                                                    const isActive = confidenceProfile === p.id;
-                                                    return (
-                                                        <button key={p.id} onClick={() => setConfidenceProfile(p.id)}
-                                                            className={`flex flex-col items-center gap-2 px-4 py-4 rounded-xl border-2 transition-all text-center ${
-                                                                isActive
-                                                                    ? 'border-primary bg-accent/50 shadow-sm'
-                                                                    : 'border-border hover:border-muted-foreground/30'
-                                                            }`}>
-                                                            <p.icon className={`w-5 h-5 ${isActive ? 'text-primary' : 'text-muted-foreground'}`} />
-                                                            <div>
-                                                                <p className={`text-sm font-semibold ${isActive ? 'text-primary' : 'text-foreground'}`}>{p.label}</p>
-                                                                <p className="text-[10px] text-muted-foreground mt-0.5">{p.description}</p>
-                                                            </div>
-                                                        </button>
-                                                    );
-                                                })}
-                                            </div>
-                                        </div>
-                                    </motion.div>
-
-                                    {/* Row 3: Gate Time Slider + Extra Time (side by side) */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-5 mb-6">
+                                    {/* Row 2: Gate Time Slider (full width) */}
+                                    <div className="mb-6">
                                         <motion.div custom={4} variants={stagger} initial="hidden" animate="visible"
-                                            className="bg-card border border-border rounded-2xl overflow-hidden sm:col-span-2">
+                                            className="bg-card border border-border rounded-2xl overflow-hidden">
                                             <div className="px-5 py-4 border-b border-border">
                                                 <h3 className="font-bold text-foreground">How early at your gate?</h3>
                                             </div>
