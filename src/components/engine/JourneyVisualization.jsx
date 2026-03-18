@@ -192,9 +192,9 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
             const waitMatch = seg.advice?.match(/wait:(\d+)/);
             stats.push({ label: 'TSA Wait', value: fmtMin(waitMatch ? parseInt(waitMatch[1]) : seg.duration_minutes) });
         }
-        if (seg.id === 'walk_to_gate') stats.push({ label: 'Gate Walk', value: seg.duration_minutes, unit: 'minutes' });
+        if (seg.id === 'walk_to_gate') stats.push({ label: 'Gate Walk', value: fmtMin(seg.duration_minutes) });
     });
-    if (comfortBuffer) stats.push({ label: 'Buffer', value: comfortBuffer.duration_minutes, unit: 'minutes' });
+    if (comfortBuffer) stats.push({ label: 'Buffer', value: fmtMin(comfortBuffer.duration_minutes) });
 
     // Delay info
     const isDelayed = selectedFlight?.is_delayed && selectedFlight?.revised_departure_local;
