@@ -112,7 +112,9 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
 
     const segments = recommendation.segments || [];
     const comfortBuffer = segments.find(s => s.id === 'comfort_buffer');
-    const displaySegments = segments.filter(s => s.id !== 'comfort_buffer');
+    const gateBuffer = segments.find(s => s.id === 'gate_buffer');
+    const gateBufferMinutes = gateBuffer ? gateBuffer.duration_minutes : 0;
+    const displaySegments = segments.filter(s => s.id !== 'comfort_buffer' && s.id !== 'gate_buffer');
     const airportCode = selectedFlight?.origin_code || '';
 
     // Build step data for timeline
