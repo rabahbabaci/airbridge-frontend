@@ -472,7 +472,7 @@ export default function Engine() {
 
                             {/* ── STEP 3: Departure Setup ── */}
                             {step === 3 && (
-                                <motion.div key="s3" {...pageTransition} className="w-full max-w-3xl mx-auto">
+                                <motion.div key="s3" {...pageTransition} className="w-full max-w-lg mx-auto">
                                     <motion.div custom={0} variants={stagger} initial="hidden" animate="visible" className="flex items-center gap-3 mb-6">
                                         <button onClick={() => goTo(2)} className="w-9 h-9 rounded-xl border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 transition-all">
                                             <ArrowLeft className="w-4 h-4" />
