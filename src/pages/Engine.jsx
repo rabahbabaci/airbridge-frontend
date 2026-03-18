@@ -761,26 +761,6 @@ export default function Engine() {
                                                 </div>
                                             </div>
                                         </motion.div>
-
-                                        {/* Extra Time */}
-                                        <motion.div custom={4.5} variants={stagger} initial="hidden" animate="visible"
-                                            className="bg-card border border-border rounded-2xl overflow-hidden">
-                                            <div className="px-5 py-4 border-b border-border">
-                                                <h3 className="font-bold text-foreground">Extra buffer</h3>
-                                            </div>
-                                            <div className="px-5 py-4 space-y-2">
-                                                {[0, 15, 30].map(val => (
-                                                    <button key={val} onClick={() => setExtraTime(val)}
-                                                        className={`w-full px-4 py-2.5 rounded-xl text-sm font-medium border transition-all text-left ${
-                                                            extraTime === val
-                                                                ? 'bg-primary text-primary-foreground border-primary'
-                                                                : 'bg-secondary text-foreground/70 border-border hover:border-muted-foreground/30'
-                                                        }`}>
-                                                        {val === 0 ? 'None' : `+${val} min`}
-                                                    </button>
-                                                ))}
-                                            </div>
-                                        </motion.div>
                                     </div>
 
                                     {/* CTA */}
