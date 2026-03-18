@@ -20,15 +20,15 @@ const API_BASE = 'https://airbridge-backend-production.up.railway.app';
 // ── Data ────────────────────────────────────────────────────────────────────
 const GATE_TIME_SNAPS = [0, 15, 30, 45, 60, 90, 120, 150, 180];
 const GATE_TIME_LABELS = {
-    0: '0 min — Board on arrival',
-    15: '15 min — Quick settle-in',
-    30: '30 min — Time to relax',
-    45: '45 min — Grab a bite',
-    60: '1 hour — Work or explore',
-    90: '1h 30m — Plenty of time',
-    120: '2 hours — Full airport experience',
-    150: '2h 30m — Extended airport time',
-    180: '3 hours — Maximum comfort',
+    0: '0 min · Board on arrival',
+    15: '15 min · Quick settle-in',
+    30: '30 min · Time to relax',
+    45: '45 min · Grab a bite',
+    60: '1 hour · Work or explore',
+    90: '1h 30m · Plenty of time',
+    120: '2 hours · Full airport experience',
+    150: '2h 30m · Extended airport time',
+    180: '3 hours · Maximum comfort',
 };
 
 function snapToNearest(val) {
@@ -615,7 +615,7 @@ export default function Engine() {
                                             <h3 className="font-bold text-foreground">How early at your gate?</h3>
                                         </div>
                                         <div className="px-5 py-5">
-                                            <div className="relative px-1">
+                                            <div className="relative">
                                                 <Slider
                                                     value={[gateTime]}
                                                     min={0}
