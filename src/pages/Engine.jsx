@@ -615,7 +615,7 @@ export default function Engine() {
                                             <h3 className="font-bold text-foreground">How early at your gate?</h3>
                                         </div>
                                         <div className="px-5 py-5">
-                                            <div className="relative px-1">
+                                            <div className="relative">
                                                 <Slider
                                                     value={[gateTime]}
                                                     min={0}
