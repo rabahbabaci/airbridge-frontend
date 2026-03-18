@@ -615,22 +615,36 @@ export default function Engine() {
                                             <h3 className="font-bold text-foreground">How early at your gate?</h3>
                                         </div>
                                         <div className="px-5 py-5">
-                                            <div className="relative">
-                                                <Slider
-                                                    value={[gateTime]}
+                                            <div className="relative h-8">
+                                                <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 rounded-full bg-primary/20" />
+                                                <div
+                                                    className="absolute left-0 top-1/2 -translate-y-1/2 h-1 rounded-full bg-primary"
+                                                    style={{ width: `${(gateTime / 180) * 100}%` }}
+                                                />
+
+                                                <input
+                                                    type="range"
                                                     min={0}
                                                     max={180}
                                                     step={1}
-                                                    onValueChange={([val]) => setGateTime(snapToNearest(val))}
-                                                    className="w-full"
+                                                    value={gateTime}
+                                                    onChange={(e) => setGateTime(snapToNearest(Number(e.target.value)))}
+                                                    className="absolute inset-0 z-20 w-full h-full opacity-0 cursor-pointer"
+                                                    aria-label="Gate arrival buffer minutes"
                                                 />
-                                                <div className="relative w-full h-3 mt-1">
+
+                                                <div
+                                                    className="absolute z-10 w-5 h-5 rounded-full border-2 border-primary bg-background shadow-md pointer-events-none"
+                                                    style={{ left: `${(gateTime / 180) * 100}%`, top: '50%', transform: 'translate(-50%, -50%)' }}
+                                                />
+
+                                                <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 pointer-events-none">
                                                     {GATE_TIME_SNAPS.map(snap => (
                                                         <div key={snap}
-                                                            className={`absolute top-0 w-0.5 h-2 rounded-full transition-colors ${
+                                                            className={`absolute w-0.5 h-2 rounded-full transition-colors ${
                                                                 snap === gateTime ? 'bg-primary' : 'bg-border'
                                                             }`}
-                                                            style={{ left: `${(snap / 180) * 100}%`, transform: 'translateX(-50%)' }}
+                                                            style={{ left: `${(snap / 180) * 100}%`, top: '50%', transform: 'translate(-50%, -50%)' }}
                                                         />
                                                     ))}
                                                 </div>
