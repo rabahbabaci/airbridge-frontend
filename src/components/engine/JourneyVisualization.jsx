@@ -187,7 +187,6 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
         if (seg.id === 'walk_to_gate') stats.push({ label: 'Gate Walk', value: seg.duration_minutes, unit: 'minutes' });
     });
     if (comfortBuffer) stats.push({ label: 'Buffer', value: comfortBuffer.duration_minutes, unit: 'minutes' });
-    stats.push({ label: 'Confidence', value: confidenceScore, unit: 'percent', highlight: true });
 
     return (
         <div className="max-w-5xl mx-auto px-4 md:px-8 py-8">
