@@ -433,36 +433,6 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                 </div>
             </motion.div>
 
-            {/* ── HOW WE CALCULATED THIS ── */}
-            {recommendation.explanation && (
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.45 }}
-                    className="mt-4"
-                >
-                    <button
-                        onClick={() => setExplanationOpen(!explanationOpen)}
-                        className="w-full flex items-center justify-center gap-2 text-xs text-muted-foreground hover:text-foreground transition-colors py-2"
-                    >
-                        <span className="font-semibold">How we calculated this</span>
-                        {explanationOpen ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
-                    </button>
-                    {explanationOpen && (
-                        <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            className="bg-card rounded-2xl border border-border px-5 py-4 mt-1"
-                        >
-                            <p className="text-sm text-muted-foreground leading-relaxed">
-                                {(recommendation.explanation || '')
-                                    .replace(/\b(Safe|Sweet|Risk)\s+profile[.:,]?\s*/gi, '')
-                                    .replace(/\bconfidence\s+profile[:\s]*(safe|sweet|risk)\b[.,;]?\s*/gi, '')
-                                    .replace(/^\s+/, '')
-                                }
-                            </p>
-                        </motion.div>
-                    )}
                 </motion.div>
             )}
 
