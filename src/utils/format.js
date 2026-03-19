@@ -5,7 +5,7 @@ export function shortCity(name) {
 
 export function formatLocalTime(timeStr) {
     if (!timeStr) return '';
-    const match = timeStr.match(/(\d{4}-\d{2}-\d{2})\s+(\d{2}):(\d{2})/);
+    const match = timeStr.match(/(\d{4}-\d{2}-\d{2})[T\s](\d{2}):(\d{2})/);
     if (!match) return timeStr;
     const hours = parseInt(match[2]);
     const minutes = match[3];
@@ -16,7 +16,7 @@ export function formatLocalTime(timeStr) {
 
 export function parseTimeToDate(localTimeStr) {
     if (!localTimeStr) return null;
-    const match = localTimeStr.match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/);
+    const match = localTimeStr.match(/(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})/);
     if (!match) return null;
     return new Date(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3]), parseInt(match[4]), parseInt(match[5]));
 }

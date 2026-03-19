@@ -21,7 +21,7 @@ function addMinutesAndFormat(utcStr, minutes) {
 
 function parseDepartureTime(localTimeStr) {
     if (!localTimeStr) return null;
-    const match = localTimeStr.match(/(\d{4})-(\d{2})-(\d{2})\s+(\d{2}):(\d{2})/);
+    const match = localTimeStr.match(/(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})/);
     if (!match) return null;
     return new Date(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3]), parseInt(match[4]), parseInt(match[5]));
 }
@@ -101,7 +101,8 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
     const gateArrival = recommendation.gate_arrival_utc ? new Date(recommendation.gate_arrival_utc) : null;
     const departureDateObj = selectedFlight?.departure_time ? parseDepartureTime(selectedFlight.departure_time) : null;
     const boardingTime = departureDateObj ? new Date(departureDateObj.getTime() - 30 * 60000) : null;
-    const gateCushionMinutes = (gateArrival && boardingTime) ? Math.max(0, Math.round((boardingTime - gateArrival) / 60000)) : 0;
+    const bufferKnown = !!(gateArrival && boardingTime);
+    const gateCushionMinutes = bufferKnown ? Math.max(0, Math.round((boardingTime - gateArrival) / 60000)) : null;
 
     const { boarding, departure: departureTime } = selectedFlight
         ? parseDepartureAndGetBoardingTime(selectedFlight.departure_time)
@@ -229,16 +230,18 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                             Boarding in {totalToHM(boardingInMinutes)}
                         </span>
                         <span className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold backdrop-blur-sm ${
-                            gateBufferMinutes === 0 ? 'bg-red-100 text-red-600' :
-                            gateBufferMinutes <= 30 ? 'bg-orange-400/30 text-orange-100' :
+                            gateCushionMinutes == null ? 'bg-primary-foreground/20 text-primary-foreground' :
+                            gateCushionMinutes === 0 ? 'bg-red-100 text-red-600' :
+                            gateCushionMinutes <= 30 ? 'bg-orange-400/30 text-orange-100' :
                             'bg-emerald-400/30 text-emerald-100'
                         }`}>
                             <span className={`w-2 h-2 rounded-full ${
-                                gateBufferMinutes === 0 ? 'bg-red-500' :
-                                gateBufferMinutes <= 30 ? 'bg-orange-300' :
+                                gateCushionMinutes == null ? 'bg-primary-foreground/50' :
+                                gateCushionMinutes === 0 ? 'bg-red-500' :
+                                gateCushionMinutes <= 30 ? 'bg-orange-300' :
                                 'bg-emerald-300'
                             }`} />
-                            {gateBufferMinutes === 0 ? 'No buffer' : `${gateBufferMinutes} min buffer`}
+                            {gateCushionMinutes == null ? 'Buffer unknown' : gateCushionMinutes === 0 ? 'No buffer' : `${gateCushionMinutes} min buffer`}
                         </span>
                     </div>
                 </div>
@@ -395,7 +398,7 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                 <div className="bg-card rounded-2xl border border-border p-5">
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Boarding</p>
                     <p className="text-2xl md:text-3xl font-black text-emerald-600">{boarding}</p>
-                    {gateCushionMinutes > 0 && (
+                    {gateCushionMinutes != null && gateCushionMinutes > 0 && (
                         <p className="text-xs font-semibold text-emerald-600 mt-1">{gateCushionMinutes} min cushion at gate</p>
                     )}
                 </div>

@@ -185,6 +185,10 @@ export default function Engine() {
 
     const handleLockIn = async () => {
         if (isSubmitting) return;
+        if (!startingAddress.trim()) {
+            setApiError('Please enter your starting address so we can calculate travel time.');
+            return;
+        }
         setIsSubmitting(true);
         setLocked(true);
         setJourneyReady(false);
@@ -236,7 +240,7 @@ export default function Engine() {
     };
 
     const handleRecompute = async () => {
-        if (!currentTripId || isRecomputing) return;
+        if (!currentTripId || isRecomputing) return false;
         setIsRecomputing(true);
         setApiError(null);
 
@@ -256,9 +260,11 @@ export default function Engine() {
             }
             const rec = await recRes.json();
             setRecommendation(rec);
+            return true;
         } catch (err) {
             console.error('Recompute failed:', err);
             setApiError(err.message || 'Could not update your recommendation. Please try again.');
+            return false;
         } finally {
             setIsRecomputing(false);
         }
@@ -280,13 +286,18 @@ export default function Engine() {
 
     const handleRecalculate = async () => {
         if (currentTripId) {
+            if (isRecomputing) return;
             setLocked(true);
             setJourneyReady(false);
             setViewMode('loading');
             setApiError(null);
-            await handleRecompute();
-            setJourneyReady(true);
-            setViewMode('results');
+            const success = await handleRecompute();
+            if (success) {
+                setJourneyReady(true);
+                setViewMode('results');
+            } else {
+                setViewMode('results');
+            }
         } else {
             await handleLockIn();
         }
@@ -472,7 +483,9 @@ export default function Engine() {
                                         <motion.div initial="hidden" animate="visible" className="space-y-3">
                                             {flightOptions.map((f, i) => {
                                                 const isDisabled = f.departed || f.canceled || f.is_boarding;
-                                                const isSelected = selectedFlight?.departure_time_utc === f.departure_time_utc;
+                                                const flightKey = `${f.flight_number}|${f.departure_time_utc || ''}|${f.origin_code || ''}`;
+                                                const selectedKey = selectedFlight ? `${selectedFlight.flight_number}|${selectedFlight.departure_time_utc || ''}|${selectedFlight.origin_code || ''}` : null;
+                                                const isSelected = selectedKey === flightKey;
                                                 return (
                                                     <motion.button key={i} custom={i + 2} variants={stagger}
                                                         onClick={() => handleFlightClick(f)} disabled={isDisabled}
@@ -848,6 +861,23 @@ export default function Engine() {
                                 </button>
                             </div>
                         </div>
+
+                        {/* Error banner for recompute failures */}
+                        {apiError && (
+                            <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-4">
+                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                                    className="rounded-2xl px-5 py-4 flex items-start gap-3 bg-destructive/10 border border-destructive/20">
+                                    <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+                                    <div>
+                                        <p className="text-destructive text-sm font-medium">{apiError}</p>
+                                        <button onClick={() => setApiError(null)}
+                                            className="text-sm text-destructive font-semibold underline mt-1 hover:text-destructive/80">
+                                            Dismiss
+                                        </button>
+                                    </div>
+                                </motion.div>
+                            </div>
+                        )}
 
                         {/* Journey Visualization */}
                         <JourneyVisualization
