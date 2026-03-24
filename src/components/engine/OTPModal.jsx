@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { CheckCircle2 } from 'lucide-react';
-import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from '@/components/ui/sheet';
+import { Check } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 
 const API_BASE = 'https://airbridge-backend-production.up.railway.app';
@@ -77,67 +77,154 @@ export default function OTPModal({ open, onOpenChange, onSuccess }) {
         }
     }
 
+    // Strip the +1 prefix for display in the input
+    const phoneDigits = phone.startsWith('+1') ? phone.slice(2) : phone;
+
+    function handlePhoneChange(e) {
+        const digits = e.target.value.replace(/[^0-9]/g, '');
+        setPhone('+1' + digits);
+    }
+
     return (
         <Sheet open={open} onOpenChange={onOpenChange}>
-            <SheetContent side="bottom" className="rounded-t-2xl">
-                {step === 'phone' && (
-                    <div className="space-y-4 pb-4">
-                        <SheetHeader>
-                            <SheetTitle>Get notified if your departure changes</SheetTitle>
-                            <SheetDescription>We'll text you if your flight or timing updates.</SheetDescription>
-                        </SheetHeader>
-                        <div className="flex items-center gap-2">
-                            <Input
-                                type="tel"
-                                value={phone}
-                                onChange={(e) => setPhone(e.target.value)}
-                                placeholder="+1 555 123 4567"
-                            />
-                        </div>
-                        {error && <p className="text-sm text-destructive">{error}</p>}
-                        <Button onClick={handleSendOTP} disabled={loading || phone.length < 4} className="w-full">
-                            {loading ? 'Sending...' : 'Send code'}
-                        </Button>
-                        <button onClick={() => onOpenChange(false)} className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors">
-                            Not now
-                        </button>
-                    </div>
-                )}
+            <SheetContent side="bottom" className="rounded-t-2xl px-6 pb-8 pt-3">
+                {/* Drag handle */}
+                <div className="w-10 h-1 rounded-full bg-muted-foreground/30 mx-auto mb-6" />
 
-                {step === 'code' && (
-                    <div className="space-y-4 pb-4">
-                        <SheetHeader>
-                            <SheetTitle>Enter verification code</SheetTitle>
-                            <SheetDescription>Sent to {phone}</SheetDescription>
-                        </SheetHeader>
-                        <div className="flex justify-center">
-                            <InputOTP maxLength={6} value={code} onChange={setCode}>
-                                <InputOTPGroup>
-                                    <InputOTPSlot index={0} />
-                                    <InputOTPSlot index={1} />
-                                    <InputOTPSlot index={2} />
-                                    <InputOTPSlot index={3} />
-                                    <InputOTPSlot index={4} />
-                                    <InputOTPSlot index={5} />
-                                </InputOTPGroup>
-                            </InputOTP>
-                        </div>
-                        {error && <p className="text-sm text-destructive">{error}</p>}
-                        <Button onClick={handleVerifyOTP} disabled={loading || code.length < 6} className="w-full">
-                            {loading ? 'Verifying...' : 'Verify'}
-                        </Button>
-                        <button onClick={() => onOpenChange(false)} className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors">
-                            Not now
-                        </button>
-                    </div>
-                )}
+                <AnimatePresence mode="wait">
+                    {step === 'phone' && (
+                        <motion.div
+                            key="phone"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.2, ease: 'easeOut' }}
+                            className="space-y-5"
+                        >
+                            <div className="space-y-2">
+                                <h2 className="text-xl font-bold text-foreground tracking-tight">
+                                    Get notified if your departure changes
+                                </h2>
+                                <p className="text-sm text-muted-foreground">
+                                    We'll text you when your flight timing updates
+                                </p>
+                            </div>
 
-                {step === 'success' && (
-                    <div className="flex flex-col items-center gap-3 py-6">
-                        <CheckCircle2 className="w-10 h-10 text-emerald-500" />
-                        <p className="text-sm font-medium text-foreground">You're all set! We'll notify you of any changes.</p>
-                    </div>
-                )}
+                            {/* Phone input */}
+                            <div className="flex items-center rounded-full border border-input bg-background overflow-hidden focus-within:ring-2 focus-within:ring-ring focus-within:border-primary transition-all duration-200">
+                                <span className="flex items-center px-4 py-3 bg-muted border-r border-input text-sm font-medium text-muted-foreground select-none">
+                                    +1
+                                </span>
+                                <input
+                                    type="tel"
+                                    value={phoneDigits}
+                                    onChange={handlePhoneChange}
+                                    placeholder="555 123 4567"
+                                    className="flex-1 px-4 py-3 text-lg bg-transparent outline-none text-foreground placeholder:text-muted-foreground/50"
+                                    inputMode="numeric"
+                                />
+                            </div>
+
+                            {error && <p className="text-sm text-destructive">{error}</p>}
+
+                            <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}>
+                                <Button
+                                    onClick={handleSendOTP}
+                                    disabled={loading || phone.length < 4}
+                                    className="w-full rounded-xl py-3 h-auto text-base font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors duration-200"
+                                >
+                                    {loading ? 'Sending...' : 'Send code'}
+                                </Button>
+                            </motion.div>
+
+                            <button
+                                onClick={() => onOpenChange(false)}
+                                className="w-full text-sm text-muted-foreground hover:opacity-70 transition-opacity duration-200 py-1"
+                            >
+                                Not now
+                            </button>
+                        </motion.div>
+                    )}
+
+                    {step === 'code' && (
+                        <motion.div
+                            key="code"
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: -10 }}
+                            transition={{ duration: 0.2, ease: 'easeOut' }}
+                            className="space-y-5"
+                        >
+                            <div className="space-y-2 text-center">
+                                <h2 className="text-xl font-bold text-foreground tracking-tight">
+                                    Enter your code
+                                </h2>
+                                <p className="text-sm text-muted-foreground">
+                                    Sent to {phone}
+                                </p>
+                            </div>
+
+                            <div className="flex justify-center">
+                                <InputOTP maxLength={6} value={code} onChange={setCode}>
+                                    <InputOTPGroup className="gap-2">
+                                        {[0, 1, 2, 3, 4, 5].map((i) => (
+                                            <InputOTPSlot
+                                                key={i}
+                                                index={i}
+                                                className="w-12 h-14 rounded-lg border-2 border-input text-lg font-semibold transition-colors duration-200 focus-within:border-primary first:rounded-l-lg last:rounded-r-lg"
+                                            />
+                                        ))}
+                                    </InputOTPGroup>
+                                </InputOTP>
+                            </div>
+
+                            {error && <p className="text-sm text-destructive text-center">{error}</p>}
+
+                            <motion.div whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.98 }}>
+                                <Button
+                                    onClick={handleVerifyOTP}
+                                    disabled={loading || code.length < 6}
+                                    className="w-full rounded-xl py-3 h-auto text-base font-semibold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors duration-200"
+                                >
+                                    {loading ? 'Verifying...' : 'Verify'}
+                                </Button>
+                            </motion.div>
+
+                            <button
+                                onClick={() => onOpenChange(false)}
+                                className="w-full text-sm text-muted-foreground hover:opacity-70 transition-opacity duration-200 py-1"
+                            >
+                                Not now
+                            </button>
+                        </motion.div>
+                    )}
+
+                    {step === 'success' && (
+                        <motion.div
+                            key="success"
+                            initial={{ opacity: 0, scale: 0.9 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            transition={{ duration: 0.3, ease: 'easeOut' }}
+                            className="flex flex-col items-center gap-4 py-8"
+                        >
+                            <motion.div
+                                initial={{ scale: 0 }}
+                                animate={{ scale: 1 }}
+                                transition={{ type: 'spring', stiffness: 200, damping: 15, delay: 0.1 }}
+                                className="w-16 h-16 rounded-full flex items-center justify-center"
+                                style={{ backgroundColor: 'hsl(var(--success))' }}
+                            >
+                                <Check className="w-8 h-8 text-white" strokeWidth={3} />
+                            </motion.div>
+                            <div className="text-center space-y-1">
+                                <p className="text-lg font-bold text-foreground">You're all set!</p>
+                                <p className="text-sm text-muted-foreground">
+                                    We'll notify you of any changes to your departure
+                                </p>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </SheetContent>
         </Sheet>
     );
