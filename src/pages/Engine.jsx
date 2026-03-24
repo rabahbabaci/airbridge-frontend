@@ -15,6 +15,7 @@ import {
 } from 'lucide-react';
 
 import JourneyVisualization from '@/components/engine/JourneyVisualization';
+import OTPModal from '@/components/engine/OTPModal';
 
 const API_BASE = 'https://airbridge-backend-production.up.railway.app';
 
@@ -92,6 +93,9 @@ export default function Engine() {
     const [withChildren, setWithChildren] = useState(false);
     const [gateTime, setGateTime] = useState(15);
     
+
+    // OTP modal
+    const [otpOpen, setOtpOpen] = useState(false);
 
     // Results
     const [locked, setLocked] = useState(false);
@@ -886,11 +890,13 @@ export default function Engine() {
                             selectedFlight={selectedFlight}
                             transport={transport}
                             onReady={() => setJourneyReady(true)}
-                            onNotifyClick={() => {}}
+                            onNotifyClick={() => setOtpOpen(true)}
                         />
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            <OTPModal open={otpOpen} onOpenChange={setOtpOpen} onSuccess={(data) => {}} />
         </div>
     );
 }
