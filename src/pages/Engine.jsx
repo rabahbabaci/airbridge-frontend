@@ -886,6 +886,7 @@ export default function Engine() {
                             selectedFlight={selectedFlight}
                             transport={transport}
                             onReady={() => setJourneyReady(true)}
+                            onNotifyClick={() => {}}
                         />
                     </motion.div>
                 )}

@@ -1,10 +1,12 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { shortCity, formatLocalTime } from '@/utils/format';
 import {
     Plane, Car, Shield, Clock, MapPin, Luggage,
-    Building2, PersonStanding, Ticket, AlertTriangle
+    Building2, PersonStanding, Ticket, AlertTriangle, CircleParking,
+    ChevronDown, Bell
 } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 function formatUTCToLocal(utcStr) {
@@ -60,6 +62,8 @@ function getSegmentMeta(seg, airportCode, transport) {
     const id = (seg.id || '').toLowerCase();
     const label = (seg.label || '').toLowerCase();
 
+    if (id === 'parking')
+        return { Icon: CircleParking, bg: 'bg-accent', iconColor: 'text-primary', shortLabel: 'Parking' };
     if (id === 'transport' || label.includes('leave') || label.includes('depart') || label.includes('ride') || label.includes('drive') || label.includes('uber'))
         return { Icon: Car, bg: 'bg-accent', iconColor: 'text-primary', shortLabel: transportLabel(transport, airportCode) };
     if (id === 'at_airport' || label.includes('terminal'))
@@ -82,8 +86,23 @@ function getSegmentMeta(seg, airportCode, transport) {
 }
 
 // ── Main Component ──────────────────────────────────────────────────────────
-export default function JourneyVisualization({ locked, recommendation, selectedFlight, transport, onReady }) {
-    
+export default function JourneyVisualization({ locked, recommendation, selectedFlight, transport, onReady, onNotifyClick }) {
+    const [countdown, setCountdown] = useState('');
+    const [showExplanation, setShowExplanation] = useState(false);
+
+    useEffect(() => {
+        if (!recommendation?.leave_home_at) return;
+        function updateCountdown() {
+            const diff = new Date(recommendation.leave_home_at) - Date.now();
+            if (diff <= 0) { setCountdown(''); return; }
+            const h = Math.floor(diff / 3600000);
+            const m = Math.floor((diff % 3600000) / 60000);
+            setCountdown(h > 0 ? `in ${h}h ${m}m` : `in ${m}m`);
+        }
+        updateCountdown();
+        const id = setInterval(updateCountdown, 30000);
+        return () => clearInterval(id);
+    }, [recommendation?.leave_home_at]);
 
     useEffect(() => {
         if (locked && recommendation && onReady) {
@@ -222,6 +241,7 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                             className="text-5xl md:text-6xl font-black text-primary-foreground tracking-tight"
                         >
                             {formatUTCToLocal(recommendation.leave_home_at)}
+                            {countdown && <span className="text-sm font-semibold text-primary-foreground/70 ml-2">({countdown})</span>}
                         </motion.p>
                     </div>
                     <div className="flex flex-wrap gap-2">
@@ -270,6 +290,11 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                     </div>
                 )}
             </motion.div>
+
+            {/* ── TIER DISPLAY ── */}
+            {recommendation.tier === 'pro' && recommendation.remaining_pro_trips != null && (
+                <p className="text-xs text-muted-foreground mb-4">Pro · {recommendation.remaining_pro_trips} free trips remaining</p>
+            )}
 
             {/* Late departure warning — use backend leave_home_in_past */}
             {recommendation.leave_home_in_past && (
@@ -388,6 +413,16 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                 </div>
             </motion.div>
 
+            {/* ── NOTIFY BUTTON ── */}
+            {onNotifyClick && (
+                <div className="mb-6">
+                    <Button variant="outline" onClick={onNotifyClick} className="gap-2">
+                        <Bell className="w-4 h-4" />
+                        Get notified if this changes
+                    </Button>
+                </div>
+            )}
+
             {/* ── BOARDING + DEPARTURE ROW ── */}
             <motion.div
                 initial={{ opacity: 0, y: 16 }}
@@ -434,6 +469,22 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                 </div>
             </motion.div>
 
+
+            {/* ── HOW WE CALCULATED THIS ── */}
+            {recommendation.explanation && (
+                <div className="mt-4">
+                    <button
+                        onClick={() => setShowExplanation(v => !v)}
+                        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                        How we calculated this
+                        <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showExplanation ? 'rotate-180' : ''}`} />
+                    </button>
+                    {showExplanation && (
+                        <p className="text-sm text-muted-foreground mt-2">{recommendation.explanation}</p>
+                    )}
+                </div>
+            )}
 
             {/* ── COMPUTED AT ── */}
             {recommendation.computed_at && (
