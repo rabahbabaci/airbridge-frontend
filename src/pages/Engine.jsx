@@ -16,6 +16,7 @@ import {
 
 import JourneyVisualization from '@/components/engine/JourneyVisualization';
 import OTPModal from '@/components/engine/OTPModal';
+import { useAuth } from '@/lib/AuthContext';
 
 const API_BASE = 'https://airbridge-backend-production.up.railway.app';
 
@@ -68,6 +69,9 @@ const stagger = {
 
 // ── Main Component ──────────────────────────────────────────────────────────
 export default function Engine() {
+    const { token, login, updateTripCount } = useAuth();
+    const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+
     const [step, setStep] = useState(1);
     const [dir, setDir] = useState(1);
 
@@ -137,7 +141,9 @@ export default function Engine() {
         goTo(2);
         try {
             const addrParam = startingAddress.trim() ? `?home_address=${encodeURIComponent(startingAddress.trim())}` : '';
-            const res = await fetch(`${API_BASE}/v1/flights/${encodeURIComponent(flightNumber.trim())}/${departureDate}${addrParam}`);
+            const res = await fetch(`${API_BASE}/v1/flights/${encodeURIComponent(flightNumber.trim())}/${departureDate}${addrParam}`, {
+                headers: { ...authHeaders },
+            });
             if (!res.ok) {
                 setFlightOptions([]);
                 setSearchError('Could not look up flights. Please check the flight number and try again.');
@@ -202,7 +208,7 @@ export default function Engine() {
         try {
             const tripRes = await fetch(`${API_BASE}/v1/trips`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...authHeaders },
                 body: JSON.stringify({
                     input_mode: 'flight_number',
                     flight_number: selectedFlight.flight_number,
@@ -221,7 +227,7 @@ export default function Engine() {
 
             const recRes = await fetch(`${API_BASE}/v1/recommendations`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...authHeaders },
                 body: JSON.stringify({ trip_id: trip.trip_id })
             });
             if (!recRes.ok) {
@@ -230,6 +236,7 @@ export default function Engine() {
             }
             const rec = await recRes.json();
             setRecommendation(rec);
+            if (rec.remaining_pro_trips != null) updateTripCount(rec.remaining_pro_trips);
             setJourneyReady(true);
             setTimeout(() => setViewMode('results'), 500);
         } catch (err) {
@@ -251,7 +258,7 @@ export default function Engine() {
         try {
             const recRes = await fetch(`${API_BASE}/v1/recommendations/recompute`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', ...authHeaders },
                 body: JSON.stringify({
                     trip_id: currentTripId,
                     reason: 'preference_change',
@@ -264,6 +271,7 @@ export default function Engine() {
             }
             const rec = await recRes.json();
             setRecommendation(rec);
+            if (rec.remaining_pro_trips != null) updateTripCount(rec.remaining_pro_trips);
             return true;
         } catch (err) {
             console.error('Recompute failed:', err);
@@ -896,7 +904,7 @@ export default function Engine() {
                 )}
             </AnimatePresence>
 
-            <OTPModal open={otpOpen} onOpenChange={setOtpOpen} onSuccess={(data) => {}} />
+            <OTPModal open={otpOpen} onOpenChange={setOtpOpen} onSuccess={(data) => login(data)} />
         </div>
     );
 }
