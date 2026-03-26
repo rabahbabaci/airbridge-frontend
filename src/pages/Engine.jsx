@@ -17,7 +17,9 @@ import {
 import JourneyVisualization from '@/components/engine/JourneyVisualization';
 import OTPModal from '@/components/engine/OTPModal';
 import SocialAuthCard from '@/components/engine/SocialAuthCard';
+import RouteSearchForm from '@/components/engine/RouteSearchForm';
 import { useAuth } from '@/lib/AuthContext';
+import { mapFlights } from '@/utils/mapFlight';
 
 const API_BASE = 'https://airbridge-backend-production.up.railway.app';
 
@@ -77,6 +79,7 @@ export default function Engine() {
     const [dir, setDir] = useState(1);
 
     // Step 1
+    const [inputMode, setInputMode] = useState('flight_number'); // 'flight_number' | 'route_search'
     const [departureDate, setDepartureDate] = useState('');
     const [flightNumber, setFlightNumber] = useState('');
     const [startingAddress, setStartingAddress] = useState('');
@@ -152,32 +155,7 @@ export default function Engine() {
                 return;
             }
             const data = await res.json();
-            const mapped = (data.flights || []).map(f => ({
-                flight_number: f.flight_number,
-                departure_time: f.departure_time_local,
-                arrival_time: f.arrival_time_local,
-                origin_code: f.origin_iata,
-                origin_name: f.origin_name,
-                destination_code: f.destination_iata,
-                destination_name: f.destination_name,
-                departure_terminal: f.departure_terminal,
-                departure_gate: f.departure_gate,
-                arrival_terminal: f.arrival_terminal,
-                status: f.status,
-                aircraft_model: f.aircraft_model,
-                departure_time_utc: f.departure_time_utc,
-                departed: f.departed ?? false,
-                canceled: f.canceled ?? false,
-                catchable: f.catchable ?? true,
-                time_warning: f.time_warning ?? null,
-                is_boarding: f.is_boarding ?? false,
-                revised_departure_local: f.revised_departure_local,
-                is_delayed: f.is_delayed ?? false,
-                scheduled_departure_local: f.scheduled_departure_local,
-                terminal: f.departure_terminal ? `Terminal ${f.departure_terminal}` : 'Terminal TBD',
-                airline_name: f.airline_name || '',
-            }));
-            setFlightOptions(mapped);
+            setFlightOptions(mapFlights(data.flights));
         } catch (err) {
             console.error('Flight lookup failed:', err);
             setFlightOptions([]);
@@ -283,11 +261,17 @@ export default function Engine() {
         }
     };
 
+    const handleRouteFlightsFound = (flights) => {
+        setFlightOptions(flights);
+        setSearching(false);
+        goTo(2);
+    };
+
     const handleReset = () => {
         setLocked(false); setJourneyReady(false); setRecommendation(null);
         setSelectedFlight(null); setFlightOptions([]); setDir(-1); setStep(1);
         setViewMode('setup'); setApiError(null); setCurrentTripId(null);
-        setSearchError(null);
+        setSearchError(null); setInputMode('flight_number');
     };
 
     const handleEditSetup = () => {
@@ -381,62 +365,90 @@ export default function Engine() {
                                         <p className="text-muted-foreground">Never miss a flight again</p>
                                     </motion.div>
 
-                                    <div className="space-y-4">
-                                        <motion.div custom={1} variants={stagger} initial="hidden" animate="visible">
-                                            <label className="text-sm font-semibold text-foreground/70 mb-2 block">Where are you starting from?</label>
-                                            <div className="flex items-center gap-3 bg-card border border-border rounded-2xl px-4 py-3.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition-all">
-                                                <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
-                                                <Input value={startingAddress} onChange={e => setStartingAddress(e.target.value)}
-                                                    placeholder="Enter your departure address"
-                                                    className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-foreground placeholder:text-muted-foreground" />
-                                            </div>
-                                        </motion.div>
-
-                                        <motion.div custom={2} variants={stagger} initial="hidden" animate="visible">
-                                            <label className="text-sm font-semibold text-foreground/70 mb-2 block">Flight Number</label>
-                                            <div className="flex items-center gap-3 bg-card border border-border rounded-2xl px-4 py-3.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition-all">
-                                                <Plane className="w-4 h-4 text-muted-foreground shrink-0" />
-                                                <Input value={flightNumber} onChange={e => setFlightNumber(e.target.value)}
-                                                    placeholder="e.g. UA 452"
-                                                    onKeyDown={e => e.key === 'Enter' && canSearch && handleFindFlight()}
-                                                    className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-foreground placeholder:text-muted-foreground" />
-                                            </div>
-                                        </motion.div>
-
-                                        <motion.div custom={3} variants={stagger} initial="hidden" animate="visible">
-                                            <label className="text-sm font-semibold text-foreground/70 mb-2 block">When are you traveling?</label>
-                                            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                                                <PopoverTrigger asChild>
-                                                    <div className="flex items-center gap-3 bg-card border border-border rounded-2xl px-4 py-3.5 cursor-pointer hover:border-muted-foreground/30 transition-all">
-                                                        <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
-                                                        <span className={`flex-1 text-sm ${departureDate ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
-                                                            {departureDate ? new Date(departureDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : 'Select date'}
-                                                        </span>
+                                    {inputMode === 'flight_number' ? (
+                                        <>
+                                            <div className="space-y-4">
+                                                <motion.div custom={1} variants={stagger} initial="hidden" animate="visible">
+                                                    <label className="text-sm font-semibold text-foreground/70 mb-2 block">Where are you starting from?</label>
+                                                    <div className="flex items-center gap-3 bg-card border border-border rounded-2xl px-4 py-3.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition-all">
+                                                        <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
+                                                        <Input value={startingAddress} onChange={e => setStartingAddress(e.target.value)}
+                                                            placeholder="Enter your departure address"
+                                                            className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-foreground placeholder:text-muted-foreground" />
                                                     </div>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-auto p-0" align="start">
-                                                    <CalendarComponent mode="single"
-                                                        selected={departureDate ? new Date(departureDate + 'T00:00:00') : undefined}
-                                                        onSelect={(date) => { if (date) { setDepartureDate(date.toISOString().split('T')[0]); setCalendarOpen(false); } }}
-                                                        disabled={(date) => { const today = new Date(); today.setHours(0, 0, 0, 0); return new Date(date).setHours(0, 0, 0, 0) < today; }}
-                                                    />
-                                                </PopoverContent>
-                                            </Popover>
-                                        </motion.div>
-                                    </div>
+                                                </motion.div>
 
-                                    <motion.div custom={4} variants={stagger} initial="hidden" animate="visible" className="mt-8">
-                                        <button onClick={handleFindFlight} disabled={!canSearch}
-                                            className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-base font-semibold transition-all duration-200 ${
-                                                canSearch
-                                                    ? 'bg-primary hover:bg-brand-accent text-primary-foreground shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/20'
-                                                    : 'bg-muted text-muted-foreground cursor-not-allowed'
-                                            }`}>
-                                            <Search className="w-4 h-4" />
-                                            Select Flight
-                                        </button>
-                                        <p className="text-center text-xs text-muted-foreground mt-4">Powered by real-time data and AI predictions</p>
-                                    </motion.div>
+                                                <motion.div custom={2} variants={stagger} initial="hidden" animate="visible">
+                                                    <label className="text-sm font-semibold text-foreground/70 mb-2 block">Flight Number</label>
+                                                    <div className="flex items-center gap-3 bg-card border border-border rounded-2xl px-4 py-3.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition-all">
+                                                        <Plane className="w-4 h-4 text-muted-foreground shrink-0" />
+                                                        <Input value={flightNumber} onChange={e => setFlightNumber(e.target.value)}
+                                                            placeholder="e.g. UA 452"
+                                                            onKeyDown={e => e.key === 'Enter' && canSearch && handleFindFlight()}
+                                                            className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-foreground placeholder:text-muted-foreground" />
+                                                    </div>
+                                                </motion.div>
+
+                                                <motion.div custom={3} variants={stagger} initial="hidden" animate="visible">
+                                                    <label className="text-sm font-semibold text-foreground/70 mb-2 block">When are you traveling?</label>
+                                                    <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                                                        <PopoverTrigger asChild>
+                                                            <div className="flex items-center gap-3 bg-card border border-border rounded-2xl px-4 py-3.5 cursor-pointer hover:border-muted-foreground/30 transition-all">
+                                                                <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
+                                                                <span className={`flex-1 text-sm ${departureDate ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
+                                                                    {departureDate ? new Date(departureDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : 'Select date'}
+                                                                </span>
+                                                            </div>
+                                                        </PopoverTrigger>
+                                                        <PopoverContent className="w-auto p-0" align="start">
+                                                            <CalendarComponent mode="single"
+                                                                selected={departureDate ? new Date(departureDate + 'T00:00:00') : undefined}
+                                                                onSelect={(date) => { if (date) { setDepartureDate(date.toISOString().split('T')[0]); setCalendarOpen(false); } }}
+                                                                disabled={(date) => { const today = new Date(); today.setHours(0, 0, 0, 0); return new Date(date).setHours(0, 0, 0, 0) < today; }}
+                                                            />
+                                                        </PopoverContent>
+                                                    </Popover>
+                                                </motion.div>
+                                            </div>
+
+                                            <motion.div custom={4} variants={stagger} initial="hidden" animate="visible" className="mt-8">
+                                                <button onClick={handleFindFlight} disabled={!canSearch}
+                                                    className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-base font-semibold transition-all duration-200 ${
+                                                        canSearch
+                                                            ? 'bg-primary hover:bg-brand-accent text-primary-foreground shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/20'
+                                                            : 'bg-muted text-muted-foreground cursor-not-allowed'
+                                                    }`}>
+                                                    <Search className="w-4 h-4" />
+                                                    Select Flight
+                                                </button>
+                                                <button onClick={() => setInputMode('route_search')}
+                                                    className="w-full text-center text-sm text-muted-foreground hover:text-primary mt-4 transition-colors">
+                                                    No flight number? Search by route &rarr;
+                                                </button>
+                                            </motion.div>
+                                        </>
+                                    ) : (
+                                        <>
+                                            <motion.div custom={1} variants={stagger} initial="hidden" animate="visible" className="mb-4">
+                                                <label className="text-sm font-semibold text-foreground/70 mb-2 block">Where are you starting from?</label>
+                                                <div className="flex items-center gap-3 bg-card border border-border rounded-2xl px-4 py-3.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition-all">
+                                                    <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
+                                                    <Input value={startingAddress} onChange={e => setStartingAddress(e.target.value)}
+                                                        placeholder="Enter your departure address"
+                                                        className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-foreground placeholder:text-muted-foreground" />
+                                                </div>
+                                            </motion.div>
+
+                                            <RouteSearchForm onFlightsFound={handleRouteFlightsFound} authHeaders={authHeaders} />
+
+                                            <motion.div custom={7} variants={stagger} initial="hidden" animate="visible" className="mt-4">
+                                                <button onClick={() => setInputMode('flight_number')}
+                                                    className="w-full text-center text-sm text-muted-foreground hover:text-primary transition-colors">
+                                                    Have a flight number? Enter it directly &rarr;
+                                                </button>
+                                            </motion.div>
+                                        </>
+                                    )}
                                 </motion.div>
                             )}
 
@@ -457,10 +469,14 @@ export default function Engine() {
                                     <motion.div custom={1} variants={stagger} initial="hidden" animate="visible"
                                         className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent border border-primary/10 mb-5">
                                         <Plane className="w-3.5 h-3.5 text-primary shrink-0" />
-                                        <span className="text-sm font-semibold text-primary">{flightNumber.toUpperCase()}</span>
-                                        <span className="text-xs text-primary/70 ml-1">
-                                            {new Date(departureDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                                        <span className="text-sm font-semibold text-primary">
+                                            {inputMode === 'flight_number' ? flightNumber.toUpperCase() : 'Route search'}
                                         </span>
+                                        {departureDate && (
+                                            <span className="text-xs text-primary/70 ml-1">
+                                                {new Date(departureDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                                            </span>
+                                        )}
                                     </motion.div>
 
                                     {/* Error state */}
