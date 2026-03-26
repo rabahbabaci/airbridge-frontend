@@ -4,13 +4,15 @@ import { Menu, X, Plane } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import AuthModal from '@/components/landing/AuthModal';
+import { useAuth } from '@/lib/AuthContext';
+import AuthModal from '@/components/engine/AuthModal';
 
 export default function Header() {
     const [scrolled, setScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [authOpen, setAuthOpen] = useState(false);
     const navigate = useNavigate();
+    const { login, logout, isAuthenticated, display_name } = useAuth();
 
     useEffect(() => {
         const handleScroll = () => setScrolled(window.scrollY > 20);
@@ -65,13 +67,25 @@ export default function Header() {
 
                         <div className="w-px h-4 bg-border mx-1" />
 
-                        <a
-                            href="#"
-                            onClick={(e) => { e.preventDefault(); setAuthOpen(true); }}
-                            className="text-sm text-muted-foreground hover:text-foreground hover:bg-white transition-all font-medium px-4 py-1.5 rounded-full"
-                        >
-                            Sign in
-                        </a>
+                        {isAuthenticated ? (
+                            <div className="flex items-center gap-2 px-3 py-1">
+                                <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-[10px] font-bold text-primary-foreground">
+                                    {(display_name || '').charAt(0).toUpperCase() || 'U'}
+                                </div>
+                                <span className="text-sm font-medium text-foreground">{display_name ? display_name.split(' ')[0] : 'Account'}</span>
+                                <button onClick={logout} className="text-xs text-muted-foreground hover:text-foreground transition-colors ml-1">
+                                    Sign out
+                                </button>
+                            </div>
+                        ) : (
+                            <a
+                                href="#"
+                                onClick={(e) => { e.preventDefault(); setAuthOpen(true); }}
+                                className="text-sm text-muted-foreground hover:text-foreground hover:bg-white transition-all font-medium px-4 py-1.5 rounded-full"
+                            >
+                                Sign in
+                            </a>
+                        )}
 
                         <button
                             onClick={() => navigate(createPageUrl('Engine'))}
@@ -114,8 +128,15 @@ export default function Header() {
                                 </a>
                             ))}
                             <div className="pt-4 space-y-3">
-                                <Button variant="outline" className="w-full" onClick={() => { setMobileMenuOpen(false); setAuthOpen(true); }}>Sign In</Button>
-                                <Button 
+                                {isAuthenticated ? (
+                                    <div className="flex items-center justify-between">
+                                        <span className="text-sm font-medium text-foreground">{display_name ? display_name.split(' ')[0] : 'Account'}</span>
+                                        <Button variant="outline" size="sm" onClick={() => { setMobileMenuOpen(false); logout(); }}>Sign out</Button>
+                                    </div>
+                                ) : (
+                                    <Button variant="outline" className="w-full" onClick={() => { setMobileMenuOpen(false); setAuthOpen(true); }}>Sign In</Button>
+                                )}
+                                <Button
                                     className="w-full bg-primary hover:bg-brand-accent text-primary-foreground"
                                     onClick={() => {
                                         setMobileMenuOpen(false);
@@ -131,7 +152,7 @@ export default function Header() {
             </AnimatePresence>
         </motion.header>
 
-        <AuthModal open={authOpen} onClose={() => setAuthOpen(false)} />
+        <AuthModal open={authOpen} onOpenChange={setAuthOpen} onSuccess={(data) => login(data)} />
     </>
     );
 }

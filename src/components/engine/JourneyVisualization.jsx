@@ -1,12 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { shortCity, formatLocalTime } from '@/utils/format';
+import { shortCity, formatLocalTime, formatDuration } from '@/utils/format';
 import {
-    Plane, Car, Shield, Clock, MapPin, Luggage,
+    Plane, Car, Train, Bus, Shield, Clock, MapPin, Luggage,
     Building2, PersonStanding, Ticket, AlertTriangle, CircleParking,
-    ChevronDown, Bell
 } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
 function formatUTCToLocal(utcStr) {
@@ -37,24 +35,18 @@ function parseDepartureAndGetBoardingTime(localTimeStr) {
     return { boarding: fmt(boardingDate), departure: fmt(d) };
 }
 
-function fmtMin(minutes) {
-    if (minutes == null) return '';
-    const m = Math.round(minutes);
-    if (m >= 60) {
-        const h = Math.floor(m / 60);
-        const r = m % 60;
-        return r > 0 ? `${h}h${String(r).padStart(2, '0')}m` : `${h}h`;
-    }
-    return `${m} min`;
+// ── Transport helpers ───────────────────────────────────────────────────────
+const TRANSPORT_ICONS = { rideshare: Car, driving: Car, train: Train, bus: Bus, other: Car };
+const TRANSPORT_LABELS = { rideshare: 'Ride', driving: 'Drive', train: 'Train', bus: 'Bus', other: 'Ride' };
+const TRANSPORT_STAT_LABELS = { rideshare: 'Rideshare', driving: 'Drive', train: 'Train', bus: 'Bus', other: 'Transport' };
+
+function transportLabel(transport, airportCode) {
+    const mode = TRANSPORT_LABELS[(transport || '').toLowerCase()] || 'Ride';
+    return `${mode} to ${airportCode || 'Airport'}`;
 }
 
-const totalToHM = fmtMin;
-
-// ── Transport label builder ─────────────────────────────────────────────────
-function transportLabel(transport, airportCode) {
-    const modeLabels = { rideshare: 'Ride', driving: 'Drive', train: 'Train', bus: 'Bus', other: 'Ride' };
-    const mode = modeLabels[(transport || '').toLowerCase()] || 'Ride';
-    return `${mode} to ${airportCode || 'Airport'}`;
+function getTransportIcon(transport) {
+    return TRANSPORT_ICONS[(transport || '').toLowerCase()] || Car;
 }
 
 // ── Segment Icon Mapping ────────────────────────────────────────────────────
@@ -65,7 +57,7 @@ function getSegmentMeta(seg, airportCode, transport) {
     if (id === 'parking')
         return { Icon: CircleParking, bg: 'bg-accent', iconColor: 'text-primary', shortLabel: 'Parking' };
     if (id === 'transport' || label.includes('leave') || label.includes('depart') || label.includes('ride') || label.includes('drive') || label.includes('uber'))
-        return { Icon: Car, bg: 'bg-accent', iconColor: 'text-primary', shortLabel: transportLabel(transport, airportCode) };
+        return { Icon: getTransportIcon(transport), bg: 'bg-accent', iconColor: 'text-primary', shortLabel: transportLabel(transport, airportCode) };
     if (id === 'at_airport' || label.includes('terminal'))
         return { Icon: Building2, bg: 'bg-accent', iconColor: 'text-primary', shortLabel: `At ${airportCode || 'Airport'}` };
     if (id === 'checkin' || label.includes('check-in') || label.includes('counter'))
@@ -85,24 +77,72 @@ function getSegmentMeta(seg, airportCode, transport) {
     return { Icon: MapPin, bg: 'bg-secondary', iconColor: 'text-muted-foreground', shortLabel: seg.label || 'Step' };
 }
 
+// ── Smart leave text + urgency ──────────────────────────────────────────────
+function getLeaveUrgency(leaveHomeAt) {
+    if (!leaveHomeAt) return { label: 'Leave by', urgency: 'calm' };
+    const diffMs = new Date(leaveHomeAt) - Date.now();
+    const diffMin = diffMs / 60000;
+
+    if (diffMin <= 0) return { label: 'Leave now!', urgency: 'critical' };
+    if (diffMin < 5) return { label: 'Leave now!', urgency: 'critical' };
+    if (diffMin < 30) return { label: `Time to go — leave in ${Math.round(diffMin)} min`, urgency: 'urgent' };
+    if (diffMin < 120) {
+        const h = Math.floor(diffMin / 60);
+        const m = Math.round(diffMin % 60);
+        return { label: `Leave in ${h > 0 ? `${h}h ${m}m` : `${m}m`}`, urgency: 'aware' };
+    }
+    return { label: 'Leave by', urgency: 'calm' };
+}
+
+function urgencyClasses(urgency) {
+    switch (urgency) {
+        case 'critical': return 'bg-destructive';
+        case 'urgent': return 'bg-amber-500';
+        default: return 'bg-primary';
+    }
+}
+
+// ── Smart boarding countdown ────────────────────────────────────────────────
+function smartBoardingLabel(boardingTime) {
+    if (!boardingTime) return 'Boarding time TBD';
+    const diffMin = (boardingTime.getTime() - Date.now()) / 60000;
+
+    if (diffMin <= 0) return 'Boarding now';
+    if (diffMin < 120) return `Boarding in ${formatDuration(Math.round(diffMin))}`;
+    if (diffMin < 720) return `Boarding in ${formatDuration(Math.round(diffMin))}`;
+    const fmt = boardingTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    if (boardingTime.toDateString() === today.toDateString()) return `Boarding at ${fmt}`;
+    if (boardingTime.toDateString() === tomorrow.toDateString()) return `Boarding tomorrow at ${fmt}`;
+    const day = boardingTime.toLocaleDateString('en-US', { weekday: 'short' });
+    return `Boarding ${day} at ${fmt}`;
+}
+
 // ── Main Component ──────────────────────────────────────────────────────────
-export default function JourneyVisualization({ locked, recommendation, selectedFlight, transport, onReady, onNotifyClick }) {
-    const [countdown, setCountdown] = useState('');
-    const [showExplanation, setShowExplanation] = useState(false);
+export default function JourneyVisualization({
+    locked, recommendation, selectedFlight, transport, onReady,
+    securityLabel,
+}) {
+    const [leaveInfo, setLeaveInfo] = useState({ label: 'Leave by', urgency: 'calm' });
+    const [boardingLabel, setBoardingLabel] = useState('');
 
     useEffect(() => {
         if (!recommendation?.leave_home_at) return;
-        function updateCountdown() {
-            const diff = new Date(recommendation.leave_home_at) - Date.now();
-            if (diff <= 0) { setCountdown(''); return; }
-            const h = Math.floor(diff / 3600000);
-            const m = Math.floor((diff % 3600000) / 60000);
-            setCountdown(h > 0 ? `in ${h}h ${m}m` : `in ${m}m`);
+        const bt = selectedFlight?.departure_time ? (() => {
+            const d = parseDepartureTime(selectedFlight.departure_time);
+            return d ? new Date(d.getTime() - 30 * 60000) : null;
+        })() : null;
+
+        function update() {
+            setLeaveInfo(getLeaveUrgency(recommendation.leave_home_at));
+            setBoardingLabel(smartBoardingLabel(bt));
         }
-        updateCountdown();
-        const id = setInterval(updateCountdown, 30000);
+        update();
+        const id = setInterval(update, 30000);
         return () => clearInterval(id);
-    }, [recommendation?.leave_home_at]);
+    }, [recommendation?.leave_home_at, selectedFlight?.departure_time]);
 
     useEffect(() => {
         if (locked && recommendation && onReady) {
@@ -112,10 +152,6 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
     }, [locked, recommendation]);
 
     if (!locked || !recommendation) return null;
-
-    const totalMinutes = recommendation.segments
-        ? recommendation.segments.reduce((sum, s) => sum + (s.duration_minutes || 0), 0)
-        : 0;
 
     const gateArrival = recommendation.gate_arrival_utc ? new Date(recommendation.gate_arrival_utc) : null;
     const departureDateObj = selectedFlight?.departure_time ? parseDepartureTime(selectedFlight.departure_time) : null;
@@ -129,39 +165,59 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
 
     const segments = recommendation.segments || [];
     const comfortBuffer = segments.find(s => s.id === 'comfort_buffer');
-    const gateBuffer = segments.find(s => s.id === 'gate_buffer');
-    const gateBufferMinutes = gateBuffer ? gateBuffer.duration_minutes : 0;
-    const displaySegments = segments.filter(s => s.id !== 'comfort_buffer' && s.id !== 'gate_buffer');
+    const parkingSeg = segments.find(s => s.id === 'parking');
     const airportCode = selectedFlight?.origin_code || '';
+    const isDriving = (transport || '').toLowerCase() === 'driving';
+
+    // allSegments: used for TIME calculations (includes parking, excludes comfort_buffer/gate_buffer)
+    const allSegments = segments.filter(s => s.id !== 'comfort_buffer' && s.id !== 'gate_buffer');
+    // displaySegments: used for RENDERING nodes (also excludes parking)
+    const displaySegments = allSegments.filter(s => s.id !== 'parking');
+
+    // Total door-to-gate uses allSegments
+    const totalMinutesFromSegments = allSegments.reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
 
     // Build step data for timeline
     const timelineSteps = displaySegments.map((seg, idx) => {
-        const cumulativeBefore = displaySegments.slice(0, idx).reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
+        // Find this segment in the full allSegments array for correct time calculation
+        const fullIdx = allSegments.indexOf(seg);
+        const cumulativeBefore = allSegments.slice(0, fullIdx).reduce((sum, s) => sum + (s.duration_minutes || 0), 0);
         const stepTime = addMinutesAndFormat(recommendation.leave_home_at, cumulativeBefore);
         const meta = getSegmentMeta(seg, airportCode, transport);
         const isLast = idx === displaySegments.length - 1;
 
-        let displayTime = isLast
-            ? addMinutesAndFormat(recommendation.leave_home_at, cumulativeBefore + seg.duration_minutes)
-            : stepTime;
+        // Display time: show arrival time at each node
+        let displayTime;
+        if (seg.id === 'at_airport' && isDriving && parkingSeg && parkingSeg.duration_minutes > 0) {
+            // Show arrival at airport (before parking)
+            displayTime = addMinutesAndFormat(recommendation.leave_home_at, cumulativeBefore - parkingSeg.duration_minutes);
+        } else if (isLast) {
+            displayTime = addMinutesAndFormat(recommendation.leave_home_at, cumulativeBefore + seg.duration_minutes);
+        } else {
+            displayTime = stepTime;
+        }
 
         let subtitle = '';
         let connectorExtra = '';
         if (seg.id === 'transport') {
-            // No subtitle under transport — duration shown on connector
             subtitle = '';
         } else if (seg.id === 'tsa') {
             const waitMatch = seg.advice?.match(/wait:(\d+)/);
             const waitMin = waitMatch ? parseInt(waitMatch[1], 10) : seg.duration_minutes;
-            subtitle = `${fmtMin(waitMin)} wait`;
+            subtitle = `${formatDuration(waitMin)} wait`;
         } else if (seg.id === 'walk_to_gate') {
-            if (comfortBuffer) subtitle = `+${fmtMin(comfortBuffer.duration_minutes)} buffer`;
+            if (comfortBuffer) subtitle = `+${formatDuration(comfortBuffer.duration_minutes)} buffer`;
         } else if (seg.id === 'at_airport') {
+            // Walk time from at_airport to next segment
             const walkMatch = seg.advice?.match(/walk_to_next:(\d+)/);
-            if (walkMatch) {
-                connectorExtra = `${fmtMin(parseInt(walkMatch[1], 10))} walk`;
+            const walkMin = walkMatch ? parseInt(walkMatch[1], 10) : (seg.duration_minutes || 0);
+            if (walkMin > 0) {
+                connectorExtra = `${formatDuration(walkMin)} walk`;
             }
-            subtitle = '';
+            // Parking subtitle for drivers
+            if (isDriving && parkingSeg && parkingSeg.duration_minutes > 0) {
+                subtitle = `${formatDuration(parkingSeg.duration_minutes)} parking`;
+            }
         } else if (seg.id === 'bag_drop' || seg.id === 'checkin') {
             const bagMatch = seg.advice?.match(/(\d+)\s*bag/);
             const dropMatch = seg.advice?.match(/drop:(\d+)/);
@@ -172,51 +228,48 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
             const counterMin = counterMatch ? parseInt(counterMatch[1], 10) : null;
             const parts = [];
             if (bags != null) parts.push(`${bags} bag${bags !== 1 ? 's' : ''}`);
-            if (dropMin != null) parts.push(`${fmtMin(dropMin)} drop`);
-            if (counterMin != null && !dropMin) parts.push(`${fmtMin(counterMin)} at counter`);
+            if (dropMin != null) parts.push(`${formatDuration(dropMin)} drop`);
+            if (counterMin != null && !dropMin) parts.push(`${formatDuration(counterMin)} at counter`);
             subtitle = parts.length ? parts.join(' · ') : (seg.id === 'checkin' ? 'Get boarding pass' : 'Check bags');
-            if (walkMatch) connectorExtra = `${fmtMin(parseInt(walkMatch[1], 10))} walk`;
+            if (walkMatch) connectorExtra = `${formatDuration(parseInt(walkMatch[1], 10))} walk`;
         } else if (seg.advice) {
             subtitle = seg.advice;
         }
 
-        return { ...meta, time: displayTime, durationMinutes: seg.duration_minutes, duration: fmtMin(seg.duration_minutes), connectorExtra, subtitle, seg, isLast };
+        return { ...meta, time: displayTime, durationMinutes: seg.duration_minutes, duration: formatDuration(seg.duration_minutes), connectorExtra, subtitle, seg, isLast };
     });
 
-    // Connector label: what to show on the line between step[idx] and step[idx+1]
     function connectorLabel(idx) {
         const step = timelineSteps[idx];
         const nextStep = timelineSteps[idx + 1];
-        // connectorExtra is set by at_airport/bag_drop for embedded walking transitions
         if (step.connectorExtra) return step.connectorExtra;
-        // transport connector shows the ride/drive duration
         if (step.seg.id === 'transport') return step.duration;
-        // walk_to_gate shows with " walk" suffix for consistency
+        if (step.seg.id === 'at_airport' && step.durationMinutes > 0) {
+            return `${formatDuration(step.durationMinutes)} walk`;
+        }
         if (nextStep.seg.id === 'walk_to_gate') return `${nextStep.duration} walk`;
-        // default: show the next step's duration
         return nextStep.duration;
     }
 
-    // Boarding step data
-    const boardingInMinutes = boardingTime && recommendation.leave_home_at
-        ? Math.max(0, Math.round((boardingTime - new Date(recommendation.leave_home_at)) / 60000))
-        : totalMinutes;
+    // Stats — show user preferences in labels
+    const transportStatLabel = (TRANSPORT_STAT_LABELS[(transport || '').toLowerCase()] || 'Transport').toUpperCase();
+    const securityStatLabel = (securityLabel || 'Standard TSA').toUpperCase();
 
-    // Stats for the bottom bar
     const stats = [];
     displaySegments.forEach(seg => {
-        if (seg.id === 'transport') stats.push({ label: 'Transport', value: fmtMin(seg.duration_minutes) });
+        if (seg.id === 'transport') stats.push({ label: transportStatLabel, value: formatDuration(seg.duration_minutes) });
         if (seg.id === 'tsa') {
             const waitMatch = seg.advice?.match(/wait:(\d+)/);
-            stats.push({ label: 'TSA Wait', value: fmtMin(waitMatch ? parseInt(waitMatch[1]) : seg.duration_minutes) });
+            stats.push({ label: securityStatLabel, value: formatDuration(waitMatch ? parseInt(waitMatch[1]) : seg.duration_minutes) });
         }
-        if (seg.id === 'walk_to_gate') stats.push({ label: 'Gate Walk', value: fmtMin(seg.duration_minutes) });
+        if (seg.id === 'walk_to_gate') stats.push({ label: 'Gate Walk', value: formatDuration(seg.duration_minutes) });
     });
-    if (comfortBuffer) stats.push({ label: 'Buffer', value: fmtMin(comfortBuffer.duration_minutes) });
+    if (comfortBuffer) stats.push({ label: 'Buffer', value: formatDuration(comfortBuffer.duration_minutes) });
 
-    // Delay info
     const isDelayed = selectedFlight?.is_delayed && selectedFlight?.revised_departure_local;
     const revisedDepartureTime = isDelayed ? formatLocalTime(selectedFlight.revised_departure_local) : null;
+    const heroBg = urgencyClasses(leaveInfo.urgency);
+    const showTimeAfterLabel = leaveInfo.urgency === 'calm';
 
     return (
         <div className="max-w-5xl mx-auto px-4 md:px-8 py-8">
@@ -226,28 +279,27 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.5, ease: 'easeOut' }}
-                className="rounded-3xl p-6 md:p-8 mb-6 bg-primary"
+                className={`rounded-3xl p-6 md:p-8 mb-6 ${heroBg}`}
             >
                 <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-4">
                     <div>
                         <div className="flex items-center gap-2 mb-2">
                             <Clock className="w-4 h-4 text-primary-foreground/80" />
-                            <p className="text-sm font-semibold text-primary-foreground/80">Leave Now at</p>
+                            <p className="text-sm font-semibold text-primary-foreground/80">{leaveInfo.label}</p>
                         </div>
                         <motion.p
                             key={formatUTCToLocal(recommendation.leave_home_at)}
                             initial={{ scale: 0.95 }}
                             animate={{ scale: 1 }}
-                            className="text-5xl md:text-6xl font-black text-primary-foreground tracking-tight"
+                            className={`font-black text-primary-foreground tracking-tight ${showTimeAfterLabel ? 'text-5xl md:text-6xl' : 'text-3xl md:text-4xl'}`}
                         >
                             {formatUTCToLocal(recommendation.leave_home_at)}
-                            {countdown && <span className="text-sm font-semibold text-primary-foreground/70 ml-2">({countdown})</span>}
                         </motion.p>
                     </div>
                     <div className="flex flex-wrap gap-2">
                         <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary-foreground/20 text-primary-foreground text-sm font-semibold backdrop-blur-sm">
                             <Clock className="w-3.5 h-3.5" />
-                            Boarding in {totalToHM(boardingInMinutes)}
+                            {boardingLabel}
                         </span>
                         <span className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold backdrop-blur-sm ${
                             gateCushionMinutes == null ? 'bg-primary-foreground/20 text-primary-foreground' :
@@ -261,7 +313,7 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                                 gateCushionMinutes <= 30 ? 'bg-orange-300' :
                                 'bg-emerald-300'
                             }`} />
-                            {gateCushionMinutes == null ? 'Buffer unknown' : gateCushionMinutes === 0 ? 'No buffer' : `${gateCushionMinutes} min buffer`}
+                            {gateCushionMinutes == null ? 'Buffer unknown' : gateCushionMinutes === 0 ? 'No buffer' : `${formatDuration(gateCushionMinutes)} buffer`}
                         </span>
                     </div>
                 </div>
@@ -286,17 +338,20 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                             {selectedFlight.departure_gate ? `Gate ${selectedFlight.departure_gate}` : 'Gate TBD'}
                         </span>
                         <span className="text-primary-foreground/40">·</span>
-                        <span className="text-primary-foreground/70 text-sm">{totalToHM(totalMinutes)} door-to-gate</span>
+                        <span className="text-primary-foreground/70 text-sm">{formatDuration(totalMinutesFromSegments)} door-to-gate</span>
                     </div>
                 )}
+
+                {/* Pro tier badge */}
+                {recommendation.tier === 'pro' && recommendation.remaining_pro_trips != null && (
+                    <div className="mt-3 pt-3 border-t border-primary-foreground/10">
+                        <span className="text-xs font-medium text-primary-foreground/60">Pro · {recommendation.remaining_pro_trips} free trips remaining</span>
+                    </div>
+                )}
+
             </motion.div>
 
-            {/* ── TIER DISPLAY ── */}
-            {recommendation.tier === 'pro' && recommendation.remaining_pro_trips != null && (
-                <p className="text-xs text-muted-foreground mb-4">Pro · {recommendation.remaining_pro_trips} free trips remaining</p>
-            )}
-
-            {/* Late departure warning — use backend leave_home_in_past */}
+            {/* Late departure warning */}
             {recommendation.leave_home_in_past && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                     className="rounded-2xl px-5 py-4 mb-6 flex items-center gap-3 bg-destructive/10 border border-destructive/20">
@@ -334,8 +389,6 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                 <div className="hidden md:block">
                     <div className="relative pt-8">
                         <div className="absolute top-14 left-8 right-8 h-0.5 bg-primary/30 z-0" />
-
-                        {/* Duration labels */}
                         {timelineSteps.length > 1 && (() => {
                             const stepWidth = 100 / timelineSteps.length;
                             return timelineSteps.slice(0, -1).map((step, idx) => {
@@ -351,8 +404,6 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                                 );
                             });
                         })()}
-
-                        {/* Step icons + labels */}
                         <div className="relative z-10 flex justify-between">
                             {timelineSteps.map((step, idx) => (
                                 <div key={idx} className="flex flex-col items-center text-center"
@@ -385,7 +436,6 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                             transition={{ delay: idx * 0.06 + 0.1 }}
                         >
                             <div className="flex items-start gap-4">
-                                {/* Timeline rail */}
                                 <div className="flex flex-col items-center">
                                     <div className={`w-10 h-10 rounded-xl ${step.bg} flex items-center justify-center shrink-0`}>
                                         <step.Icon className={`w-4 h-4 ${step.iconColor}`} />
@@ -398,8 +448,6 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                                         </div>
                                     )}
                                 </div>
-
-                                {/* Content */}
                                 <div className="pb-4 pt-1">
                                     <div className="flex items-center gap-2">
                                         <p className="font-bold text-foreground text-sm">{step.shortLabel}</p>
@@ -413,16 +461,6 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                 </div>
             </motion.div>
 
-            {/* ── NOTIFY BUTTON ── */}
-            {onNotifyClick && (
-                <div className="mb-6">
-                    <Button variant="outline" onClick={onNotifyClick} className="gap-2">
-                        <Bell className="w-4 h-4" />
-                        Get notified if this changes
-                    </Button>
-                </div>
-            )}
-
             {/* ── BOARDING + DEPARTURE ROW ── */}
             <motion.div
                 initial={{ opacity: 0, y: 16 }}
@@ -434,7 +472,7 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Boarding</p>
                     <p className="text-2xl md:text-3xl font-black text-emerald-600">{boarding}</p>
                     {gateCushionMinutes != null && gateCushionMinutes > 0 && (
-                        <p className="text-xs font-semibold text-emerald-600 mt-1">{gateCushionMinutes} min cushion at gate</p>
+                        <p className="text-xs font-semibold text-emerald-600 mt-1">{formatDuration(gateCushionMinutes)} cushion at gate</p>
                     )}
                 </div>
                 <div className="bg-card rounded-2xl border border-border p-5">
@@ -469,33 +507,11 @@ export default function JourneyVisualization({ locked, recommendation, selectedF
                 </div>
             </motion.div>
 
-
-            {/* ── HOW WE CALCULATED THIS ── */}
-            {recommendation.explanation && (
-                <div className="mt-4">
-                    <button
-                        onClick={() => setShowExplanation(v => !v)}
-                        className="flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                        How we calculated this
-                        <ChevronDown className={`w-4 h-4 transition-transform duration-200 ${showExplanation ? 'rotate-180' : ''}`} />
-                    </button>
-                    {showExplanation && (
-                        <p className="text-sm text-muted-foreground mt-2">{recommendation.explanation}</p>
-                    )}
-                </div>
-            )}
-
             {/* ── COMPUTED AT ── */}
             {recommendation.computed_at && (
-                <motion.p
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 0.5 }}
-                    className="text-center text-[11px] text-muted-foreground mt-4"
-                >
+                <p className="text-center text-xs text-muted-foreground/40 mt-4">
                     Computed {new Date(recommendation.computed_at).toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true })} · Powered by real-time data
-                </motion.p>
+                </p>
             )}
         </div>
     );

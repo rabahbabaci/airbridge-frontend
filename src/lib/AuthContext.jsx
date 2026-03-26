@@ -1,4 +1,5 @@
 import React, { createContext, useState, useContext, useCallback } from 'react';
+import { identify, resetIdentity } from '@/utils/analytics';
 
 const STORAGE_KEY = 'airbridge_auth';
 const AuthContext = createContext();
@@ -16,7 +17,7 @@ function loadStoredAuth() {
 export const AuthProvider = ({ children }) => {
   const [auth, setAuth] = useState(() => {
     const stored = loadStoredAuth();
-    return stored || { token: null, user_id: null, trip_count: null, tier: null };
+    return stored || { token: null, user_id: null, trip_count: null, tier: null, auth_provider: null, display_name: null };
   });
 
   const isAuthenticated = !!auth.token;
@@ -29,14 +30,18 @@ export const AuthProvider = ({ children }) => {
       user_id: data.user_id,
       trip_count: data.trip_count ?? null,
       tier: data.tier ?? 'free',
+      auth_provider: data.auth_provider ?? null,
+      display_name: data.display_name ?? null,
     };
     setAuth(next);
     localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    identify(next.user_id, { display_name: next.display_name, tier: next.tier, auth_provider: next.auth_provider });
   }, []);
 
   const logout = useCallback(() => {
-    setAuth({ token: null, user_id: null, trip_count: null, tier: null });
+    setAuth({ token: null, user_id: null, trip_count: null, tier: null, auth_provider: null, display_name: null });
     localStorage.removeItem(STORAGE_KEY);
+    resetIdentity();
   }, []);
 
   const updateTripCount = useCallback((count) => {
@@ -55,6 +60,8 @@ export const AuthProvider = ({ children }) => {
       user_id: auth.user_id,
       trip_count: auth.trip_count,
       tier: auth.tier,
+      auth_provider: auth.auth_provider,
+      display_name: auth.display_name,
       isAuthenticated,
       isPro,
       remainingProTrips,

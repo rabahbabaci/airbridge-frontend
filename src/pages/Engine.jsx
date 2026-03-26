@@ -1,56 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
-import { shortCity, formatLocalTime, parseTimeToDate } from '@/utils/format';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Input } from "@/components/ui/input";
-import { Switch } from "@/components/ui/switch";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
-import { Calendar as CalendarComponent } from "@/components/ui/calendar";
-import {
-    Plane, Car, Train, Bus, User, AlertCircle,
-    CheckCircle2, Calendar, Search, ArrowLeft, MapPin,
-    Sparkles, Clock, Luggage, Baby, ShieldCheck, Smartphone,
-    Minus, Plus, RefreshCw
-} from 'lucide-react';
+import { Plane } from 'lucide-react';
 
-import JourneyVisualization from '@/components/engine/JourneyVisualization';
-import OTPModal from '@/components/engine/OTPModal';
+import StepEntry from '@/components/engine/StepEntry';
+import StepSelectFlight from '@/components/engine/StepSelectFlight';
+import StepDepartureSetup from '@/components/engine/StepDepartureSetup';
+import LoadingView from '@/components/engine/LoadingView';
+import ResultsView from '@/components/engine/ResultsView';
+import AuthModal from '@/components/engine/AuthModal';
 import { useAuth } from '@/lib/AuthContext';
+import { mapFlights } from '@/utils/mapFlight';
 
-const API_BASE = 'https://airbridge-backend-production.up.railway.app';
-
-// ── Data ────────────────────────────────────────────────────────────────────
-const GATE_TIME_SNAPS = [0, 15, 30, 45, 60, 90, 120, 150, 180];
-const GATE_TIME_LABELS = {
-    0: '0 min · Board on arrival',
-    15: '15 min · Quick settle-in',
-    30: '30 min · Time to relax',
-    45: '45 min · Grab a bite',
-    60: '1 hour · Work or explore',
-    90: '1h 30m · Plenty of time',
-    120: '2 hours · Full airport experience',
-    150: '2h 30m · Extended airport time',
-    180: '3 hours · Maximum comfort',
-};
-
-function snapToNearest(val) {
-    let closest = GATE_TIME_SNAPS[0];
-    let minDist = Math.abs(val - closest);
-    for (const snap of GATE_TIME_SNAPS) {
-        const dist = Math.abs(val - snap);
-        if (dist < minDist) { closest = snap; minDist = dist; }
-    }
-    return closest;
-}
-
-const transportGroups = [
-    { label: 'Rideshare', options: [{ id: 'rideshare', label: 'Rideshare', icon: Car }] },
-    { label: 'Driving / Parking', sublabel: 'Includes parking time', options: [{ id: 'driving', label: 'Self-drive', icon: Car }] },
-    { label: 'Public Transit', options: [{ id: 'train', label: 'Train', icon: Train }, { id: 'bus', label: 'Bus', icon: Bus }] },
-    { label: 'Other / Custom', sublabel: 'AI estimates travel time', options: [{ id: 'other', label: 'Other', icon: User }] },
-];
-
+import { API_BASE } from '@/config';
+import { track } from '@/utils/analytics';
 
 // ── Animations ──────────────────────────────────────────────────────────────
 const pageTransition = {
@@ -59,35 +23,37 @@ const pageTransition = {
     exit: { opacity: 0, y: -16, transition: { duration: 0.25, ease: [0.4, 0, 1, 1] } },
 };
 
-const stagger = {
-    hidden: { opacity: 0, y: 16 },
-    visible: (i) => ({
-        opacity: 1, y: 0,
-        transition: { delay: i * 0.07, duration: 0.35, ease: [0.4, 0, 0.2, 1] },
-    }),
-};
+function todayStr() {
+    return new Date().toISOString().split('T')[0];
+}
 
 // ── Main Component ──────────────────────────────────────────────────────────
 export default function Engine() {
-    const { token, login, updateTripCount } = useAuth();
+    const { token, login, logout, updateTripCount, isAuthenticated, display_name } = useAuth();
     const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
 
     const [step, setStep] = useState(1);
     const [dir, setDir] = useState(1);
 
-    // Step 1
-    const [departureDate, setDepartureDate] = useState('');
+    // Step 1 — trip-specific
+    const [inputMode, setInputMode] = useState('flight_number');
+    const [departureDate, setDepartureDate] = useState(todayStr);
     const [flightNumber, setFlightNumber] = useState('');
-    const [startingAddress, setStartingAddress] = useState('');
     const [calendarOpen, setCalendarOpen] = useState(false);
 
-    // Step 2
+    // Route search — lifted state
+    const [routeOrigin, setRouteOrigin] = useState('');
+    const [routeDestination, setRouteDestination] = useState('');
+    const [routeTimeWindow, setRouteTimeWindow] = useState('any');
+
+    // Step 2 — trip-specific
     const [searching, setSearching] = useState(false);
     const [flightOptions, setFlightOptions] = useState([]);
     const [selectedFlight, setSelectedFlight] = useState(null);
     const [searchError, setSearchError] = useState(null);
 
-    // Step 3
+    // Step 3 — user preferences (kept across trips)
+    const [startingAddress, setStartingAddress] = useState('');
     const [transport, setTransport] = useState('rideshare');
     const [hasPrecheck, setHasPrecheck] = useState(false);
     const [hasClear, setHasClear] = useState(false);
@@ -96,12 +62,11 @@ export default function Engine() {
     const [bagCount, setBagCount] = useState(0);
     const [withChildren, setWithChildren] = useState(false);
     const [gateTime, setGateTime] = useState(15);
-    
 
     // OTP modal
-    const [otpOpen, setOtpOpen] = useState(false);
+    const [authOpen, setAuthOpen] = useState(false);
 
-    // Results
+    // Results — trip-specific
     const [locked, setLocked] = useState(false);
     const [recommendation, setRecommendation] = useState(null);
     const [journeyReady, setJourneyReady] = useState(false);
@@ -110,6 +75,57 @@ export default function Engine() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [currentTripId, setCurrentTripId] = useState(null);
     const [isRecomputing, setIsRecomputing] = useState(false);
+    const [addressError, setAddressError] = useState(null);
+    const [lastSearchParams, setLastSearchParams] = useState(null);
+
+    const addressContainerRef = useRef(null);
+    const addressInputRef = useRef(null);
+    const prevAddressRef = useRef(startingAddress);
+
+    // ── Smart reset: clears trip state, keeps user preferences ──────────────
+    const resetTripState = () => {
+        setFlightNumber('');
+        setDepartureDate(todayStr());
+        setSelectedFlight(null);
+        setFlightOptions([]);
+        setSearchError(null);
+        setInputMode('flight_number');
+        setCurrentTripId(null);
+        setRecommendation(null);
+        setLocked(false);
+        setJourneyReady(false);
+        setViewMode('setup');
+        setApiError(null);
+        setAddressError(null);
+        setBagCount(0);
+        setDir(-1);
+        setStep(1);
+        setLastSearchParams(null);
+        // Route search fields are trip-specific too
+        setRouteOrigin('');
+        setRouteDestination('');
+        setRouteTimeWindow('any');
+    };
+
+    // Fresh state on page mount
+    const mountedRef = useRef(false);
+    useEffect(() => {
+        if (mountedRef.current) return;
+        mountedRef.current = true;
+        resetTripState();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // Reset trip when address changes after results exist
+    useEffect(() => {
+        if (prevAddressRef.current !== startingAddress && currentTripId) {
+            setCurrentTripId(null);
+            setRecommendation(null);
+            setViewMode('setup');
+            setLocked(false);
+        }
+        prevAddressRef.current = startingAddress;
+    }, [startingAddress, currentTripId]);
 
     const goTo = (next) => { setDir(next > step ? 1 : -1); setStep(next); };
 
@@ -135,9 +151,24 @@ export default function Engine() {
     // ── Handlers ────────────────────────────────────────────────────────────
     const handleFindFlight = async () => {
         if (!flightNumber.trim() || !departureDate) return;
+        track('flight_entry_submitted', { flight_number: flightNumber.trim(), departure_date: departureDate, input_mode: 'flight_number' });
+
+        // Skip re-fetch if inputs haven't changed and we have results
+        if (
+            lastSearchParams &&
+            lastSearchParams.mode === 'flight_number' &&
+            lastSearchParams.flightNumber === flightNumber.trim() &&
+            lastSearchParams.departureDate === departureDate &&
+            flightOptions.length > 0
+        ) {
+            goTo(2);
+            return;
+        }
+
         setSearching(true);
         setSelectedFlight(null);
         setSearchError(null);
+        setFlightOptions([]);
         goTo(2);
         try {
             const addrParam = startingAddress.trim() ? `?home_address=${encodeURIComponent(startingAddress.trim())}` : '';
@@ -151,32 +182,9 @@ export default function Engine() {
                 return;
             }
             const data = await res.json();
-            const mapped = (data.flights || []).map(f => ({
-                flight_number: f.flight_number,
-                departure_time: f.departure_time_local,
-                arrival_time: f.arrival_time_local,
-                origin_code: f.origin_iata,
-                origin_name: f.origin_name,
-                destination_code: f.destination_iata,
-                destination_name: f.destination_name,
-                departure_terminal: f.departure_terminal,
-                departure_gate: f.departure_gate,
-                arrival_terminal: f.arrival_terminal,
-                status: f.status,
-                aircraft_model: f.aircraft_model,
-                departure_time_utc: f.departure_time_utc,
-                departed: f.departed ?? false,
-                canceled: f.canceled ?? false,
-                catchable: f.catchable ?? true,
-                time_warning: f.time_warning ?? null,
-                is_boarding: f.is_boarding ?? false,
-                revised_departure_local: f.revised_departure_local,
-                is_delayed: f.is_delayed ?? false,
-                scheduled_departure_local: f.scheduled_departure_local,
-                terminal: f.departure_terminal ? `Terminal ${f.departure_terminal}` : 'Terminal TBD',
-                airline_name: f.airline_name || '',
-            }));
-            setFlightOptions(mapped);
+            const flights = mapFlights(data.flights);
+            setFlightOptions(flights);
+            setLastSearchParams({ mode: 'flight_number', flightNumber: flightNumber.trim(), departureDate });
         } catch (err) {
             console.error('Flight lookup failed:', err);
             setFlightOptions([]);
@@ -187,6 +195,7 @@ export default function Engine() {
 
     const handleFlightClick = (f) => {
         if (f.departed || f.canceled || f.is_boarding) return;
+        track('flight_selected', { flight_number: f.flight_number, origin: f.origin_code, destination: f.destination_code });
         setSelectedFlight(f);
         if (locked) { setLocked(false); setRecommendation(null); setJourneyReady(false); setCurrentTripId(null); }
     };
@@ -195,10 +204,6 @@ export default function Engine() {
 
     const handleLockIn = async () => {
         if (isSubmitting) return;
-        if (!startingAddress.trim()) {
-            setApiError('Please enter your starting address so we can calculate travel time.');
-            return;
-        }
         setIsSubmitting(true);
         setLocked(true);
         setJourneyReady(false);
@@ -237,6 +242,7 @@ export default function Engine() {
             const rec = await recRes.json();
             setRecommendation(rec);
             if (rec.remaining_pro_trips != null) updateTripCount(rec.remaining_pro_trips);
+            track('recommendation_viewed', { leave_by_time: rec.leave_home_at, total_minutes: rec.segments?.reduce((s, seg) => s + (seg.duration_minutes || 0), 0), transport_mode: transport });
             setJourneyReady(true);
             setTimeout(() => setViewMode('results'), 500);
         } catch (err) {
@@ -282,11 +288,24 @@ export default function Engine() {
         }
     };
 
+    const handleRouteFlightsFound = (flights, meta) => {
+        track('route_search_submitted', { origin: meta?.origin, destination: meta?.destination, date: meta?.date, time_window: meta?.timeWindow });
+        if (meta?.date) setDepartureDate(meta.date);
+        setFlightOptions(flights);
+        setSearching(false);
+        setLastSearchParams({
+            mode: 'route',
+            origin: meta?.origin || routeOrigin,
+            destination: meta?.destination || routeDestination,
+            date: meta?.date || departureDate,
+            timeWindow: meta?.timeWindow || routeTimeWindow,
+        });
+        goTo(2);
+    };
+
     const handleReset = () => {
-        setLocked(false); setJourneyReady(false); setRecommendation(null);
-        setSelectedFlight(null); setFlightOptions([]); setDir(-1); setStep(1);
-        setViewMode('setup'); setApiError(null); setCurrentTripId(null);
-        setSearchError(null);
+        track('start_over_clicked');
+        resetTripState();
     };
 
     const handleEditSetup = () => {
@@ -297,6 +316,12 @@ export default function Engine() {
     };
 
     const handleRecalculate = async () => {
+        if (!startingAddress.trim()) {
+            setAddressError('Please enter your starting address');
+            addressContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            addressInputRef.current?.focus();
+            return;
+        }
         if (currentTripId) {
             if (isRecomputing) return;
             setLocked(true);
@@ -352,7 +377,19 @@ export default function Engine() {
                                 </motion.div>
                             )}
                         </AnimatePresence>
-                        <button className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden md:block">Sign In</button>
+                        {isAuthenticated ? (
+                            <div className="hidden md:flex items-center gap-2">
+                                <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-primary-foreground">
+                                    {(display_name || '').charAt(0).toUpperCase() || 'U'}
+                                </div>
+                                <span className="text-sm font-medium text-foreground">
+                                    {display_name ? display_name.split(' ')[0] : 'Account'}
+                                </span>
+                                <button onClick={logout} className="text-xs text-muted-foreground hover:text-foreground transition-colors ml-1">Sign out</button>
+                            </div>
+                        ) : (
+                            <button onClick={() => { track('auth_modal_opened', { trigger: 'navbar' }); setAuthOpen(true); }} className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden md:block">Sign In</button>
+                        )}
                     </div>
                 </div>
             </header>
@@ -365,546 +402,97 @@ export default function Engine() {
                     <motion.div key="setup" {...pageTransition} className="min-h-[calc(100vh-57px)] flex items-start justify-center py-8 md:py-12 px-4">
                         <AnimatePresence mode="wait" custom={dir}>
 
-                            {/* ── STEP 1: Start Your Journey ── */}
                             {step === 1 && (
-                                <motion.div key="s1" {...pageTransition} className="w-full max-w-md mx-auto">
-                                    <motion.div custom={0} variants={stagger} initial="hidden" animate="visible" className="text-center mb-8">
-                                        <div className="w-16 h-16 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-5 shadow-lg shadow-primary/20">
-                                            <Sparkles className="w-7 h-7 text-primary-foreground" />
-                                        </div>
-                                        <h1 className="text-3xl md:text-4xl font-black text-foreground tracking-tight mb-2">Start Your Journey</h1>
-                                        <p className="text-muted-foreground">Never miss a flight again</p>
-                                    </motion.div>
-
-                                    <div className="space-y-4">
-                                        <motion.div custom={1} variants={stagger} initial="hidden" animate="visible">
-                                            <label className="text-sm font-semibold text-foreground/70 mb-2 block">Where are you starting from?</label>
-                                            <div className="flex items-center gap-3 bg-card border border-border rounded-2xl px-4 py-3.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition-all">
-                                                <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
-                                                <Input value={startingAddress} onChange={e => setStartingAddress(e.target.value)}
-                                                    placeholder="Enter your departure address"
-                                                    className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-foreground placeholder:text-muted-foreground" />
-                                            </div>
-                                        </motion.div>
-
-                                        <motion.div custom={2} variants={stagger} initial="hidden" animate="visible">
-                                            <label className="text-sm font-semibold text-foreground/70 mb-2 block">Flight Number</label>
-                                            <div className="flex items-center gap-3 bg-card border border-border rounded-2xl px-4 py-3.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition-all">
-                                                <Plane className="w-4 h-4 text-muted-foreground shrink-0" />
-                                                <Input value={flightNumber} onChange={e => setFlightNumber(e.target.value)}
-                                                    placeholder="e.g. UA 452"
-                                                    onKeyDown={e => e.key === 'Enter' && canSearch && handleFindFlight()}
-                                                    className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-foreground placeholder:text-muted-foreground" />
-                                            </div>
-                                        </motion.div>
-
-                                        <motion.div custom={3} variants={stagger} initial="hidden" animate="visible">
-                                            <label className="text-sm font-semibold text-foreground/70 mb-2 block">When are you traveling?</label>
-                                            <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                                                <PopoverTrigger asChild>
-                                                    <div className="flex items-center gap-3 bg-card border border-border rounded-2xl px-4 py-3.5 cursor-pointer hover:border-muted-foreground/30 transition-all">
-                                                        <Calendar className="w-4 h-4 text-muted-foreground shrink-0" />
-                                                        <span className={`flex-1 text-sm ${departureDate ? 'text-foreground font-medium' : 'text-muted-foreground'}`}>
-                                                            {departureDate ? new Date(departureDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric', year: 'numeric' }) : 'Select date'}
-                                                        </span>
-                                                    </div>
-                                                </PopoverTrigger>
-                                                <PopoverContent className="w-auto p-0" align="start">
-                                                    <CalendarComponent mode="single"
-                                                        selected={departureDate ? new Date(departureDate + 'T00:00:00') : undefined}
-                                                        onSelect={(date) => { if (date) { setDepartureDate(date.toISOString().split('T')[0]); setCalendarOpen(false); } }}
-                                                        disabled={(date) => { const today = new Date(); today.setHours(0, 0, 0, 0); return new Date(date).setHours(0, 0, 0, 0) < today; }}
-                                                    />
-                                                </PopoverContent>
-                                            </Popover>
-                                        </motion.div>
-                                    </div>
-
-                                    <motion.div custom={4} variants={stagger} initial="hidden" animate="visible" className="mt-8">
-                                        <button onClick={handleFindFlight} disabled={!canSearch}
-                                            className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-base font-semibold transition-all duration-200 ${
-                                                canSearch
-                                                    ? 'bg-primary hover:bg-brand-accent text-primary-foreground shadow-lg shadow-primary/20 hover:shadow-xl hover:shadow-primary/20'
-                                                    : 'bg-muted text-muted-foreground cursor-not-allowed'
-                                            }`}>
-                                            <Search className="w-4 h-4" />
-                                            Select Flight
-                                        </button>
-                                        <p className="text-center text-xs text-muted-foreground mt-4">Powered by real-time data and AI predictions</p>
-                                    </motion.div>
-                                </motion.div>
+                                <StepEntry
+                                    flightNumber={flightNumber} setFlightNumber={setFlightNumber}
+                                    departureDate={departureDate} setDepartureDate={setDepartureDate}
+                                    calendarOpen={calendarOpen} setCalendarOpen={setCalendarOpen}
+                                    inputMode={inputMode} setInputMode={setInputMode}
+                                    canSearch={canSearch}
+                                    onFindFlight={handleFindFlight}
+                                    onRouteFlightsFound={handleRouteFlightsFound}
+                                    authHeaders={authHeaders}
+                                    routeOrigin={routeOrigin} setRouteOrigin={setRouteOrigin}
+                                    routeDestination={routeDestination} setRouteDestination={setRouteDestination}
+                                    routeTimeWindow={routeTimeWindow} setRouteTimeWindow={setRouteTimeWindow}
+                                    lastSearchParams={lastSearchParams} flightOptions={flightOptions}
+                                />
                             )}
 
-                            {/* ── STEP 2: Select Your Flight ── */}
                             {step === 2 && (
-                                <motion.div key="s2" {...pageTransition} className="w-full max-w-xl mx-auto">
-                                    <motion.div custom={0} variants={stagger} initial="hidden" animate="visible" className="flex items-center gap-3 mb-6">
-                                        <button onClick={() => goTo(1)} className="w-9 h-9 rounded-xl border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 transition-all">
-                                            <ArrowLeft className="w-4 h-4" />
-                                        </button>
-                                        <div>
-                                            <h1 className="text-2xl font-black text-foreground tracking-tight">Select Your Flight</h1>
-                                            <p className="text-sm text-muted-foreground">Choose from available flights</p>
-                                        </div>
-                                    </motion.div>
-
-                                    {/* Search context badge */}
-                                    <motion.div custom={1} variants={stagger} initial="hidden" animate="visible"
-                                        className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-accent border border-primary/10 mb-5">
-                                        <Plane className="w-3.5 h-3.5 text-primary shrink-0" />
-                                        <span className="text-sm font-semibold text-primary">{flightNumber.toUpperCase()}</span>
-                                        <span className="text-xs text-primary/70 ml-1">
-                                            {new Date(departureDate + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
-                                        </span>
-                                    </motion.div>
-
-                                    {/* Error state */}
-                                    {searchError && !searching && (
-                                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                                            className="rounded-2xl px-5 py-4 mb-5 flex items-start gap-3 bg-destructive/10 border border-destructive/20">
-                                            <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
-                                            <div>
-                                                <p className="text-destructive text-sm font-medium">{searchError}</p>
-                                                <button onClick={handleFindFlight}
-                                                    className="text-sm text-destructive font-semibold underline mt-1 hover:text-destructive/80">
-                                                    Try again
-                                                </button>
-                                            </div>
-                                        </motion.div>
-                                    )}
-
-                                    {/* Flight list */}
-                                    {searching ? (
-                                        <div className="space-y-3">
-                                            {[1, 2, 3].map(i => (
-                                                <motion.div key={i} animate={{ opacity: [0.4, 0.7, 0.4] }}
-                                                    transition={{ repeat: Infinity, duration: 1.4, delay: i * 0.15 }}
-                                                    className="h-24 rounded-2xl bg-card border border-border" />
-                                            ))}
-                                            <p className="text-sm text-muted-foreground text-center mt-2">Searching flights...</p>
-                                        </div>
-                                    ) : !searchError && flightOptions.length === 0 ? (
-                                        <div className="text-center py-16">
-                                            <div className="w-14 h-14 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-4">
-                                                <Search className="w-6 h-6 text-muted-foreground" />
-                                            </div>
-                                            <p className="text-muted-foreground font-medium">No flights found</p>
-                                            <p className="text-sm text-muted-foreground/70 mt-1">Check the flight number and date</p>
-                                        </div>
-                                    ) : (
-                                        <motion.div initial="hidden" animate="visible" className="space-y-3">
-                                            {flightOptions.map((f, i) => {
-                                                const isDisabled = f.departed || f.canceled || f.is_boarding;
-                                                const flightKey = `${f.flight_number}|${f.departure_time_utc || ''}|${f.origin_code || ''}`;
-                                                const selectedKey = selectedFlight ? `${selectedFlight.flight_number}|${selectedFlight.departure_time_utc || ''}|${selectedFlight.origin_code || ''}` : null;
-                                                const isSelected = selectedKey === flightKey;
-                                                return (
-                                                    <motion.button key={i} custom={i + 2} variants={stagger}
-                                                        onClick={() => handleFlightClick(f)} disabled={isDisabled}
-                                                        className={`w-full text-left rounded-2xl border-2 bg-card px-5 py-4 transition-all duration-200 ${
-                                                            isDisabled ? 'opacity-50 cursor-not-allowed border-border' :
-                                                            isSelected ? 'border-primary bg-accent/50 shadow-md shadow-primary/10' :
-                                                            'border-border hover:border-muted-foreground/30 hover:shadow-sm'
-                                                        }`}
-                                                        style={{ borderLeftWidth: '4px', borderLeftColor: isDisabled ? 'hsl(var(--border))' : 'hsl(var(--primary))' }}>
-                                                        <div className="flex items-start justify-between">
-                                                            <div>
-                                                                <div className="flex items-center gap-2">
-                                                                    <span className="font-black text-foreground">{f.flight_number}</span>
-                                                                    {f.airline_name && <span className="text-xs text-muted-foreground">{f.airline_name}</span>}
-                                                                </div>
-                                                                <div className="flex items-center gap-1.5 mt-1 text-xs text-muted-foreground flex-wrap">
-                                                                    <span>Arrival: {formatLocalTime(f.arrival_time)}</span>
-                                                                    <span>·</span>
-                                                                    <span className="text-primary font-medium">
-                                                                        {shortCity(f.origin_name) || f.origin_code}{' '}
-                                                                        <span className="font-mono font-bold bg-accent text-primary px-1 py-0.5 rounded text-[10px]">{f.origin_code}</span>
-                                                                        {' → '}
-                                                                        {shortCity(f.destination_name) || f.destination_code}{' '}
-                                                                        <span className="font-mono font-bold bg-accent text-primary px-1 py-0.5 rounded text-[10px]">{f.destination_code}</span>
-                                                                        {' · '}{f.terminal}
-                                                                        {f.departure_gate ? ` · Gate ${f.departure_gate}` : ''}
-                                                                    </span>
-                                                                </div>
-                                                            </div>
-                                                            <div className="text-right shrink-0">
-                                                                <p className="text-lg font-black text-foreground">{formatLocalTime(f.departure_time)}</p>
-                                                                <p className="text-[11px] text-muted-foreground font-medium">Departure</p>
-                                                            </div>
-                                                        </div>
-
-                                                        {/* Status badges */}
-                                                        {f.departed && <span className="inline-block mt-2 text-xs font-bold text-destructive bg-destructive/10 px-2.5 py-1 rounded-full border border-destructive/20">Departed</span>}
-                                                        {f.is_boarding && <span className="inline-block mt-2 text-xs font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full border border-amber-200">Boarding Now</span>}
-                                                        {f.canceled && <span className="inline-block mt-2 text-xs font-bold text-destructive bg-destructive/10 px-2.5 py-1 rounded-full border border-destructive/20">Canceled</span>}
-                                                        {f.is_delayed && f.revised_departure_local && (() => {
-                                                            const scheduled = parseTimeToDate(f.departure_time);
-                                                            const revised = parseTimeToDate(f.revised_departure_local);
-                                                            if (scheduled && revised && revised > scheduled)
-                                                                return <p className="text-xs text-amber-600 font-medium mt-2">Delayed — now {formatLocalTime(f.revised_departure_local)}</p>;
-                                                            return null;
-                                                        })()}
-                                                        {f.time_warning && !isDisabled && <p className="text-xs text-amber-600 font-medium mt-2">{f.time_warning}</p>}
-
-                                                        {isSelected && !isDisabled && (
-                                                            <div className="flex items-center gap-1.5 mt-2">
-                                                                <CheckCircle2 className="w-3.5 h-3.5 text-primary" />
-                                                                <span className="text-xs font-semibold text-primary">Selected</span>
-                                                            </div>
-                                                        )}
-                                                    </motion.button>
-                                                );
-                                            })}
-                                        </motion.div>
-                                    )}
-
-                                    {/* Continue button */}
-                                    {flightOptions.length > 0 && !searching && (
-                                        <motion.div initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.3 }} className="mt-6">
-                                            <button onClick={handleContinueToSetup} disabled={!selectedFlight}
-                                                className={`w-full py-4 rounded-2xl text-base font-semibold transition-all duration-200 ${
-                                                    selectedFlight
-                                                        ? 'bg-primary hover:bg-brand-accent text-primary-foreground shadow-lg shadow-primary/20'
-                                                        : 'bg-muted text-muted-foreground cursor-not-allowed'
-                                                }`}>
-                                                Continue to Setup
-                                            </button>
-                                        </motion.div>
-                                    )}
-                                </motion.div>
+                                <StepSelectFlight
+                                    flightOptions={flightOptions}
+                                    selectedFlight={selectedFlight}
+                                    searching={searching}
+                                    searchError={searchError}
+                                    inputMode={inputMode}
+                                    flightNumber={flightNumber}
+                                    departureDate={departureDate}
+                                    onFlightClick={handleFlightClick}
+                                    onContinue={handleContinueToSetup}
+                                    onBack={() => goTo(1)}
+                                    onRetry={handleFindFlight}
+                                />
                             )}
 
-                            {/* ── STEP 3: Departure Setup ── */}
                             {step === 3 && (
-                                <motion.div key="s3" {...pageTransition} className="w-full max-w-4xl mx-auto">
-                                    <motion.div custom={0} variants={stagger} initial="hidden" animate="visible" className="flex items-center gap-3 mb-6">
-                                        <button onClick={() => goTo(2)} className="w-9 h-9 rounded-xl border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 transition-all">
-                                            <ArrowLeft className="w-4 h-4" />
-                                        </button>
-                                        <div>
-                                            <h1 className="text-2xl font-black text-foreground tracking-tight">Departure Setup</h1>
-                                            <p className="text-sm text-muted-foreground">
-                                                {currentTripId ? 'Adjust preferences — your trip will be recomputed' : 'Customize your travel preferences'}
-                                            </p>
-                                        </div>
-                                    </motion.div>
-
-                                    {/* Error banner */}
-                                    {apiError && (
-                                        <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                                            className="rounded-2xl px-5 py-4 mb-5 flex items-start gap-3 bg-destructive/10 border border-destructive/20">
-                                            <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
-                                            <div>
-                                                <p className="text-destructive text-sm font-medium">{apiError}</p>
-                                                <button onClick={() => setApiError(null)}
-                                                    className="text-sm text-destructive font-semibold underline mt-1 hover:text-destructive/80">
-                                                    Dismiss
-                                                </button>
-                                            </div>
-                                        </motion.div>
-                                    )}
-
-                                    {/* Selected flight badge */}
-                                    {selectedFlight && (
-                                        <motion.div custom={1} variants={stagger} initial="hidden" animate="visible"
-                                            className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 mb-6">
-                                            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                                            <span className="text-sm font-semibold text-emerald-700 flex items-center gap-1.5 flex-wrap">
-                                                {flightNumber.toUpperCase()} · {formatLocalTime(selectedFlight.departure_time)} ·{' '}
-                                                {shortCity(selectedFlight.origin_name) || selectedFlight.origin_code}{' '}
-                                                <span className="font-mono font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded text-[10px]">{selectedFlight.origin_code}</span>
-                                                {' → '}
-                                                {shortCity(selectedFlight.destination_name) || selectedFlight.destination_code}{' '}
-                                                <span className="font-mono font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded text-[10px]">{selectedFlight.destination_code}</span>
-                                            </span>
-                                        </motion.div>
-                                    )}
-
-                                    {/* Row 1: Two cards side by side */}
-                                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
-                                        {/* Left: Transport Mode */}
-                                        <motion.div custom={2} variants={stagger} initial="hidden" animate="visible"
-                                            className="bg-card border border-border rounded-2xl overflow-hidden flex flex-col">
-                                            <div className="px-5 py-4 border-b border-border">
-                                                <h3 className="font-bold text-foreground">How are you getting there?</h3>
-                                            </div>
-                                            <div className="px-5 py-4 space-y-4 flex-1">
-                                                {transportGroups.map(group => (
-                                                    <div key={group.label}>
-                                                        <p className="text-xs font-semibold text-muted-foreground mb-2">{group.label}</p>
-                                                        {group.sublabel && <p className="text-[10px] text-muted-foreground/70 -mt-1.5 mb-2">{group.sublabel}</p>}
-                                                        <div className="flex gap-2 flex-wrap">
-                                                            {group.options.map(opt => {
-                                                                const isActive = transport === opt.id;
-                                                                return (
-                                                                    <button key={opt.id} onClick={() => setTransport(opt.id)}
-                                                                        className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium border transition-all ${
-                                                                            isActive
-                                                                                ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                                                                                : 'bg-secondary text-foreground/70 border-border hover:border-muted-foreground/30'
-                                                                        }`}>
-                                                                        <opt.icon className="w-4 h-4" />
-                                                                        {opt.label}
-                                                                    </button>
-                                                                );
-                                                            })}
-                                                        </div>
-                                                    </div>
-                                                ))}
-                                            </div>
-                                        </motion.div>
-
-                                        {/* Right: Security & Check-in */}
-                                        <motion.div custom={3} variants={stagger} initial="hidden" animate="visible"
-                                            className="bg-card border border-border rounded-2xl overflow-hidden flex flex-col">
-                                            <div className="px-5 py-4 border-b border-border">
-                                                <h3 className="font-bold text-foreground">Security & Check-in</h3>
-                                            </div>
-                                            <div className="px-5 py-4 space-y-4 flex-1">
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-3">
-                                                        <ShieldCheck className="w-4 h-4 text-muted-foreground" />
-                                                        <div>
-                                                            <p className="text-sm font-medium text-foreground">TSA PreCheck</p>
-                                                            <p className="text-xs text-muted-foreground">Dedicated screening lane</p>
-                                                        </div>
-                                                    </div>
-                                                    <Switch checked={hasPrecheck} onCheckedChange={setHasPrecheck} />
-                                                </div>
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-3">
-                                                        <ShieldCheck className="w-4 h-4 text-muted-foreground" />
-                                                        <div>
-                                                            <p className="text-sm font-medium text-foreground">CLEAR</p>
-                                                            <p className="text-xs text-muted-foreground">Skip the ID check line</p>
-                                                        </div>
-                                                    </div>
-                                                    <Switch checked={hasClear} onCheckedChange={setHasClear} />
-                                                </div>
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-3">
-                                                        <ShieldCheck className="w-4 h-4 text-muted-foreground" />
-                                                        <div>
-                                                            <p className="text-sm font-medium text-foreground">Priority Lane</p>
-                                                            <p className="text-xs text-muted-foreground">Airline status or business class</p>
-                                                        </div>
-                                                    </div>
-                                                    <Switch checked={hasPriorityLane} onCheckedChange={setHasPriorityLane} />
-                                                </div>
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-3">
-                                                        <Smartphone className="w-4 h-4 text-muted-foreground" />
-                                                        <div>
-                                                            <p className="text-sm font-medium text-foreground">Boarding Pass</p>
-                                                            <p className="text-xs text-muted-foreground">Already have your boarding pass?</p>
-                                                        </div>
-                                                    </div>
-                                                    <Switch checked={hasBoardingPass} onCheckedChange={setHasBoardingPass} />
-                                                </div>
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-3">
-                                                        <Luggage className="w-4 h-4 text-muted-foreground" />
-                                                        <div>
-                                                            <p className="text-sm font-medium text-foreground">Checked Bags</p>
-                                                            <p className="text-xs text-muted-foreground">Number of bags to check</p>
-                                                        </div>
-                                                    </div>
-                                                    <div className="flex items-center gap-2">
-                                                        <button onClick={() => setBagCount(Math.max(0, bagCount - 1))} disabled={bagCount === 0}
-                                                            className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all ${
-                                                                bagCount === 0
-                                                                    ? 'bg-secondary text-muted-foreground/40 border-border cursor-not-allowed'
-                                                                    : 'bg-secondary text-foreground border-border hover:border-muted-foreground/30'
-                                                            }`}>
-                                                            <Minus className="w-3.5 h-3.5" />
-                                                        </button>
-                                                        <span className="w-8 text-center text-sm font-bold text-foreground">{bagCount}</span>
-                                                        <button onClick={() => setBagCount(Math.min(10, bagCount + 1))}
-                                                            className="w-8 h-8 rounded-lg border bg-secondary text-foreground border-border hover:border-muted-foreground/30 flex items-center justify-center transition-all">
-                                                            <Plus className="w-3.5 h-3.5" />
-                                                        </button>
-                                                    </div>
-                                                </div>
-                                                <div className="flex items-center justify-between">
-                                                    <div className="flex items-center gap-3">
-                                                        <Baby className="w-4 h-4 text-muted-foreground" />
-                                                        <div>
-                                                            <p className="text-sm font-medium text-foreground">Traveling with children?</p>
-                                                            <p className="text-xs text-muted-foreground">Adjusts walking pace at the airport</p>
-                                                        </div>
-                                                    </div>
-                                                    <Switch checked={withChildren} onCheckedChange={setWithChildren} />
-                                                </div>
-                                            </div>
-                                        </motion.div>
-                                    </div>
-
-                                    {/* Row 2: Gate Time Slider (full width) */}
-                                    <div className="mb-6">
-                                        <motion.div custom={4} variants={stagger} initial="hidden" animate="visible"
-                                            className="bg-card border border-border rounded-2xl overflow-hidden">
-                                            <div className="px-5 py-4 border-b border-border">
-                                                <h3 className="font-bold text-foreground">How early at your gate?</h3>
-                                            </div>
-                                            <div className="px-5 py-5">
-                                                <div className="relative h-8">
-                                                    <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 rounded-full bg-primary/20" />
-                                                    <div
-                                                        className="absolute left-0 top-1/2 -translate-y-1/2 h-1 rounded-full bg-primary"
-                                                        style={{ width: `${(gateTime / 180) * 100}%` }}
-                                                    />
-
-                                                    <input
-                                                        type="range"
-                                                        min={0}
-                                                        max={180}
-                                                        step={1}
-                                                        value={gateTime}
-                                                        onChange={(e) => setGateTime(snapToNearest(Number(e.target.value)))}
-                                                        className="absolute inset-0 z-20 w-full h-full opacity-0 cursor-pointer"
-                                                        aria-label="Gate arrival buffer minutes"
-                                                    />
-
-                                                    <div
-                                                        className="absolute z-10 w-5 h-5 rounded-full border-2 border-primary bg-background shadow-md pointer-events-none"
-                                                        style={{ left: `${(gateTime / 180) * 100}%`, top: '50%', transform: 'translate(-50%, -50%)' }}
-                                                    />
-
-                                                    <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 pointer-events-none">
-                                                        {GATE_TIME_SNAPS.map(snap => (
-                                                            <div key={snap}
-                                                                className={`absolute w-0.5 h-2 rounded-full transition-colors ${
-                                                                    snap === gateTime ? 'bg-primary' : 'bg-border'
-                                                                }`}
-                                                                style={{ left: `${(snap / 180) * 100}%`, top: '50%', transform: 'translate(-50%, -50%)' }}
-                                                            />
-                                                        ))}
-                                                    </div>
-                                                </div>
-                                                <div className="mt-4 text-center">
-                                                    <p className="text-lg font-bold text-foreground">{GATE_TIME_LABELS[gateTime]}</p>
-                                                </div>
-                                            </div>
-                                        </motion.div>
-                                    </div>
-
-                                    {/* CTA */}
-                                    <motion.div custom={5} variants={stagger} initial="hidden" animate="visible">
-                                        <button onClick={handleRecalculate} disabled={isSubmitting}
-                                            className={`w-full py-4 rounded-2xl text-base font-semibold transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 ${
-                                                isSubmitting
-                                                    ? 'bg-muted text-muted-foreground cursor-not-allowed shadow-none'
-                                                    : 'bg-foreground hover:bg-foreground/90 text-background shadow-foreground/10'
-                                            }`}>
-                                            {isSubmitting ? (
-                                                <>
-                                                    <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-                                                        className="w-4 h-4 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full" />
-                                                    Calculating...
-                                                </>
-                                            ) : currentTripId ? (
-                                                <>
-                                                    <RefreshCw className="w-4 h-4" />
-                                                    Update My Departure
-                                                </>
-                                            ) : (
-                                                'Calculate My Departure'
-                                            )}
-                                        </button>
-                                        <button onClick={handleReset}
-                                            className="w-full text-center text-sm text-muted-foreground hover:text-foreground mt-3 transition-colors">
-                                            Start over
-                                        </button>
-                                    </motion.div>
-                                </motion.div>
+                                <StepDepartureSetup
+                                    selectedFlight={selectedFlight}
+                                    flightNumber={flightNumber}
+                                    startingAddress={startingAddress} setStartingAddress={setStartingAddress}
+                                    addressError={addressError} setAddressError={setAddressError}
+                                    addressContainerRef={addressContainerRef} addressInputRef={addressInputRef}
+                                    transport={transport} setTransport={setTransport}
+                                    hasPrecheck={hasPrecheck} setHasPrecheck={setHasPrecheck}
+                                    hasClear={hasClear} setHasClear={setHasClear}
+                                    hasPriorityLane={hasPriorityLane} setHasPriorityLane={setHasPriorityLane}
+                                    hasBoardingPass={hasBoardingPass} setHasBoardingPass={setHasBoardingPass}
+                                    bagCount={bagCount} setBagCount={setBagCount}
+                                    withChildren={withChildren} setWithChildren={setWithChildren}
+                                    gateTime={gateTime} setGateTime={setGateTime}
+                                    currentTripId={currentTripId}
+                                    isSubmitting={isSubmitting} isRecomputing={isRecomputing}
+                                    apiError={apiError} setApiError={setApiError}
+                                    onRecalculate={handleRecalculate}
+                                    onBack={() => goTo(2)}
+                                    onReset={handleReset}
+                                />
                             )}
+
                         </AnimatePresence>
                     </motion.div>
                 )}
 
                 {/* ════════════════ LOADING VIEW ════════════════ */}
                 {viewMode === 'loading' && (
-                    <motion.div key="loading" {...pageTransition}
-                        className="min-h-[calc(100vh-57px)] flex flex-col items-center justify-center text-center gap-6 px-4">
-                        <motion.div
-                            animate={{ rotate: 360 }}
-                            transition={{ repeat: Infinity, duration: 1.2, ease: 'linear' }}
-                            className="w-14 h-14 rounded-full border-[3px] border-border border-t-primary"
-                        />
-                        <div>
-                            <h2 className="text-xl font-bold text-foreground mb-2">
-                                {currentTripId ? 'Updating your journey' : 'Calculating your journey'}
-                            </h2>
-                            <p className="text-muted-foreground text-sm max-w-xs mx-auto">
-                                Analyzing traffic, TSA wait times,<br />and airport conditions…
-                            </p>
-                        </div>
-                        <div className="flex gap-2">
-                            {[0, 1, 2].map(i => (
-                                <motion.div key={i}
-                                    animate={{ opacity: [0.2, 0.8, 0.2] }}
-                                    transition={{ repeat: Infinity, duration: 1.4, delay: i * 0.25 }}
-                                    className="w-2 h-2 rounded-full bg-primary/60"
-                                />
-                            ))}
-                        </div>
-                    </motion.div>
+                    <LoadingView currentTripId={currentTripId} />
                 )}
 
                 {/* ════════════════ RESULTS VIEW ════════════════ */}
                 {viewMode === 'results' && (
-                    <motion.div key="results" {...pageTransition} className="min-h-[calc(100vh-57px)] bg-secondary/50">
-                        {/* Results Header */}
-                        <div className="bg-card border-b border-border">
-                            <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    <button onClick={handleEditSetup}
-                                        className="w-9 h-9 rounded-xl border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 transition-all">
-                                        <ArrowLeft className="w-4 h-4" />
-                                    </button>
-                                    <div>
-                                        <h1 className="font-bold text-foreground">Journey Blueprint</h1>
-                                        <p className="text-sm text-muted-foreground">Your optimized travel timeline</p>
-                                    </div>
-                                </div>
-                                <button onClick={handleReset}
-                                    className="text-sm text-muted-foreground hover:text-foreground border border-border px-4 py-2 rounded-xl transition-all hover:border-muted-foreground/30">
-                                    Start Over
-                                </button>
-                            </div>
-                        </div>
-
-                        {/* Error banner for recompute failures */}
-                        {apiError && (
-                            <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-4">
-                                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                                    className="rounded-2xl px-5 py-4 flex items-start gap-3 bg-destructive/10 border border-destructive/20">
-                                    <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
-                                    <div>
-                                        <p className="text-destructive text-sm font-medium">{apiError}</p>
-                                        <button onClick={() => setApiError(null)}
-                                            className="text-sm text-destructive font-semibold underline mt-1 hover:text-destructive/80">
-                                            Dismiss
-                                        </button>
-                                    </div>
-                                </motion.div>
-                            </div>
-                        )}
-
-                        {/* Journey Visualization */}
-                        <JourneyVisualization
-                            locked={true}
-                            recommendation={recommendation}
-                            selectedFlight={selectedFlight}
-                            transport={transport}
-                            onReady={() => setJourneyReady(true)}
-                            onNotifyClick={() => setOtpOpen(true)}
-                        />
-                    </motion.div>
+                    <ResultsView
+                        recommendation={recommendation}
+                        selectedFlight={selectedFlight}
+                        transport={transport}
+                        isAuthenticated={isAuthenticated}
+                        display_name={display_name}
+                        apiError={apiError} setApiError={setApiError}
+                        onEditSetup={handleEditSetup}
+                        onReset={handleReset}
+                        onReady={() => setJourneyReady(true)}
+                        onSignIn={() => { track('auth_modal_opened', { trigger: 'save_trip' }); setAuthOpen(true); }}
+                        securityLabel={
+                            hasPriorityLane ? 'Priority Lane' :
+                            hasPrecheck && hasClear ? 'CLEAR + PreCheck' :
+                            hasPrecheck ? 'TSA PreCheck' :
+                            hasClear ? 'CLEAR' : 'Standard TSA'
+                        }
+                    />
                 )}
+
             </AnimatePresence>
 
-            <OTPModal open={otpOpen} onOpenChange={setOtpOpen} onSuccess={(data) => login(data)} />
+            <AuthModal open={authOpen} onOpenChange={setAuthOpen} onSuccess={(data) => { track('auth_completed', { provider: data.auth_provider || 'phone' }); login(data); }} />
         </div>
     );
 }
