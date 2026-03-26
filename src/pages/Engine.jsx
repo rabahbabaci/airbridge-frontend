@@ -16,6 +16,7 @@ import {
 
 import JourneyVisualization from '@/components/engine/JourneyVisualization';
 import OTPModal from '@/components/engine/OTPModal';
+import SocialAuthCard from '@/components/engine/SocialAuthCard';
 import { useAuth } from '@/lib/AuthContext';
 
 const API_BASE = 'https://airbridge-backend-production.up.railway.app';
@@ -69,7 +70,7 @@ const stagger = {
 
 // ── Main Component ──────────────────────────────────────────────────────────
 export default function Engine() {
-    const { token, login, updateTripCount } = useAuth();
+    const { token, login, updateTripCount, isAuthenticated, display_name } = useAuth();
     const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
 
     const [step, setStep] = useState(1);
@@ -352,7 +353,11 @@ export default function Engine() {
                                 </motion.div>
                             )}
                         </AnimatePresence>
-                        <button className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden md:block">Sign In</button>
+                        {isAuthenticated ? (
+                            <span className="text-sm font-medium text-foreground hidden md:block">{display_name || 'Account'}</span>
+                        ) : (
+                            <button onClick={() => setOtpOpen(true)} className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden md:block">Sign In</button>
+                        )}
                     </div>
                 </div>
             </header>
@@ -900,6 +905,21 @@ export default function Engine() {
                             onReady={() => setJourneyReady(true)}
                             onNotifyClick={() => setOtpOpen(true)}
                         />
+
+                        {/* Auth / Tracking CTA */}
+                        {isAuthenticated ? (
+                            <div className="max-w-md mx-auto px-4 py-6 text-center">
+                                <div className="rounded-2xl border border-emerald-200 bg-emerald-50 p-5 flex items-center justify-center gap-2">
+                                    <CheckCircle2 className="w-5 h-5 text-emerald-600" />
+                                    <span className="text-sm font-medium text-emerald-700">Tracking this trip{display_name ? ` for ${display_name}` : ''}</span>
+                                </div>
+                            </div>
+                        ) : (
+                            <SocialAuthCard
+                                onSuccess={(data) => login(data)}
+                                onPhoneClick={() => setOtpOpen(true)}
+                            />
+                        )}
                     </motion.div>
                 )}
             </AnimatePresence>
