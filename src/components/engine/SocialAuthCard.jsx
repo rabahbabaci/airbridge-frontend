@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Smartphone, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
@@ -10,27 +10,12 @@ export default function SocialAuthCard({ onSuccess, onPhoneClick, className }) {
     const [error, setError] = useState(null);
     const [googleReady, setGoogleReady] = useState(false);
     const googleBtnRef = useRef(null);
+    const initializedRef = useRef(false);
+    const callbackRef = useRef(onSuccess);
 
-    const handleCredentialResponse = useCallback(async (response) => {
-        setError(null);
-        setLoading(true);
-        try {
-            const res = await fetch(`${API_BASE}/v1/auth/social`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ provider: 'google', id_token: response.credential }),
-            });
-            if (!res.ok) {
-                const data = await res.json().catch(() => null);
-                throw new Error(data?.detail || 'Sign in failed');
-            }
-            const data = await res.json();
-            onSuccess?.({ ...data, auth_provider: 'google' });
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
+    // Keep callback ref current without re-running the google init effect
+    useEffect(() => {
+        callbackRef.current = onSuccess;
     }, [onSuccess]);
 
     useEffect(() => {
@@ -39,38 +24,58 @@ export default function SocialAuthCard({ onSuccess, onPhoneClick, className }) {
             return;
         }
 
-        function initGoogle() {
-            if (!window.google?.accounts?.id) return false;
-            window.google.accounts.id.initialize({
-                client_id: GOOGLE_CLIENT_ID,
-                callback: handleCredentialResponse,
-            });
-            if (googleBtnRef.current) {
-                window.google.accounts.id.renderButton(googleBtnRef.current, {
-                    type: 'standard',
-                    shape: 'rectangular',
-                    theme: 'outline',
-                    size: 'large',
-                    text: 'continue_with',
-                    width: 280,
+        function tryInit() {
+            if (!window.google?.accounts?.id || !googleBtnRef.current) return false;
+
+            if (!initializedRef.current) {
+                window.google.accounts.id.initialize({
+                    client_id: GOOGLE_CLIENT_ID,
+                    callback: async (response) => {
+                        setError(null);
+                        setLoading(true);
+                        try {
+                            const res = await fetch(`${API_BASE}/v1/auth/social`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ provider: 'google', id_token: response.credential }),
+                            });
+                            if (!res.ok) {
+                                const data = await res.json().catch(() => null);
+                                throw new Error(data?.detail || 'Sign in failed');
+                            }
+                            const data = await res.json();
+                            callbackRef.current?.({ ...data, auth_provider: 'google' });
+                        } catch (err) {
+                            setError(err.message);
+                        } finally {
+                            setLoading(false);
+                        }
+                    },
                 });
+                initializedRef.current = true;
             }
+
+            window.google.accounts.id.renderButton(googleBtnRef.current, {
+                type: 'standard',
+                shape: 'rectangular',
+                theme: 'outline',
+                size: 'large',
+                text: 'continue_with',
+                width: 280,
+            });
             setGoogleReady(true);
             return true;
         }
 
-        if (initGoogle()) return;
+        if (tryInit()) return;
 
-        // Poll for script load (up to 5s)
         let attempts = 0;
         const interval = setInterval(() => {
             attempts++;
-            if (initGoogle() || attempts >= 25) clearInterval(interval);
+            if (tryInit() || attempts >= 25) clearInterval(interval);
         }, 200);
         return () => clearInterval(interval);
-    }, [handleCredentialResponse]);
-
-    const showGoogleButton = GOOGLE_CLIENT_ID && googleReady;
+    }, []);
 
     return (
         <div className={cn('max-w-md mx-auto px-4 py-6', className)}>
@@ -90,10 +95,9 @@ export default function SocialAuthCard({ onSuccess, onPhoneClick, className }) {
                 {!loading && (
                     <div className="space-y-4">
                         {GOOGLE_CLIENT_ID ? (
-                            <div className="flex justify-center">
-                                {showGoogleButton ? (
-                                    <div ref={googleBtnRef} />
-                                ) : (
+                            <div className="flex justify-center" style={{ minHeight: 44 }}>
+                                <div ref={googleBtnRef} className={googleReady ? '' : 'hidden'} />
+                                {!googleReady && (
                                     <div className="flex items-center justify-center gap-2 py-2">
                                         <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
                                         <span className="text-sm text-muted-foreground">Loading...</span>
