@@ -24,12 +24,31 @@ const stagger = {
     }),
 };
 
-export default function RouteSearchForm({ onFlightsFound, authHeaders }) {
-    const [origin, setOrigin] = useState('');
-    const [destination, setDestination] = useState('');
-    const [date, setDate] = useState('');
+export default function RouteSearchForm({
+    onFlightsFound, authHeaders,
+    // Optional controlled props — if provided, use them instead of local state
+    origin: controlledOrigin, setOrigin: controlledSetOrigin,
+    destination: controlledDestination, setDestination: controlledSetDestination,
+    date: controlledDate, setDate: controlledSetDate,
+    timeWindow: controlledTimeWindow, setTimeWindow: controlledSetTimeWindow,
+    lastSearchParams, existingResults,
+}) {
+    // Local state as fallback when not controlled
+    const [localOrigin, localSetOrigin] = useState('');
+    const [localDestination, localSetDestination] = useState('');
+    const [localDate, localSetDate] = useState('');
+    const [localTimeWindow, localSetTimeWindow] = useState('any');
+
+    const origin = controlledOrigin !== undefined ? controlledOrigin : localOrigin;
+    const setOrigin = controlledSetOrigin || localSetOrigin;
+    const destination = controlledDestination !== undefined ? controlledDestination : localDestination;
+    const setDestination = controlledSetDestination || localSetDestination;
+    const date = controlledDate !== undefined ? controlledDate : localDate;
+    const setDate = controlledSetDate || localSetDate;
+    const timeWindow = controlledTimeWindow !== undefined ? controlledTimeWindow : localTimeWindow;
+    const setTimeWindow = controlledSetTimeWindow || localSetTimeWindow;
+
     const [calendarOpen, setCalendarOpen] = useState(false);
-    const [timeWindow, setTimeWindow] = useState('any');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
@@ -37,6 +56,21 @@ export default function RouteSearchForm({ onFlightsFound, authHeaders }) {
 
     async function handleSearch() {
         if (!canSearch || loading) return;
+
+        // Skip re-fetch if inputs haven't changed and we have results
+        if (
+            lastSearchParams &&
+            lastSearchParams.mode === 'route' &&
+            lastSearchParams.origin === origin &&
+            lastSearchParams.destination === destination &&
+            lastSearchParams.date === date &&
+            lastSearchParams.timeWindow === timeWindow &&
+            existingResults && existingResults.length > 0
+        ) {
+            onFlightsFound(existingResults, { origin, destination, date, timeWindow });
+            return;
+        }
+
         setLoading(true);
         setError(null);
         try {

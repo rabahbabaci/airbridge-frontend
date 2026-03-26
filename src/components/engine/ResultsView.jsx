@@ -1,0 +1,102 @@
+import React from 'react';
+import { motion } from 'framer-motion';
+import { AlertCircle, ArrowLeft, CheckCircle2, Bookmark, Smartphone } from 'lucide-react';
+
+import JourneyVisualization from './JourneyVisualization';
+
+const pageTransition = {
+    initial: { opacity: 0, y: 24 },
+    animate: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] } },
+    exit: { opacity: 0, y: -16, transition: { duration: 0.25, ease: [0.4, 0, 1, 1] } },
+};
+
+export default function ResultsView({
+    recommendation, selectedFlight, transport,
+    isAuthenticated, display_name,
+    apiError, setApiError,
+    onEditSetup, onReset, onReady,
+    onSignIn,
+    securityLabel,
+}) {
+    return (
+        <motion.div key="results" {...pageTransition} className="min-h-[calc(100vh-57px)] bg-secondary/50">
+            {/* Results Header */}
+            <div className="bg-card border-b border-border">
+                <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                        <button onClick={onEditSetup}
+                            className="w-9 h-9 rounded-xl border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 transition-all">
+                            <ArrowLeft className="w-4 h-4" />
+                        </button>
+                        <div>
+                            <h1 className="font-bold text-foreground">Journey Blueprint</h1>
+                            <p className="text-sm text-muted-foreground">Your optimized travel timeline</p>
+                        </div>
+                    </div>
+                    <div className="flex items-center gap-3">
+                        {isAuthenticated ? (
+                            <span className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium text-emerald-600">
+                                <CheckCircle2 className="w-4 h-4" />
+                                Trip saved
+                            </span>
+                        ) : (
+                            <button onClick={onSignIn}
+                                className="bg-primary text-primary-foreground text-sm font-medium px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm hover:bg-primary/90 transition-all">
+                                <Bookmark className="w-3.5 h-3.5" />
+                                Save this trip
+                            </button>
+                        )}
+                        <button onClick={onReset}
+                            className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+                            Start Over
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            {/* Error banner */}
+            {apiError && (
+                <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-4">
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                        className="rounded-2xl px-5 py-4 flex items-start gap-3 bg-destructive/10 border border-destructive/20">
+                        <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+                        <div>
+                            <p className="text-destructive text-sm font-medium">{apiError}</p>
+                            <button onClick={() => setApiError(null)}
+                                className="text-sm text-destructive font-semibold underline mt-1 hover:text-destructive/80">
+                                Dismiss
+                            </button>
+                        </div>
+                    </motion.div>
+                </div>
+            )}
+
+            {/* Journey Visualization */}
+            <JourneyVisualization
+                locked={true}
+                recommendation={recommendation}
+                selectedFlight={selectedFlight}
+                transport={transport}
+                onReady={onReady}
+                securityLabel={securityLabel}
+            />
+
+            {/* App download upsell — only when authenticated */}
+            {isAuthenticated && (
+                <div className="max-w-md mx-auto px-4 pb-8">
+                    <div className="bg-card rounded-2xl border border-border p-5 text-center">
+                        <Smartphone className="w-6 h-6 text-muted-foreground mx-auto mb-2" />
+                        <p className="text-sm font-medium text-foreground mb-1">Get live departure alerts on your phone</p>
+                        <p className="text-xs text-muted-foreground">
+                            Download AirBridge for real-time notifications, lock screen countdown, and more.
+                        </p>
+                        <div className="flex items-center justify-center gap-3 mt-3">
+                            <span className="text-xs text-muted-foreground/60 border border-border/50 rounded-lg px-3 py-1.5">App Store — coming soon</span>
+                            <span className="text-xs text-muted-foreground/60 border border-border/50 rounded-lg px-3 py-1.5">Play Store — coming soon</span>
+                        </div>
+                    </div>
+                </div>
+            )}
+        </motion.div>
+    );
+}

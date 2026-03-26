@@ -14,6 +14,16 @@ export function formatLocalTime(timeStr) {
     return `${h12}:${minutes} ${ampm}`;
 }
 
+export function formatDuration(minutes) {
+    if (minutes == null) return '';
+    const m = Math.round(minutes);
+    if (m < 60) return `${m} min`;
+    const h = Math.floor(m / 60);
+    const r = m % 60;
+    if (r === 0) return `${h} hr`;
+    return `${h} hr ${r} min`;
+}
+
 export function parseTimeToDate(localTimeStr) {
     if (!localTimeStr) return null;
     const match = localTimeStr.match(/(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})/);
