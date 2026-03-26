@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect, useMemo } from 'react';
+import React, { useState, useRef, useMemo } from 'react';
 import { X } from 'lucide-react';
 import { cn } from '@/lib/utils';
 import airports from '@/data/airports.json';
@@ -23,20 +23,8 @@ export default function AirportAutocomplete({ value, onChange, placeholder, labe
         return matched.slice(0, 8);
     }, [query]);
 
-    // Auto-select on exact 3-letter IATA match
-    useEffect(() => {
-        if (query.length === 3) {
-            const exact = airports.find(a => a.iata.toLowerCase() === query.toLowerCase());
-            if (exact) {
-                onChange(exact.iata);
-                setQuery('');
-                setOpen(false);
-            }
-        }
-    }, [query, onChange]);
-
     // Close dropdown on outside click
-    useEffect(() => {
+    React.useEffect(() => {
         function handleClick(e) {
             if (containerRef.current && !containerRef.current.contains(e.target)) setOpen(false);
         }
