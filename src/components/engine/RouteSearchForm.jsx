@@ -7,7 +7,7 @@ import { Calendar, Search, AlertCircle, Loader2, Plane } from 'lucide-react';
 import AirportAutocomplete from './AirportAutocomplete';
 import { mapFlights } from '@/utils/mapFlight';
 
-const API_BASE = 'https://airbridge-backend-production.up.railway.app';
+import { API_BASE } from '@/config';
 
 const TIME_WINDOWS = [
     { id: 'any', label: 'Any time' },

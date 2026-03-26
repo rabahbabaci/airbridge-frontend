@@ -21,7 +21,7 @@ import RouteSearchForm from '@/components/engine/RouteSearchForm';
 import { useAuth } from '@/lib/AuthContext';
 import { mapFlights } from '@/utils/mapFlight';
 
-const API_BASE = 'https://airbridge-backend-production.up.railway.app';
+import { API_BASE } from '@/config';
 
 // ── Data ────────────────────────────────────────────────────────────────────
 const GATE_TIME_SNAPS = [0, 15, 30, 45, 60, 90, 120, 150, 180];

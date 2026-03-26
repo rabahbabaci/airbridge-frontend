@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 
-const API_BASE = 'https://airbridge-backend-production.up.railway.app';
+import { API_BASE } from '@/config';
 
 export default function OTPModal({ open, onOpenChange, onSuccess }) {
     const [step, setStep] = useState('phone');

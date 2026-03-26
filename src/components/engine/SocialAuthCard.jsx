@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Smartphone, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-const API_BASE = 'https://airbridge-backend-production.up.railway.app';
+import { API_BASE } from '@/config';
 const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
 
 export default function SocialAuthCard({ onSuccess, onPhoneClick, className }) {
