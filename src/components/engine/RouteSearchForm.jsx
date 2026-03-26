@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar as CalendarComponent } from '@/components/ui/calendar';
-import { Input } from '@/components/ui/input';
-import { Calendar, Search, AlertCircle, Loader2, Plane } from 'lucide-react';
+import { Calendar, Search, AlertCircle, Loader2 } from 'lucide-react';
 import AirportAutocomplete from './AirportAutocomplete';
 import { mapFlights } from '@/utils/mapFlight';
 
@@ -31,7 +30,6 @@ export default function RouteSearchForm({ onFlightsFound, authHeaders }) {
     const [date, setDate] = useState('');
     const [calendarOpen, setCalendarOpen] = useState(false);
     const [timeWindow, setTimeWindow] = useState('any');
-    const [airline, setAirline] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState(null);
 
@@ -44,7 +42,6 @@ export default function RouteSearchForm({ onFlightsFound, authHeaders }) {
         try {
             const params = new URLSearchParams({ origin, destination, date });
             if (timeWindow !== 'any') params.set('time_window', timeWindow);
-            if (airline.trim()) params.set('airline', airline.trim());
 
             const res = await fetch(`${API_BASE}/v1/flights/search?${params}`, {
                 headers: { ...authHeaders },
@@ -55,7 +52,7 @@ export default function RouteSearchForm({ onFlightsFound, authHeaders }) {
             }
             const data = await res.json();
             const mapped = mapFlights(data.flights || []);
-            onFlightsFound(mapped, { origin, destination, date, timeWindow, airline: airline.trim() || null });
+            onFlightsFound(mapped, { origin, destination, date, timeWindow });
         } catch (err) {
             setError(err.message);
         } finally {
@@ -120,16 +117,6 @@ export default function RouteSearchForm({ onFlightsFound, authHeaders }) {
                 </div>
             </motion.div>
 
-            <motion.div custom={5} variants={stagger} initial="hidden" animate="visible">
-                <label className="text-sm font-semibold text-foreground/70 mb-2 block">Airline <span className="font-normal text-muted-foreground">(optional)</span></label>
-                <div className="flex items-center gap-3 bg-card border border-border rounded-2xl px-4 py-3.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition-all">
-                    <Plane className="w-4 h-4 text-muted-foreground shrink-0" />
-                    <Input value={airline} onChange={e => setAirline(e.target.value)}
-                        placeholder="e.g. UA or United"
-                        className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-foreground placeholder:text-muted-foreground" />
-                </div>
-            </motion.div>
-
             {error && (
                 <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
                     className="rounded-2xl px-5 py-4 flex items-start gap-3 bg-destructive/10 border border-destructive/20">
@@ -138,7 +125,7 @@ export default function RouteSearchForm({ onFlightsFound, authHeaders }) {
                 </motion.div>
             )}
 
-            <motion.div custom={6} variants={stagger} initial="hidden" animate="visible" className="pt-2">
+            <motion.div custom={5} variants={stagger} initial="hidden" animate="visible" className="pt-2">
                 <button onClick={handleSearch} disabled={!canSearch || loading}
                     className={`w-full flex items-center justify-center gap-2 py-4 rounded-2xl text-base font-semibold transition-all duration-200 ${
                         canSearch && !loading

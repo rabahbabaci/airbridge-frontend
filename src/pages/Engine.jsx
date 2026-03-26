@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { shortCity, formatLocalTime, parseTimeToDate } from '@/utils/format';
@@ -9,7 +9,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { Calendar as CalendarComponent } from "@/components/ui/calendar";
 import {
     Plane, Car, Train, Bus, User, AlertCircle,
-    CheckCircle2, Calendar, Search, ArrowLeft, MapPin,
+    CheckCircle2, Calendar, Search, ArrowLeft,
     Sparkles, Clock, Luggage, Baby, ShieldCheck, Smartphone,
     Minus, Plus, RefreshCw
 } from 'lucide-react';
@@ -18,6 +18,7 @@ import JourneyVisualization from '@/components/engine/JourneyVisualization';
 import OTPModal from '@/components/engine/OTPModal';
 import SocialAuthCard from '@/components/engine/SocialAuthCard';
 import RouteSearchForm from '@/components/engine/RouteSearchForm';
+import AddressAutocomplete from '@/components/engine/AddressAutocomplete';
 import { useAuth } from '@/lib/AuthContext';
 import { mapFlights } from '@/utils/mapFlight';
 
@@ -114,6 +115,22 @@ export default function Engine() {
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [currentTripId, setCurrentTripId] = useState(null);
     const [isRecomputing, setIsRecomputing] = useState(false);
+    const [addressError, setAddressError] = useState(null);
+
+    const addressContainerRef = useRef(null);
+    const addressInputRef = useRef(null);
+    const prevAddressRef = useRef(startingAddress);
+
+    // Reset trip when address changes after results exist
+    useEffect(() => {
+        if (prevAddressRef.current !== startingAddress && currentTripId) {
+            setCurrentTripId(null);
+            setRecommendation(null);
+            setViewMode('setup');
+            setLocked(false);
+        }
+        prevAddressRef.current = startingAddress;
+    }, [startingAddress, currentTripId]);
 
     const goTo = (next) => { setDir(next > step ? 1 : -1); setStep(next); };
 
@@ -174,10 +191,6 @@ export default function Engine() {
 
     const handleLockIn = async () => {
         if (isSubmitting) return;
-        if (!startingAddress.trim()) {
-            setApiError('Please enter your starting address so we can calculate travel time.');
-            return;
-        }
         setIsSubmitting(true);
         setLocked(true);
         setJourneyReady(false);
@@ -261,7 +274,8 @@ export default function Engine() {
         }
     };
 
-    const handleRouteFlightsFound = (flights) => {
+    const handleRouteFlightsFound = (flights, meta) => {
+        if (meta?.date) setDepartureDate(meta.date);
         setFlightOptions(flights);
         setSearching(false);
         goTo(2);
@@ -282,6 +296,12 @@ export default function Engine() {
     };
 
     const handleRecalculate = async () => {
+        if (!startingAddress.trim()) {
+            setAddressError('Please enter your starting address');
+            addressContainerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            addressInputRef.current?.focus();
+            return;
+        }
         if (currentTripId) {
             if (isRecomputing) return;
             setLocked(true);
@@ -370,12 +390,7 @@ export default function Engine() {
                                             <div className="space-y-4">
                                                 <motion.div custom={1} variants={stagger} initial="hidden" animate="visible">
                                                     <label className="text-sm font-semibold text-foreground/70 mb-2 block">Where are you starting from?</label>
-                                                    <div className="flex items-center gap-3 bg-card border border-border rounded-2xl px-4 py-3.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition-all">
-                                                        <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
-                                                        <Input value={startingAddress} onChange={e => setStartingAddress(e.target.value)}
-                                                            placeholder="Enter your departure address"
-                                                            className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-foreground placeholder:text-muted-foreground" />
-                                                    </div>
+                                                    <AddressAutocomplete value={startingAddress} onChange={setStartingAddress} />
                                                 </motion.div>
 
                                                 <motion.div custom={2} variants={stagger} initial="hidden" animate="visible">
@@ -429,16 +444,6 @@ export default function Engine() {
                                         </>
                                     ) : (
                                         <>
-                                            <motion.div custom={1} variants={stagger} initial="hidden" animate="visible" className="mb-4">
-                                                <label className="text-sm font-semibold text-foreground/70 mb-2 block">Where are you starting from?</label>
-                                                <div className="flex items-center gap-3 bg-card border border-border rounded-2xl px-4 py-3.5 focus-within:border-primary focus-within:ring-2 focus-within:ring-primary/10 transition-all">
-                                                    <MapPin className="w-4 h-4 text-muted-foreground shrink-0" />
-                                                    <Input value={startingAddress} onChange={e => setStartingAddress(e.target.value)}
-                                                        placeholder="Enter your departure address"
-                                                        className="border-0 p-0 h-auto bg-transparent focus-visible:ring-0 text-sm text-foreground placeholder:text-muted-foreground" />
-                                                </div>
-                                            </motion.div>
-
                                             <RouteSearchForm onFlightsFound={handleRouteFlightsFound} authHeaders={authHeaders} />
 
                                             <motion.div custom={7} variants={stagger} initial="hidden" animate="visible" className="mt-4">
@@ -640,6 +645,18 @@ export default function Engine() {
                                             </span>
                                         </motion.div>
                                     )}
+
+                                    {/* Address input */}
+                                    <motion.div ref={addressContainerRef} custom={2} variants={stagger} initial="hidden" animate="visible" className="mb-5">
+                                        <label className="text-sm font-semibold text-foreground/70 mb-2 block">Where are you leaving from?</label>
+                                        <AddressAutocomplete
+                                            ref={addressInputRef}
+                                            value={startingAddress}
+                                            onChange={(v) => { setStartingAddress(v); setAddressError(null); }}
+                                            hasError={!!addressError}
+                                        />
+                                        {addressError && <p className="text-sm text-destructive mt-1.5">{addressError}</p>}
+                                    </motion.div>
 
                                     {/* Row 1: Two cards side by side */}
                                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-5 mb-5">
