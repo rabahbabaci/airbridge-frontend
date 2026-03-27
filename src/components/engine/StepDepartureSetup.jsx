@@ -5,7 +5,6 @@ import { shortCity, formatLocalTime } from '@/utils/format';
 import {
     Car, Train, Bus, AlertCircle, CheckCircle2, ArrowLeft,
     ShieldCheck, Luggage, Baby, Smartphone, Minus, Plus, RefreshCw, MapPin,
-    ChevronDown,
 } from 'lucide-react';
 
 import AddressAutocomplete from './AddressAutocomplete';
@@ -80,8 +79,6 @@ export default function StepDepartureSetup({
 }) {
     const hasAddress = startingAddress.trim().length > 0;
     const [customSliderOpen, setCustomSliderOpen] = useState(false);
-    const [moreOptionsOpen, setMoreOptionsOpen] = useState(false);
-
     // Determine if current gateTime matches a preset
     const activePreset = BUFFER_PRESETS.find(p => p.value === gateTime);
 
@@ -201,26 +198,85 @@ export default function StepDepartureSetup({
                     </div>
                 </motion.div>
 
-                {/* 4. Security chips */}
-                <motion.div custom={4} variants={stagger} initial="hidden" animate="visible" className="mb-4">
-                    <label className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-2.5 block px-1">Security access</label>
-                    <div className="flex flex-wrap gap-2">
-                        {[
-                            { id: 'none', label: 'None', active: isNoneSecurity },
-                            { id: 'precheck', label: 'PreCheck', active: hasPrecheck },
-                            { id: 'clear', label: 'CLEAR', active: hasClear },
-                            { id: 'priority', label: 'Priority', active: hasPriorityLane },
-                        ].map(chip => (
-                            <button key={chip.id} onClick={() => handleSecurityChip(chip.id)}
-                                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-                                    chip.active
-                                        ? 'bg-primary text-primary-foreground border-primary'
-                                        : 'bg-secondary text-foreground/70 border-border hover:border-muted-foreground/30'
-                                }`}>
-                                <ShieldCheck className="w-3 h-3" />
-                                {chip.label}
-                            </button>
-                        ))}
+                {/* 4. Security & Travel Details */}
+                <motion.div custom={4} variants={stagger} initial="hidden" animate="visible"
+                    className="bg-card border border-border rounded-2xl overflow-hidden mb-4">
+                    <div className="px-5 py-3.5 border-b border-border">
+                        <h3 className="font-bold text-foreground text-sm">Security & Travel Details</h3>
+                    </div>
+                    <div className="px-5 py-4 space-y-4">
+                        {/* Security chips */}
+                        <div>
+                            <label className="text-xs font-medium text-muted-foreground mb-2 block">Security access</label>
+                            <div className="flex flex-wrap gap-2">
+                                {[
+                                    { id: 'none', label: 'None', active: isNoneSecurity },
+                                    { id: 'precheck', label: 'PreCheck', active: hasPrecheck },
+                                    { id: 'clear', label: 'CLEAR', active: hasClear },
+                                    { id: 'priority', label: 'Priority', active: hasPriorityLane },
+                                ].map(chip => (
+                                    <button key={chip.id} onClick={() => handleSecurityChip(chip.id)}
+                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
+                                            chip.active
+                                                ? 'bg-primary text-primary-foreground border-primary'
+                                                : 'bg-secondary text-foreground/70 border-border hover:border-muted-foreground/30'
+                                        }`}>
+                                        <ShieldCheck className="w-3 h-3" />
+                                        {chip.label}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="border-t border-border" />
+
+                        {/* Boarding pass */}
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <Smartphone className="w-4 h-4 text-muted-foreground" />
+                                <div>
+                                    <p className="text-sm font-medium text-foreground">Boarding Pass</p>
+                                    <p className="text-xs text-muted-foreground">Already have your boarding pass?</p>
+                                </div>
+                            </div>
+                            <Switch checked={hasBoardingPass} onCheckedChange={setHasBoardingPass} />
+                        </div>
+                        {/* Checked bags */}
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <Luggage className="w-4 h-4 text-muted-foreground" />
+                                <div>
+                                    <p className="text-sm font-medium text-foreground">Checked Bags</p>
+                                    <p className="text-xs text-muted-foreground">Number of bags to check</p>
+                                </div>
+                            </div>
+                            <div className="flex items-center gap-2">
+                                <button onClick={() => setBagCount(Math.max(0, bagCount - 1))} disabled={bagCount === 0}
+                                    className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all ${
+                                        bagCount === 0
+                                            ? 'bg-secondary text-muted-foreground/40 border-border cursor-not-allowed'
+                                            : 'bg-secondary text-foreground border-border hover:border-muted-foreground/30'
+                                    }`}>
+                                    <Minus className="w-3.5 h-3.5" />
+                                </button>
+                                <span className="w-8 text-center text-sm font-bold text-foreground">{bagCount}</span>
+                                <button onClick={() => setBagCount(Math.min(10, bagCount + 1))}
+                                    className="w-8 h-8 rounded-lg border bg-secondary text-foreground border-border hover:border-muted-foreground/30 flex items-center justify-center transition-all">
+                                    <Plus className="w-3.5 h-3.5" />
+                                </button>
+                            </div>
+                        </div>
+                        {/* Children */}
+                        <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                <Baby className="w-4 h-4 text-muted-foreground" />
+                                <div>
+                                    <p className="text-sm font-medium text-foreground">Traveling with children?</p>
+                                    <p className="text-xs text-muted-foreground">Adjusts walking pace at the airport</p>
+                                </div>
+                            </div>
+                            <Switch checked={withChildren} onCheckedChange={setWithChildren} />
+                        </div>
                     </div>
                 </motion.div>
 
@@ -297,86 +353,7 @@ export default function StepDepartureSetup({
                     </div>
                 </motion.div>
 
-                {/* 6. More options — collapsible card */}
-                <motion.div custom={6} variants={stagger} initial="hidden" animate="visible" className="mb-5">
-                    <div className={`rounded-xl border bg-card transition-all ${
-                        moreOptionsOpen
-                            ? 'border-primary/20 bg-accent/30'
-                            : 'border-border hover:border-muted-foreground/30 hover:bg-accent/50'
-                    }`}>
-                        <button onClick={() => setMoreOptionsOpen(v => !v)}
-                            className="w-full flex items-center justify-between px-4 py-3 cursor-pointer">
-                            <span className="text-sm font-medium text-foreground">
-                                More options <span className="text-muted-foreground font-normal">· bags, boarding pass, kids</span>
-                            </span>
-                            <ChevronDown className={`w-4 h-4 text-muted-foreground shrink-0 transition-transform duration-200 ${moreOptionsOpen ? 'rotate-180' : ''}`} />
-                        </button>
-
-                        <AnimatePresence>
-                            {moreOptionsOpen && (
-                                <motion.div
-                                    initial={{ height: 0, opacity: 0 }}
-                                    animate={{ height: 'auto', opacity: 1 }}
-                                    exit={{ height: 0, opacity: 0 }}
-                                    transition={{ duration: 0.2 }}
-                                    className="overflow-hidden"
-                                >
-                                    <div className="px-4 pb-4 pt-1 space-y-4 border-t border-border">
-                                        {/* Boarding pass */}
-                                        <div className="flex items-center justify-between pt-3">
-                                            <div className="flex items-center gap-3">
-                                                <Smartphone className="w-4 h-4 text-muted-foreground" />
-                                                <div>
-                                                    <p className="text-sm font-medium text-foreground">Boarding Pass</p>
-                                                    <p className="text-xs text-muted-foreground">Already have your boarding pass?</p>
-                                                </div>
-                                            </div>
-                                            <Switch checked={hasBoardingPass} onCheckedChange={setHasBoardingPass} />
-                                        </div>
-                                        {/* Checked bags */}
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <Luggage className="w-4 h-4 text-muted-foreground" />
-                                                <div>
-                                                    <p className="text-sm font-medium text-foreground">Checked Bags</p>
-                                                    <p className="text-xs text-muted-foreground">Number of bags to check</p>
-                                                </div>
-                                            </div>
-                                            <div className="flex items-center gap-2">
-                                                <button onClick={() => setBagCount(Math.max(0, bagCount - 1))} disabled={bagCount === 0}
-                                                    className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all ${
-                                                        bagCount === 0
-                                                            ? 'bg-secondary text-muted-foreground/40 border-border cursor-not-allowed'
-                                                            : 'bg-secondary text-foreground border-border hover:border-muted-foreground/30'
-                                                    }`}>
-                                                    <Minus className="w-3.5 h-3.5" />
-                                                </button>
-                                                <span className="w-8 text-center text-sm font-bold text-foreground">{bagCount}</span>
-                                                <button onClick={() => setBagCount(Math.min(10, bagCount + 1))}
-                                                    className="w-8 h-8 rounded-lg border bg-secondary text-foreground border-border hover:border-muted-foreground/30 flex items-center justify-center transition-all">
-                                                    <Plus className="w-3.5 h-3.5" />
-                                                </button>
-                                            </div>
-                                        </div>
-                                        {/* Children */}
-                                        <div className="flex items-center justify-between">
-                                            <div className="flex items-center gap-3">
-                                                <Baby className="w-4 h-4 text-muted-foreground" />
-                                                <div>
-                                                    <p className="text-sm font-medium text-foreground">Traveling with children?</p>
-                                                    <p className="text-xs text-muted-foreground">Adjusts walking pace at the airport</p>
-                                                </div>
-                                            </div>
-                                            <Switch checked={withChildren} onCheckedChange={setWithChildren} />
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-                    </div>
-                </motion.div>
-
-                {/* 7. CTA */}
+                {/* 6. CTA */}
                 <motion.div custom={7} variants={stagger} initial="hidden" animate="visible">
                     <button onClick={onRecalculate} disabled={isSubmitting || !hasAddress}
                         className={`w-full py-4 rounded-2xl text-base font-semibold transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 ${
