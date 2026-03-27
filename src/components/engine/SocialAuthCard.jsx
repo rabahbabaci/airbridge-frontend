@@ -2,8 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { Smartphone, Loader2 } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-import { API_BASE } from '@/config';
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+import { API_BASE, GOOGLE_CLIENT_ID } from '@/config';
 
 export default function SocialAuthCard({ onSuccess, onPhoneClick, className }) {
     const [loading, setLoading] = useState(false);

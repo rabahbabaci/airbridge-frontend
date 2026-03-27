@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect, forwardRef, useImperativeHandle } from 'react';
 import { MapPin, X } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-const GOOGLE_MAPS_API_KEY = import.meta.env.VITE_GOOGLE_MAPS_API_KEY;
+import { GOOGLE_MAPS_API_KEY } from '@/config';
 
 let scriptLoadPromise = null;
 

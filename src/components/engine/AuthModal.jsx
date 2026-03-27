@@ -5,8 +5,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
 
-import { API_BASE } from '@/config';
-const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID;
+import { API_BASE, GOOGLE_CLIENT_ID } from '@/config';
 
 export default function AuthModal({ open, onOpenChange, onSuccess }) {
     const [view, setView] = useState('main'); // 'main' | 'phone' | 'code' | 'success'
