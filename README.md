@@ -1,134 +1,139 @@
-# ✈️ AirBridge — Frontend
+# AirBridge
 
-**The door-to-gate departure decision engine.**
+**Never miss a flight. Never waste time at the gate.**
 
-AirBridge eliminates the guesswork of airport timing. Enter your flight details, customize your preferences, and get a confidence-scored, minute-by-minute departure plan — from your door to the gate.
+AirBridge is a departure decision engine that tells you exactly when to leave home for your flight. Enter your flight details, set your preferences, and get a confidence-scored, minute-by-minute journey plan — from your door to the gate.
 
-[![JavaScript](https://img.shields.io/badge/javascript-ES2022-yellow.svg)](https://developer.mozilla.org/en-US/docs/Web/JavaScript)
-[![Vite](https://img.shields.io/badge/vite-5.x-purple.svg)](https://vitejs.dev/)
-[![Tailwind CSS](https://img.shields.io/badge/tailwind-3.x-blue.svg)](https://tailwindcss.com/)
-
----
-
-## Overview
-
-This is the web frontend for AirBridge. It provides a guided, three-step flow for departure planning:
-
-1. **Trip Input** — Enter flight number directly, or search by airline + route + time window
-2. **Flight Selection** — Browse matching flights filtered by your criteria and pick your departure
-3. **Departure Plan** — View your personalized door-to-gate timeline with confidence scoring
-
-### Key Features
-
-- **Dual input mode** — Flight number lookup or route-based search with time window filtering
-- **Interactive preferences** — Transport mode, risk profile (Stress-Free / Just Right / Cut It Close), checked bags, children, extra buffer
-- **Visual journey map** — Step-by-step timeline: Leave Home → Airport → Baggage → TSA → Gate
-- **Segment breakdown** — Individual time cards for transport, TSA wait, gate walk, baggage, buffer, and confidence score
-- **Live status indicators** — Engine Active / Live & Reactive badges
-- **Responsive design** — Optimized for desktop and mobile
+[![React 18](https://img.shields.io/badge/React-18-61DAFB?logo=react&logoColor=white)](https://react.dev)
+[![Vite 6](https://img.shields.io/badge/Vite-6-646CFF?logo=vite&logoColor=white)](https://vitejs.dev)
+[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-3-06B6D4?logo=tailwindcss&logoColor=white)](https://tailwindcss.com)
 
 ---
 
-## Tech Stack
+## What it does
 
-| Layer | Technology |
-|-------|-----------|
-| Build | Vite |
-| Language | JavaScript (ES2022) |
-| Styling | Tailwind CSS |
-| Components | shadcn/ui |
-| Linting | ESLint |
+AirBridge replaces the mental math travelers do before every flight — _"What time should I leave? How long is TSA? Should I add buffer for bags?"_ — with a single, personalized recommendation.
+
+**Three-step flow:**
+
+1. **Find your flight** — Look up by flight number or search by route and time window
+2. **Set your preferences** — Transport mode, TSA access, checked bags, children, risk tolerance
+3. **Get your plan** — A visual door-to-gate timeline with departure time, segment breakdown, and confidence score
+
+Currently in beta for Bay Area airports: **SFO**, **OAK**, and **SJC**.
 
 ---
 
-## Project Structure
+## Tech stack
+
+| Layer        | Technology                              |
+| ------------ | --------------------------------------- |
+| Framework    | React 18 with React Router v6          |
+| Build        | Vite 6                                  |
+| Styling      | Tailwind CSS 3 + shadcn/ui (Radix)     |
+| Animations   | Framer Motion                           |
+| Auth         | Google OAuth                            |
+| Analytics    | PostHog                                 |
+| API          | Native fetch — typed contracts in TS    |
+| State        | React Context + hooks                   |
+
+---
+
+## Project structure
 
 ```
 src/
-├── api/
-│   └── airbridge.contracts.ts    # TypeScript types mirroring backend schemas
-├── components/                    # UI components
-├── pages/                         # Route-level page components
-├── styles/                        # Tailwind config + global styles
-└── ...
+├── api/                        # TypeScript contract types (mirrors backend schemas)
+├── components/
+│   ├── engine/                 # App flow: flight input, selection, preferences, results
+│   ├── landing/                # Marketing pages: hero, problem, solution, how-it-works
+│   └── ui/                     # shadcn/ui component library
+├── data/                       # Static data (airports)
+├── hooks/                      # Custom hooks (responsive breakpoints)
+├── integrations/               # Third-party service clients
+├── lib/                        # Auth context, utilities
+├── pages/                      # Route components (Home, Engine)
+└── utils/                      # Formatting, analytics, flight data mapping
 ```
 
 ---
 
-## Getting Started
+## Getting started
+
+### Prerequisites
+
+- Node.js 18+
+- npm or bun
+
+### Setup
 
 ```bash
-# Clone the repository
 git clone https://github.com/rabahbabaci/airbridge-frontend.git
 cd airbridge-frontend
-
-# Install dependencies
 npm install
-
-# Configure environment
-cp .env.example .env.local
-```
-
-Set the following in `.env.local`:
-
-```
-VITE_BASE44_APP_ID=your_app_id
-VITE_BASE44_APP_BASE_URL=your_backend_url
-```
-
-```bash
-# Start the development server
 npm run dev
 ```
 
----
+The app connects to the production API by default. To override, create a `.env.local`:
 
-## Backend Integration
+```
+VITE_API_URL=http://localhost:8000
+VITE_GOOGLE_CLIENT_ID=your_google_client_id
+VITE_GOOGLE_MAPS_API_KEY=your_google_maps_key
+VITE_POSTHOG_API_KEY=your_posthog_key
+```
 
-This frontend is designed to work with the [AirBridge Backend API](https://github.com/rabahbabaci/airbridge-backend).
+### Scripts
 
-API contract types are maintained in `src/api/airbridge.contracts.ts` and kept in sync with the backend's Pydantic schemas. Key contracts:
-
-- `TripContext` — Response from `POST /v1/trips`
-- `TripPreferences` — User preferences (transport, bags, security access, risk profile)
-- `RecommendationResponse` — Leave-home time, confidence score, and journey segments
-- `SegmentDetail` — Individual journey leg (id, label, duration, advice)
-
-Backend connection is configured via `VITE_BASE44_APP_BASE_URL`. The frontend is integration-ready but currently operates independently.
-
----
-
-## Beta Scope
-
-- **Airports:** SFO, OAK, SJC (Bay Area)
-- **Input modes:** Flight number and route search
-- **Live beta:** [airbridgeberkeley.base44.app](https://airbridgeberkeley.base44.app)
+| Command          | Description                |
+| ---------------- | -------------------------- |
+| `npm run dev`    | Start dev server           |
+| `npm run build`  | Production build           |
+| `npm run lint`   | Run ESLint                 |
+| `npm run typecheck` | TypeScript type check   |
+| `npm run preview` | Preview production build  |
 
 ---
 
-## Roadmap
+## Backend API
 
-- [x] Landing page with product positioning
-- [x] Departure Setup wizard (3-step flow)
-- [x] Dual input mode (flight number / route search)
-- [x] Flight selection from search results
-- [x] Preference customization (transport, risk, bags, children, buffer)
-- [x] Door-to-gate journey map visualization
-- [x] Segment breakdown cards (transport, TSA, gate walk, baggage, confidence)
-- [x] Backend contract types (`airbridge.contracts.ts`)
-- [ ] Wire API calls to AirBridge backend
-- [ ] Boarding pass toggle in UI
-- [ ] Security access selector (PreCheck / CLEAR)
-- [ ] Real-time recommendation updates
-- [ ] Push notifications
-- [ ] Mobile-optimized experience
+This frontend is paired with the [AirBridge Backend](https://github.com/rabahbabaci/airbridge-backend), a Python API hosted on Railway.
+
+**Endpoints used:**
+
+| Method | Path                              | Purpose                    |
+| ------ | --------------------------------- | -------------------------- |
+| GET    | `/v1/flights/{number}/{date}`     | Look up flights            |
+| POST   | `/v1/trips`                       | Create a trip              |
+| POST   | `/v1/recommendations`            | Generate departure plan    |
+| POST   | `/v1/recommendations/recompute`  | Update with new preferences |
+
+API contract types are maintained in [`src/api/airbridge.contracts.ts`](src/api/airbridge.contracts.ts) and kept in sync with the backend's Pydantic schemas.
 
 ---
 
-## Related
+## Architecture
+
+```
+┌─────────────┐     ┌──────────────┐     ┌─────────────────┐
+│   Home (/)  │     │  Engine (/e) │     │  Backend API    │
+│   Landing   │────▶│  4-step flow │────▶│  Railway        │
+│   page      │     │  + results   │     │  (Python/Fast)  │
+└─────────────┘     └──────────────┘     └─────────────────┘
+                           │
+                    ┌──────┴──────┐
+                    │  Google     │
+                    │  Maps API   │
+                    └─────────────┘
+```
+
+The Engine page manages the full user journey as a multi-step wizard with animated transitions. Each step is a self-contained component that passes data up to the parent via callbacks. Recommendations are fetched from the backend and rendered as a visual journey timeline with per-segment breakdown.
+
+---
+
+## Related repositories
 
 - **Backend API:** [airbridge-backend](https://github.com/rabahbabaci/airbridge-backend)
-- **Live beta:** [airbridgeberkeley.base44.app](https://airbridgeberkeley.base44.app)
 
 ---
 

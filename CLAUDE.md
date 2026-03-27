@@ -51,12 +51,15 @@ No test framework is configured.
 ## Key Directories
 
 - `src/pages/` — Page components (Home.jsx, Engine.jsx)
-- `src/components/engine/` — Engine sub-components (JourneyVisualization.jsx)
-- `src/components/landing/` — Landing page sections (Header, Hero, Problem, Solution, etc.)
+- `src/components/engine/` — Engine sub-components (flight input, selection, preferences, results, journey visualization)
+- `src/components/landing/` — Landing page sections (Header, Hero, Problem, Solution, HowItWorks, Comparison, Trust, CTA, Footer)
 - `src/components/ui/` — shadcn/ui component library (40+ components, do not hand-edit)
-- `src/lib/` — AuthContext (stub), utils (cn helper), PageNotFound
-- `src/utils/` — Formatting helpers (time, city names), createPageUrl
-- `src/hooks/` — Custom hooks (useIsMobile)
+- `src/lib/` — AuthContext (Google OAuth + localStorage persistence), utils (cn helper), PageNotFound
+- `src/utils/` — Formatting helpers (format.js), PostHog analytics (analytics.js), flight data mapping (mapFlight.js), createPageUrl (index.ts)
+- `src/hooks/` — Custom hooks (use-mobile.jsx)
+- `src/data/` — Static data (airports.json)
+- `src/integrations/supabase/` — Supabase client and types
+- `src/config.js` — Runtime config (API base URL, Google client ID, Google Maps key, PostHog key)
 
 ## Conventions
 
