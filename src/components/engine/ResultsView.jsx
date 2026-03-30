@@ -1,14 +1,23 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { AlertCircle, ArrowLeft, CheckCircle2, Bookmark, Smartphone } from 'lucide-react';
+import { AlertCircle, ArrowLeft, CheckCircle2, Bookmark, Smartphone, Share2, Check } from 'lucide-react';
+import { formatLocalTime, shortCity } from '@/utils/format';
+import { track } from '@/utils/analytics';
 
 import JourneyVisualization from './JourneyVisualization';
+import ActionCards from './ActionCards';
 
 const pageTransition = {
     initial: { opacity: 0, y: 24 },
     animate: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] } },
     exit: { opacity: 0, y: -16, transition: { duration: 0.25, ease: [0.4, 0, 1, 1] } },
 };
+
+function formatUTCToLocal(utcStr) {
+    if (!utcStr) return '';
+    const d = new Date(utcStr);
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
 
 export default function ResultsView({
     recommendation, selectedFlight, transport,
@@ -18,6 +27,31 @@ export default function ResultsView({
     onSignIn,
     securityLabel,
 }) {
+    const [copied, setCopied] = useState(false);
+
+    const handleShare = async () => {
+        const leaveTime = formatUTCToLocal(recommendation?.leave_home_at);
+        const depTime = selectedFlight?.departure_time ? formatLocalTime(selectedFlight.departure_time) : '';
+        const flightNum = selectedFlight?.flight_number || '';
+        const dest = shortCity(selectedFlight?.destination_name) || selectedFlight?.destination_code || '';
+
+        const message = `I need to leave by ${leaveTime} to catch my ${depTime} ${flightNum} flight to ${dest} ✈️ — powered by AirBridge https://airbridge.live`;
+
+        if (navigator.share) {
+            try {
+                await navigator.share({ text: message });
+                track('share_tapped', { method: 'native_share' });
+            } catch {}
+        } else {
+            try {
+                await navigator.clipboard.writeText(message);
+                track('share_tapped', { method: 'clipboard' });
+                setCopied(true);
+                setTimeout(() => setCopied(false), 2000);
+            } catch {}
+        }
+    };
+
     return (
         <motion.div key="results" {...pageTransition} className="min-h-[calc(100vh-57px)] bg-secondary/50">
             {/* Results Header */}
@@ -46,6 +80,11 @@ export default function ResultsView({
                                 Save this trip
                             </button>
                         )}
+                        <button onClick={handleShare}
+                            className="w-9 h-9 rounded-xl border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 transition-all"
+                            title="Share">
+                            {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Share2 className="w-4 h-4" />}
+                        </button>
                         <button onClick={onReset}
                             className="text-sm text-muted-foreground hover:text-foreground transition-colors">
                             Start Over
@@ -80,6 +119,15 @@ export default function ResultsView({
                 onReady={onReady}
                 securityLabel={securityLabel}
             />
+
+            {/* Action cards — rideshare / navigation deep links (post-auth feature) */}
+            {isAuthenticated && (
+                <ActionCards
+                    recommendation={recommendation}
+                    selectedFlight={selectedFlight}
+                    transport={transport}
+                />
+            )}
 
             {/* App download upsell — only when authenticated */}
             {isAuthenticated && (

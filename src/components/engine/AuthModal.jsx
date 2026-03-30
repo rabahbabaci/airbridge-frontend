@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { CheckCircle2, Smartphone, Loader2, Plane } from 'lucide-react';
-import { Dialog, DialogContent, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp';
@@ -155,6 +155,7 @@ export default function AuthModal({ open, onOpenChange, onSuccess }) {
         <Dialog open={open} onOpenChange={onOpenChange}>
             <DialogContent className="max-w-[380px] rounded-2xl p-8 border-border/50 shadow-2xl gap-0">
                 <DialogTitle className="sr-only">Sign in to AirBridge</DialogTitle>
+                <DialogDescription className="sr-only">Sign in to save trips and get departure updates</DialogDescription>
 
                 {/* Main view — Google + Phone */}
                 {view === 'main' && (

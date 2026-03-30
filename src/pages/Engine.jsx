@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plane } from 'lucide-react';
+import { Plane, Settings } from 'lucide-react';
 
 import StepEntry from '@/components/engine/StepEntry';
 import StepSelectFlight from '@/components/engine/StepSelectFlight';
@@ -385,6 +385,9 @@ export default function Engine() {
                                 <span className="text-sm font-medium text-foreground">
                                     {display_name ? display_name.split(' ')[0] : 'Account'}
                                 </span>
+                                <Link to={createPageUrl('Settings')} className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-all ml-1" title="Settings">
+                                    <Settings className="w-4 h-4" />
+                                </Link>
                                 <button onClick={logout} className="text-xs text-muted-foreground hover:text-foreground transition-colors ml-1">Sign out</button>
                             </div>
                         ) : (
