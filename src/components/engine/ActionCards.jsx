@@ -14,14 +14,16 @@ function buildLyftUrl({ homeLat, homeLng, termLat, termLng }) {
     return `https://lyft.com/ride?id=lyft&pickup[latitude]=${homeLat}&pickup[longitude]=${homeLng}&destination[latitude]=${termLat}&destination[longitude]=${termLng}`;
 }
 
-function buildAppleMapsUrl({ termLat, termLng, transit }) {
+function buildAppleMapsUrl({ homeLat, homeLng, termLat, termLng, transit }) {
     const dirflg = transit ? 'r' : 'd';
-    return `http://maps.apple.com/?daddr=${termLat},${termLng}&dirflg=${dirflg}`;
+    const saddr = homeLat != null && homeLng != null ? `saddr=${homeLat},${homeLng}&` : '';
+    return `http://maps.apple.com/?${saddr}daddr=${termLat},${termLng}&dirflg=${dirflg}`;
 }
 
-function buildGoogleMapsUrl({ termLat, termLng, transit }) {
+function buildGoogleMapsUrl({ homeLat, homeLng, termLat, termLng, transit }) {
     const travelmode = transit ? 'transit' : 'driving';
-    return `https://www.google.com/maps/dir/?api=1&destination=${termLat},${termLng}&travelmode=${travelmode}`;
+    const origin = homeLat != null && homeLng != null ? `&origin=${homeLat},${homeLng}` : '';
+    return `https://www.google.com/maps/dir/?api=1${origin}&destination=${termLat},${termLng}&travelmode=${travelmode}`;
 }
 
 function buildWazeUrl({ termLat, termLng }) {
