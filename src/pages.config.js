@@ -49,11 +49,13 @@
  */
 import Home from './pages/Home';
 import Engine from './pages/Engine';
+import Settings from './pages/Settings';
 
 
 export const PAGES = {
     "Home": Home,
     "Engine": Engine,
+    "Settings": Settings,
 }
 
 export const pagesConfig = {
