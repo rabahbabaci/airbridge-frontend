@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { AlertCircle, ArrowLeft, CheckCircle2, Bookmark, Smartphone } from 'lucide-react';
 
 import JourneyVisualization from './JourneyVisualization';
+import ActionCards from './ActionCards';
 
 const pageTransition = {
     initial: { opacity: 0, y: 24 },
@@ -80,6 +81,15 @@ export default function ResultsView({
                 onReady={onReady}
                 securityLabel={securityLabel}
             />
+
+            {/* Action cards — rideshare / navigation deep links (post-auth feature) */}
+            {isAuthenticated && (
+                <ActionCards
+                    recommendation={recommendation}
+                    selectedFlight={selectedFlight}
+                    transport={transport}
+                />
+            )}
 
             {/* App download upsell — only when authenticated */}
             {isAuthenticated && (
