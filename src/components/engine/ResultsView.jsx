@@ -76,7 +76,7 @@ export default function ResultsView({
                             </span>
                         ) : (
                             <button onClick={onTrack}
-                                className="bg-primary text-primary-foreground text-sm font-medium px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm hover:bg-primary/90 transition-all">
+                                className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 transition-all">
                                 <Bell className="w-3.5 h-3.5" />
                                 Track this trip
                             </button>
@@ -119,30 +119,10 @@ export default function ResultsView({
                 transport={transport}
                 onReady={onReady}
                 securityLabel={securityLabel}
+                isTracked={isTracked}
+                onTrack={onTrack}
+                isAuthenticated={isAuthenticated}
             />
-
-            {/* Track trip CTA */}
-            {!isTracked && (
-                <div className="max-w-md mx-auto px-4 pt-4">
-                    <button onClick={onTrack}
-                        className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-primary text-primary-foreground font-medium text-sm shadow-sm hover:bg-primary/90 transition-all">
-                        <Bell className="w-4 h-4" />
-                        {isAuthenticated ? 'Track this trip' : 'Track this trip & get alerts'}
-                    </button>
-                    <p className="text-xs text-muted-foreground text-center mt-2">
-                        Get notified when your leave-by time changes
-                    </p>
-                </div>
-            )}
-
-            {isTracked && (
-                <div className="max-w-md mx-auto px-4 pt-4">
-                    <div className="flex items-center justify-center gap-2 py-2.5 text-emerald-600">
-                        <CheckCircle2 className="w-4 h-4" />
-                        <span className="text-sm font-medium">Tracking — you'll be notified of changes</span>
-                    </div>
-                </div>
-            )}
 
             {/* Action cards — rideshare / navigation deep links (post-auth feature) */}
             {isAuthenticated && (

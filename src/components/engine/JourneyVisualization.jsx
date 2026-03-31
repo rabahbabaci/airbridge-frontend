@@ -4,6 +4,7 @@ import { shortCity, formatLocalTime, formatDuration } from '@/utils/format';
 import {
     Plane, Car, Train, Bus, Shield, Clock, MapPin, Luggage,
     Building2, PersonStanding, Ticket, AlertTriangle, CircleParking,
+    Bell, CheckCircle2,
 } from 'lucide-react';
 
 // ── Helpers ─────────────────────────────────────────────────────────────────
@@ -124,6 +125,7 @@ function smartBoardingLabel(boardingTime) {
 export default function JourneyVisualization({
     locked, recommendation, selectedFlight, transport, onReady,
     securityLabel,
+    isTracked, onTrack, isAuthenticated,
 }) {
     const [leaveInfo, setLeaveInfo] = useState({ label: 'Leave by', urgency: 'calm' });
     const [boardingLabel, setBoardingLabel] = useState('');
@@ -297,6 +299,18 @@ export default function JourneyVisualization({
                         </motion.p>
                     </div>
                     <div className="flex flex-wrap gap-2">
+                        {onTrack && (isTracked ? (
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 text-white text-xs font-medium border border-white/20">
+                                <CheckCircle2 className="w-3 h-3" />
+                                Tracking
+                            </span>
+                        ) : (
+                            <button onClick={onTrack}
+                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 hover:bg-white/30 text-white text-xs font-medium transition-all backdrop-blur-sm border border-white/20">
+                                <Bell className="w-3 h-3" />
+                                {isAuthenticated ? 'Track' : 'Track & get alerts'}
+                            </button>
+                        ))}
                         <span className="inline-flex items-center gap-1.5 px-4 py-2 rounded-full bg-primary-foreground/20 text-primary-foreground text-sm font-semibold backdrop-blur-sm">
                             <Clock className="w-3.5 h-3.5" />
                             {boardingLabel}

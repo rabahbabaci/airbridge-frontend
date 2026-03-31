@@ -294,6 +294,38 @@ export default function Engine() {
 
     const handleLockIn = async () => {
         if (isSubmitting) return;
+
+        // Draft already exists — just recompute with current preferences
+        if (currentTripId) {
+            setViewMode('loading');
+            setJourneyReady(false);
+            setApiError(null);
+            setIsSubmitting(true);
+            try {
+                const recRes = await fetch(`${API_BASE}/v1/recommendations/recompute`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', ...authHeaders },
+                    body: JSON.stringify({
+                        trip_id: currentTripId,
+                        reason: 'preference_change',
+                        preference_overrides: buildPreferences(),
+                    }),
+                });
+                if (!recRes.ok) throw new Error(`Recompute failed (${recRes.status})`);
+                const rec = await recRes.json();
+                setRecommendation(rec);
+                setJourneyReady(true);
+                setTimeout(() => setViewMode('results'), 500);
+            } catch (err) {
+                console.error('Recompute failed:', err);
+                setApiError(err.message || 'Something went wrong.');
+                setViewMode('results');
+            } finally {
+                setIsSubmitting(false);
+            }
+            return;
+        }
+
         setIsSubmitting(true);
         setLocked(true);
         setJourneyReady(false);
