@@ -84,6 +84,9 @@ export default function Engine() {
     const [activeTripRec, setActiveTripRec] = useState(null);
     const [checkingActiveTrip, setCheckingActiveTrip] = useState(true);
 
+    // Track flow
+    const [isTracked, setIsTracked] = useState(false);
+
     const addressContainerRef = useRef(null);
     const addressInputRef = useRef(null);
     const prevAddressRef = useRef(startingAddress);
@@ -109,6 +112,7 @@ export default function Engine() {
         setLastSearchParams(null);
         setActiveTripData(null);
         setActiveTripRec(null);
+        setIsTracked(false);
         // Route search fields are trip-specific too
         setRouteOrigin('');
         setRouteDestination('');
@@ -187,6 +191,7 @@ export default function Engine() {
                         if (recRes.ok) {
                             const rec = await recRes.json();
                             setActiveTripRec(rec);
+                            setIsTracked(true);
                             setViewMode('active_trip');
                         }
                     } catch {
@@ -326,7 +331,6 @@ export default function Engine() {
             }
             const rec = await recRes.json();
             setRecommendation(rec);
-            if (rec.remaining_pro_trips != null) updateTripCount(rec.remaining_pro_trips);
             track('recommendation_viewed', { leave_by_time: rec.leave_home_at, total_minutes: rec.segments?.reduce((s, seg) => s + (seg.duration_minutes || 0), 0), transport_mode: transport });
             setJourneyReady(true);
             setTimeout(() => setViewMode('results'), 500);
@@ -362,7 +366,6 @@ export default function Engine() {
             }
             const rec = await recRes.json();
             setRecommendation(rec);
-            if (rec.remaining_pro_trips != null) updateTripCount(rec.remaining_pro_trips);
             return true;
         } catch (err) {
             console.error('Recompute failed:', err);
@@ -398,6 +401,29 @@ export default function Engine() {
         setJourneyReady(false);
         setViewMode('setup');
         setApiError(null);
+    };
+
+    const handleTrackTrip = async () => {
+        if (!currentTripId) return;
+        if (!isAuthenticated) {
+            track('auth_modal_opened', { trigger: 'track_trip' });
+            setAuthOpen(true);
+            return;
+        }
+        try {
+            const res = await fetch(`${API_BASE}/v1/trips/${currentTripId}/track`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', ...authHeaders },
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setIsTracked(true);
+                if (data.trip_count != null) updateTripCount(data.trip_count);
+                track('trip_tracked', { trip_id: currentTripId });
+            }
+        } catch (err) {
+            console.error('Failed to track trip:', err);
+        }
     };
 
     const handleRecalculate = async () => {
@@ -609,6 +635,8 @@ export default function Engine() {
                         onReset={handleReset}
                         onReady={() => setJourneyReady(true)}
                         onSignIn={() => { track('auth_modal_opened', { trigger: 'save_trip' }); setAuthOpen(true); }}
+                        isTracked={isTracked}
+                        onTrack={handleTrackTrip}
                         securityLabel={
                             hasPriorityLane ? 'Priority Lane' :
                             hasPrecheck && hasClear ? 'CLEAR + PreCheck' :
@@ -621,7 +649,29 @@ export default function Engine() {
             </AnimatePresence>
             )}
 
-            <AuthModal open={authOpen} onOpenChange={setAuthOpen} onSuccess={(data) => { track('auth_completed', { provider: data.auth_provider || 'phone' }); login(data); }} />
+            <AuthModal open={authOpen} onOpenChange={setAuthOpen} onSuccess={(data) => {
+                track('auth_completed', { provider: data.auth_provider || 'phone' });
+                login(data);
+                // Auto-track if there's a pending trip
+                if (currentTripId && !isTracked) {
+                    setTimeout(async () => {
+                        try {
+                            const res = await fetch(`${API_BASE}/v1/trips/${currentTripId}/track`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${data.token}` },
+                            });
+                            if (res.ok) {
+                                const trackData = await res.json();
+                                setIsTracked(true);
+                                if (trackData.trip_count != null) updateTripCount(trackData.trip_count);
+                                track('trip_tracked', { trip_id: currentTripId, trigger: 'post_auth' });
+                            }
+                        } catch (err) {
+                            console.error('Failed to auto-track after auth:', err);
+                        }
+                    }, 500);
+                }
+            }} />
         </div>
     );
 }

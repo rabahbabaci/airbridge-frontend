@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { AlertCircle, ArrowLeft, CheckCircle2, Bookmark, Smartphone, Share2, Check } from 'lucide-react';
+import { AlertCircle, ArrowLeft, CheckCircle2, Bell, Smartphone, Share2, Check } from 'lucide-react';
 import { formatLocalTime, shortCity } from '@/utils/format';
 import { track } from '@/utils/analytics';
 
@@ -25,6 +25,7 @@ export default function ResultsView({
     apiError, setApiError,
     onEditSetup, onReset, onReady,
     onSignIn,
+    isTracked, onTrack,
     securityLabel,
 }) {
     const [copied, setCopied] = useState(false);
@@ -68,16 +69,16 @@ export default function ResultsView({
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
-                        {isAuthenticated ? (
+                        {isTracked ? (
                             <span className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium text-emerald-600">
                                 <CheckCircle2 className="w-4 h-4" />
-                                Trip saved
+                                Tracking
                             </span>
                         ) : (
-                            <button onClick={onSignIn}
+                            <button onClick={onTrack}
                                 className="bg-primary text-primary-foreground text-sm font-medium px-4 py-2 rounded-xl flex items-center gap-1.5 shadow-sm hover:bg-primary/90 transition-all">
-                                <Bookmark className="w-3.5 h-3.5" />
-                                Save this trip
+                                <Bell className="w-3.5 h-3.5" />
+                                Track this trip
                             </button>
                         )}
                         <button onClick={handleShare}
@@ -120,6 +121,29 @@ export default function ResultsView({
                 securityLabel={securityLabel}
             />
 
+            {/* Track trip CTA */}
+            {!isTracked && (
+                <div className="max-w-md mx-auto px-4 pt-4">
+                    <button onClick={onTrack}
+                        className="w-full flex items-center justify-center gap-2 py-3 px-4 rounded-2xl bg-primary text-primary-foreground font-medium text-sm shadow-sm hover:bg-primary/90 transition-all">
+                        <Bell className="w-4 h-4" />
+                        {isAuthenticated ? 'Track this trip' : 'Track this trip & get alerts'}
+                    </button>
+                    <p className="text-xs text-muted-foreground text-center mt-2">
+                        Get notified when your leave-by time changes
+                    </p>
+                </div>
+            )}
+
+            {isTracked && (
+                <div className="max-w-md mx-auto px-4 pt-4">
+                    <div className="flex items-center justify-center gap-2 py-2.5 text-emerald-600">
+                        <CheckCircle2 className="w-4 h-4" />
+                        <span className="text-sm font-medium">Tracking — you'll be notified of changes</span>
+                    </div>
+                </div>
+            )}
+
             {/* Action cards — rideshare / navigation deep links (post-auth feature) */}
             {isAuthenticated && (
                 <ActionCards
@@ -129,8 +153,8 @@ export default function ResultsView({
                 />
             )}
 
-            {/* App download upsell — only when authenticated */}
-            {isAuthenticated && (
+            {/* App download upsell — only when tracking */}
+            {isTracked && (
                 <div className="max-w-md mx-auto px-4 pb-8">
                     <div className="bg-card rounded-2xl border border-border p-5 text-center">
                         <Smartphone className="w-6 h-6 text-muted-foreground mx-auto mb-2" />
