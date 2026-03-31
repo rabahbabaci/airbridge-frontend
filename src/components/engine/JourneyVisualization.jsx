@@ -300,13 +300,13 @@ export default function JourneyVisualization({
                     </div>
                     <div className="flex flex-wrap gap-2">
                         {onTrack && (isTracked ? (
-                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 text-white text-xs font-medium border border-white/20">
+                            <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-400/90 text-white text-xs font-bold">
                                 <CheckCircle2 className="w-3 h-3" />
                                 Tracking
                             </span>
                         ) : (
                             <button onClick={onTrack}
-                                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-white/20 hover:bg-white/30 text-white text-xs font-medium transition-all backdrop-blur-sm border border-white/20">
+                                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-white text-primary text-xs font-bold shadow-md hover:shadow-lg hover:scale-105 transition-all">
                                 <Bell className="w-3 h-3" />
                                 {isAuthenticated ? 'Track' : 'Track & get alerts'}
                             </button>

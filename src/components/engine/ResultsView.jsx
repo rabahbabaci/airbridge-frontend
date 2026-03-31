@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { AlertCircle, ArrowLeft, CheckCircle2, Bell, Smartphone, Share2, Check } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Smartphone, Share2, Check } from 'lucide-react';
 import { formatLocalTime, shortCity } from '@/utils/format';
 import { track } from '@/utils/analytics';
 
@@ -69,18 +69,6 @@ export default function ResultsView({
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
-                        {isTracked ? (
-                            <span className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium text-emerald-600">
-                                <CheckCircle2 className="w-4 h-4" />
-                                Tracking
-                            </span>
-                        ) : (
-                            <button onClick={onTrack}
-                                className="hidden sm:inline-flex items-center gap-1.5 text-sm font-medium px-3 py-1.5 rounded-xl border border-border text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 transition-all">
-                                <Bell className="w-3.5 h-3.5" />
-                                Track this trip
-                            </button>
-                        )}
                         <button onClick={handleShare}
                             className="w-9 h-9 rounded-xl border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 transition-all"
                             title="Share">
