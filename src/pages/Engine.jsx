@@ -385,7 +385,21 @@ export default function Engine() {
                 const rec = await recRes.json();
                 setRecommendation(rec);
                 setJourneyReady(true);
-                setTimeout(() => setViewMode('results'), 500);
+                if (isTracked) {
+                    setActiveTripData({
+                        trip_id: currentTripId,
+                        flight_number: flightNumber,
+                        departure_date: departureDate,
+                        home_address: startingAddress,
+                        status: 'active',
+                        selected_departure_utc: selectedFlight?.departure_time_utc,
+                        preferences_json: JSON.stringify(buildPreferences()),
+                    });
+                    setActiveTripRec(rec);
+                    setTimeout(() => setViewMode('active_trip'), 500);
+                } else {
+                    setTimeout(() => setViewMode('results'), 500);
+                }
             } catch (err) {
                 console.error('Recompute failed:', err);
                 setApiError(err.message || 'Something went wrong.');
@@ -563,7 +577,21 @@ export default function Engine() {
             const success = await handleRecompute();
             if (success) {
                 setJourneyReady(true);
-                setViewMode('results');
+                if (isTracked) {
+                    setActiveTripData({
+                        trip_id: currentTripId,
+                        flight_number: flightNumber,
+                        departure_date: departureDate,
+                        home_address: startingAddress,
+                        status: 'active',
+                        selected_departure_utc: selectedFlight?.departure_time_utc,
+                        preferences_json: JSON.stringify(buildPreferences()),
+                    });
+                    setActiveTripRec(recommendation);
+                    setViewMode('active_trip');
+                } else {
+                    setViewMode('results');
+                }
             } else {
                 setViewMode('results');
             }
