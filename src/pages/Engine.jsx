@@ -9,6 +9,7 @@ import StepSelectFlight from '@/components/engine/StepSelectFlight';
 import StepDepartureSetup from '@/components/engine/StepDepartureSetup';
 import LoadingView from '@/components/engine/LoadingView';
 import ResultsView from '@/components/engine/ResultsView';
+import ActiveTripView from '@/components/engine/ActiveTripView';
 import AuthModal from '@/components/engine/AuthModal';
 import { useAuth } from '@/lib/AuthContext';
 import { mapFlights } from '@/utils/mapFlight';
@@ -78,6 +79,11 @@ export default function Engine() {
     const [addressError, setAddressError] = useState(null);
     const [lastSearchParams, setLastSearchParams] = useState(null);
 
+    // Active trip
+    const [activeTripData, setActiveTripData] = useState(null);
+    const [activeTripRec, setActiveTripRec] = useState(null);
+    const [checkingActiveTrip, setCheckingActiveTrip] = useState(true);
+
     const addressContainerRef = useRef(null);
     const addressInputRef = useRef(null);
     const prevAddressRef = useRef(startingAddress);
@@ -101,6 +107,8 @@ export default function Engine() {
         setDir(-1);
         setStep(1);
         setLastSearchParams(null);
+        setActiveTripData(null);
+        setActiveTripRec(null);
         // Route search fields are trip-specific too
         setRouteOrigin('');
         setRouteDestination('');
@@ -151,6 +159,44 @@ export default function Engine() {
                 }
             } catch {
                 // Silently fall back to defaults
+            }
+        })();
+    }, [token]);
+
+    // Check for active trip on mount
+    useEffect(() => {
+        if (!token) {
+            setCheckingActiveTrip(false);
+            return;
+        }
+        (async () => {
+            try {
+                const res = await fetch(`${API_BASE}/v1/trips/active`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (!res.ok) { setCheckingActiveTrip(false); return; }
+                const data = await res.json();
+                if (data?.trip) {
+                    setActiveTripData(data.trip);
+                    try {
+                        const recRes = await fetch(`${API_BASE}/v1/recommendations`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                            body: JSON.stringify({ trip_id: data.trip.trip_id }),
+                        });
+                        if (recRes.ok) {
+                            const rec = await recRes.json();
+                            setActiveTripRec(rec);
+                            setViewMode('active_trip');
+                        }
+                    } catch {
+                        // Fall through to normal flow
+                    }
+                }
+            } catch {
+                // Fall through to normal flow
+            } finally {
+                setCheckingActiveTrip(false);
             }
         })();
     }, [token]);
@@ -437,7 +483,47 @@ export default function Engine() {
             </header>
 
             {/* ── MAIN CONTENT ── */}
+            {checkingActiveTrip && (
+                <div className="min-h-[calc(100vh-57px)] flex items-center justify-center">
+                    <div className="w-6 h-6 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
+                </div>
+            )}
+
+            {!checkingActiveTrip && (
             <AnimatePresence mode="wait">
+
+                {/* ════════════════ ACTIVE TRIP VIEW ════════════════ */}
+                {viewMode === 'active_trip' && activeTripData && (
+                    <ActiveTripView
+                        trip={activeTripData}
+                        recommendation={activeTripRec}
+                        selectedFlight={selectedFlight}
+                        transport={transport}
+                        isAuthenticated={isAuthenticated}
+                        display_name={display_name}
+                        onNewTrip={() => {
+                            setActiveTripData(null);
+                            setActiveTripRec(null);
+                            resetTripState();
+                        }}
+                        onRefresh={async () => {
+                            if (!activeTripData) return;
+                            try {
+                                const res = await fetch(`${API_BASE}/v1/recommendations`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', ...authHeaders },
+                                    body: JSON.stringify({ trip_id: activeTripData.trip_id }),
+                                });
+                                if (res.ok) {
+                                    const rec = await res.json();
+                                    setActiveTripRec(rec);
+                                }
+                            } catch (err) {
+                                console.error('Failed to refresh active trip:', err);
+                            }
+                        }}
+                    />
+                )}
 
                 {/* ════════════════ SETUP VIEW ════════════════ */}
                 {viewMode === 'setup' && (
@@ -533,6 +619,7 @@ export default function Engine() {
                 )}
 
             </AnimatePresence>
+            )}
 
             <AuthModal open={authOpen} onOpenChange={setAuthOpen} onSuccess={(data) => { track('auth_completed', { provider: data.auth_provider || 'phone' }); login(data); }} />
         </div>

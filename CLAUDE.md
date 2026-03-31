@@ -67,3 +67,18 @@ No test framework is configured.
 - **Naming:** PascalCase components, camelCase utils, UPPER_SNAKE_CASE constants
 - **Styling:** Utility-first Tailwind; use `cn()` from `@/lib/utils` for conditional class merging
 - **ESLint:** Enforces React best practices + unused import removal
+
+## Backend API Contract
+
+Base URL: `https://airbridge-backend-production.up.railway.app`
+Auth: "req" = `Authorization: Bearer <token>` (from /v1/auth/verify-otp or /v1/auth/social). "opt" = token sent if available.
+
+**Auth:** POST /v1/auth/send-otp, /v1/auth/verify-otp, /v1/auth/social → `{user_id, token, trip_count, tier}`
+**User:** GET /v1/users/me (req), PUT /v1/users/preferences (req)
+**Trips:** POST /v1/trips (opt), GET /v1/trips/active (req), GET /v1/trips/{id} (req)
+**Recs:** POST /v1/recommendations/compute (opt), POST /v1/recommendations/recompute (opt)
+**Flights:** GET /v1/flights/{number}/{date}, GET /v1/flights/search
+**Devices:** POST /v1/devices/register (req) `{token, platform}`, DELETE /v1/devices/unregister (req) `{token}`
+**Events:** POST /v1/events (opt)
+
+Also verify: the frontend may be calling POST /v1/recommendations but the backend route is /v1/recommendations/compute. Check Engine.jsx and airbridge.contracts.ts to confirm which URL is actually used.

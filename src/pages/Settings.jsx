@@ -8,7 +8,7 @@ import {
     ArrowLeft, Plane, Car, Train, Bus, ShieldCheck,
     Smartphone, Baby, Clock, LogOut, Mail, User,
     Map, Navigation, ExternalLink, Bell, CreditCard, Info,
-    Settings as SettingsIcon, Check,
+    Settings as SettingsIcon, Check, AlertCircle, FileText,
 } from 'lucide-react';
 
 const TRANSPORT_OPTIONS = [
@@ -37,6 +37,7 @@ const RIDESHARE_APP_OPTIONS = [
 
 const LS_NAV_KEY = 'airbridge_preferred_nav';
 const LS_RIDE_KEY = 'airbridge_preferred_rideshare';
+const LS_NOTIF_KEY = 'airbridge_notification_prefs';
 
 function loadLocalPref(key, fallback) {
     try {
@@ -95,6 +96,22 @@ export default function Settings() {
     // Local-only prefs
     const [navApp, setNavApp] = useState(() => loadLocalPref(LS_NAV_KEY, 'apple_maps'));
     const [rideshareApp, setRideshareApp] = useState(() => loadLocalPref(LS_RIDE_KEY, 'uber'));
+
+    // Notification prefs (local-only until push is live)
+    const [notifPrefs, setNotifPrefs] = useState(() => {
+        const defaults = { leave_time: true, delays: true, time_to_go: true, gate_change: false, trip_summary: false };
+        try {
+            const raw = localStorage.getItem(LS_NOTIF_KEY);
+            return raw ? { ...defaults, ...JSON.parse(raw) } : defaults;
+        } catch { return defaults; }
+    });
+    function setNotif(key, value) {
+        setNotifPrefs(prev => {
+            const next = { ...prev, [key]: value };
+            try { localStorage.setItem(LS_NOTIF_KEY, JSON.stringify(next)); } catch {}
+            return next;
+        });
+    }
 
     // Save status
     const [saveStatus, setSaveStatus] = useState(null); // 'saving' | 'saved' | null
@@ -455,8 +472,72 @@ export default function Settings() {
 
                         {/* ── NOTIFICATIONS ── */}
                         <SectionCard title="Notifications" icon={Bell}>
-                            <p className="text-sm text-muted-foreground">
-                                Push notifications coming soon with the AirBridge app.
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <Bell className="w-4 h-4 text-muted-foreground" />
+                                    <div>
+                                        <p className="text-sm font-medium text-foreground">Leave-by time changes</p>
+                                        <p className="text-xs text-muted-foreground">Alert when traffic or delays shift your departure time</p>
+                                    </div>
+                                </div>
+                                <Switch checked={notifPrefs.leave_time} onCheckedChange={v => setNotif('leave_time', v)} />
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <AlertCircle className="w-4 h-4 text-muted-foreground" />
+                                    <div>
+                                        <p className="text-sm font-medium text-foreground">Flight delays & cancellations</p>
+                                        <p className="text-xs text-muted-foreground">Alert when your flight status changes</p>
+                                    </div>
+                                </div>
+                                <Switch checked={notifPrefs.delays} onCheckedChange={v => setNotif('delays', v)} />
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <Clock className="w-4 h-4 text-muted-foreground" />
+                                    <div>
+                                        <p className="text-sm font-medium text-foreground">Time to go!</p>
+                                        <p className="text-xs text-muted-foreground">Final nudge when it's time to leave</p>
+                                    </div>
+                                </div>
+                                <Switch checked={notifPrefs.time_to_go} onCheckedChange={v => setNotif('time_to_go', v)} />
+                            </div>
+
+                            <div className="border-t border-border" />
+
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <Navigation className="w-4 h-4 text-muted-foreground" />
+                                    <div>
+                                        <p className="text-sm font-medium text-foreground">
+                                            Gate changes
+                                            {tier !== 'pro' && <span className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary text-primary-foreground">Pro</span>}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">Alert when your gate assignment changes</p>
+                                    </div>
+                                </div>
+                                <Switch checked={notifPrefs.gate_change} onCheckedChange={v => setNotif('gate_change', v)} disabled={tier !== 'pro'} />
+                            </div>
+
+                            <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-3">
+                                    <FileText className="w-4 h-4 text-muted-foreground" />
+                                    <div>
+                                        <p className="text-sm font-medium text-foreground">
+                                            Trip summary
+                                            {tier !== 'pro' && <span className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary text-primary-foreground">Pro</span>}
+                                        </p>
+                                        <p className="text-xs text-muted-foreground">Post-flight accuracy report</p>
+                                    </div>
+                                </div>
+                                <Switch checked={notifPrefs.trip_summary} onCheckedChange={v => setNotif('trip_summary', v)} disabled={tier !== 'pro'} />
+                            </div>
+
+                            <div className="border-t border-border" />
+                            <p className="text-xs text-muted-foreground/60">
+                                Notifications require the AirBridge app. Coming soon.
                             </p>
                         </SectionCard>
 
