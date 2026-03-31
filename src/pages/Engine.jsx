@@ -127,153 +127,157 @@ export default function Engine() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Hydrate preferences from saved user profile
-    const prefsHydratedRef = useRef(false);
-    useEffect(() => {
-        if (prefsHydratedRef.current || !token) return;
-        prefsHydratedRef.current = true;
-
-        (async () => {
-            try {
-                const res = await fetch(`${API_BASE}/v1/users/me`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                if (!res.ok) return;
-                const data = await res.json();
-                const prefs = data.preferences;
-                if (!prefs) return;
-
-                if (prefs.transport_mode) setTransport(prefs.transport_mode);
-                if (prefs.has_boarding_pass != null) setHasBoardingPass(prefs.has_boarding_pass);
-                if (prefs.traveling_with_children != null) setWithChildren(prefs.traveling_with_children);
-                if (prefs.gate_time_minutes != null) setGateTime(prefs.gate_time_minutes);
-                if (prefs.bag_count != null) setBagCount(prefs.bag_count);
-
-                const sec = prefs.security_access;
-                if (sec === 'priority_lane') {
-                    setHasPriorityLane(true);
-                } else if (sec === 'clear_precheck') {
-                    setHasPrecheck(true);
-                    setHasClear(true);
-                } else if (sec === 'precheck') {
-                    setHasPrecheck(true);
-                } else if (sec === 'clear') {
-                    setHasClear(true);
-                }
-            } catch {
-                // Silently fall back to defaults
-            }
-        })();
-    }, [token]);
-
-    // Check for active trip on mount
+    // Check for active trip on mount, then hydrate preferences from trip or profile
     useEffect(() => {
         if (!token) {
             setCheckingActiveTrip(false);
             return;
         }
+
         (async () => {
             try {
+                // 1. Check for active trip first
                 const res = await fetch(`${API_BASE}/v1/trips/active`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
-                if (!res.ok) { setCheckingActiveTrip(false); return; }
-                const data = await res.json();
-                if (data?.trip) {
-                    const tripData = data.trip;
-                    setActiveTripData(tripData);
 
-                    // Hydrate preferences from trip
-                    if (tripData.preferences_json) {
-                        try {
-                            const prefs = typeof tripData.preferences_json === 'string'
-                                ? JSON.parse(tripData.preferences_json)
-                                : tripData.preferences_json;
-                            if (prefs.transport_mode) setTransport(prefs.transport_mode);
-                            if (prefs.bag_count != null) setBagCount(prefs.bag_count);
-                            if (prefs.traveling_with_children != null) setWithChildren(prefs.traveling_with_children);
-                            if (prefs.has_boarding_pass != null) setHasBoardingPass(prefs.has_boarding_pass);
-                            if (prefs.gate_time_minutes != null) setGateTime(prefs.gate_time_minutes);
-                            if (prefs.security_access) {
-                                setHasPrecheck(prefs.security_access === 'precheck' || prefs.security_access === 'clear_precheck');
-                                setHasClear(prefs.security_access === 'clear' || prefs.security_access === 'clear_precheck');
-                                setHasPriorityLane(prefs.security_access === 'priority_lane');
-                            }
-                        } catch (e) {
-                            console.error('Failed to parse trip preferences:', e);
-                        }
-                    }
-                    if (tripData.home_address) setStartingAddress(tripData.home_address);
-                    if (tripData.flight_number) setFlightNumber(tripData.flight_number);
-                    if (tripData.departure_date) setDepartureDate(tripData.departure_date);
-                    setCurrentTripId(tripData.trip_id);
+                if (res.ok) {
+                    const data = await res.json();
+                    if (data?.trip) {
+                        // ACTIVE TRIP EXISTS — hydrate from trip data
+                        const tripData = data.trip;
+                        setActiveTripData(tripData);
 
-                    try {
-                        const recRes = await fetch(`${API_BASE}/v1/recommendations`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                            body: JSON.stringify({ trip_id: tripData.trip_id }),
-                        });
-                        if (recRes.ok) {
-                            const rec = await recRes.json();
-                            setActiveTripRec(rec);
-                            setRecommendation(rec);
-                            setIsTracked(true);
-
-                            // Reconstruct minimal selectedFlight as fallback
-                            const reconstructedFlight = {
-                                flight_number: tripData.flight_number,
-                                departure_date: tripData.departure_date,
-                                departure_time_utc: tripData.selected_departure_utc,
-                                departure_time: tripData.selected_departure_utc,
-                                origin_code: '',
-                                destination_code: '',
-                                destination_name: '',
-                                origin_name: '',
-                                departure_terminal: '',
-                                departure_gate: '',
-                                status: 'scheduled',
-                            };
-                            const transportSegment = rec.segments?.[0];
-                            if (transportSegment?.label) {
-                                const match = transportSegment.label.match(/to (\w{3})/);
-                                if (match) reconstructedFlight.origin_code = match[1];
-                            }
-                            const gateSegment = rec.segments?.find(s => s.id === 'walk_to_gate');
-                            if (gateSegment?.advice) {
-                                const gateMatch = gateSegment.advice.match(/Gate\s+(\S+)/);
-                                const termMatch = gateSegment.advice.match(/Terminal\s+(\S+)/);
-                                if (gateMatch) reconstructedFlight.departure_gate = gateMatch[1];
-                                if (termMatch) reconstructedFlight.departure_terminal = termMatch[1];
-                            }
-                            setSelectedFlight(reconstructedFlight);
-
-                            // Fetch full flight data for display
+                        // Hydrate preferences from trip's preferences_json
+                        if (tripData.preferences_json) {
                             try {
-                                const flightRes = await fetch(
-                                    `${API_BASE}/v1/flights/${encodeURIComponent(tripData.flight_number)}/${tripData.departure_date}`,
-                                    { headers: { Authorization: `Bearer ${token}` } }
-                                );
-                                if (flightRes.ok) {
-                                    const flightData = await flightRes.json();
-                                    const flights = mapFlights(flightData.flights || []);
-                                    const matchedFlight = flights.find(f =>
-                                        f.departure_time_utc === tripData.selected_departure_utc
-                                    ) || flights[0];
-                                    if (matchedFlight) {
-                                        setSelectedFlight(matchedFlight);
-                                    }
+                                const prefs = typeof tripData.preferences_json === 'string'
+                                    ? JSON.parse(tripData.preferences_json)
+                                    : tripData.preferences_json;
+                                if (prefs.transport_mode) setTransport(prefs.transport_mode);
+                                if (prefs.bag_count != null) setBagCount(prefs.bag_count);
+                                if (prefs.traveling_with_children != null) setWithChildren(prefs.traveling_with_children);
+                                if (prefs.has_boarding_pass != null) setHasBoardingPass(prefs.has_boarding_pass);
+                                if (prefs.gate_time_minutes != null) setGateTime(prefs.gate_time_minutes);
+                                if (prefs.security_access) {
+                                    setHasPrecheck(prefs.security_access === 'precheck' || prefs.security_access === 'clear_precheck');
+                                    setHasClear(prefs.security_access === 'clear' || prefs.security_access === 'clear_precheck');
+                                    setHasPriorityLane(prefs.security_access === 'priority_lane');
+                                } else {
+                                    setHasPrecheck(false);
+                                    setHasClear(false);
+                                    setHasPriorityLane(false);
                                 }
-                            } catch {
-                                // Keep the reconstructed flight as fallback
+                            } catch (e) {
+                                console.error('Failed to parse trip preferences:', e);
                             }
-
-                            setViewMode('active_trip');
                         }
-                    } catch {
-                        // Fall through to normal flow
+                        if (tripData.home_address) setStartingAddress(tripData.home_address);
+                        if (tripData.flight_number) setFlightNumber(tripData.flight_number);
+                        if (tripData.departure_date) setDepartureDate(tripData.departure_date);
+                        setCurrentTripId(tripData.trip_id);
+
+                        // Fetch recommendation
+                        try {
+                            const recRes = await fetch(`${API_BASE}/v1/recommendations`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                                body: JSON.stringify({ trip_id: tripData.trip_id }),
+                            });
+                            if (recRes.ok) {
+                                const rec = await recRes.json();
+                                setActiveTripRec(rec);
+                                setRecommendation(rec);
+                                setIsTracked(true);
+
+                                // Fetch full flight data for display
+                                let flightSet = false;
+                                try {
+                                    const flightRes = await fetch(
+                                        `${API_BASE}/v1/flights/${encodeURIComponent(tripData.flight_number)}/${tripData.departure_date}`,
+                                        { headers: { Authorization: `Bearer ${token}` } }
+                                    );
+                                    if (flightRes.ok) {
+                                        const flightData = await flightRes.json();
+                                        const flights = mapFlights(flightData.flights || []);
+                                        const matchedFlight = flights.find(f =>
+                                            f.departure_time_utc === tripData.selected_departure_utc
+                                        ) || flights[0];
+                                        if (matchedFlight) {
+                                            setSelectedFlight(matchedFlight);
+                                            flightSet = true;
+                                        }
+                                    }
+                                } catch {
+                                    // Fall through to reconstructed flight
+                                }
+
+                                // Fallback: reconstruct flight if fetch failed
+                                if (!flightSet) {
+                                    const reconstructedFlight = {
+                                        flight_number: tripData.flight_number,
+                                        departure_date: tripData.departure_date,
+                                        departure_time_utc: tripData.selected_departure_utc,
+                                        departure_time: tripData.selected_departure_utc,
+                                        origin_code: '', destination_code: '', destination_name: '', origin_name: '',
+                                        departure_terminal: '', departure_gate: '', status: 'scheduled',
+                                    };
+                                    const transportSeg = rec.segments?.[0];
+                                    if (transportSeg?.label) {
+                                        const match = transportSeg.label.match(/to (\w{3})/);
+                                        if (match) reconstructedFlight.origin_code = match[1];
+                                    }
+                                    const gateSeg = rec.segments?.find(s => s.id === 'walk_to_gate');
+                                    if (gateSeg?.advice) {
+                                        const gateMatch = gateSeg.advice.match(/Gate\s+(\S+)/);
+                                        const termMatch = gateSeg.advice.match(/Terminal\s+(\S+)/);
+                                        if (gateMatch) reconstructedFlight.departure_gate = gateMatch[1];
+                                        if (termMatch) reconstructedFlight.departure_terminal = termMatch[1];
+                                    }
+                                    setSelectedFlight(reconstructedFlight);
+                                }
+
+                                setViewMode('active_trip');
+                            }
+                        } catch {
+                            // Fall through to normal flow
+                        }
+
+                        setCheckingActiveTrip(false);
+                        return; // Done — skip profile hydration
                     }
                 }
+
+                // 2. NO ACTIVE TRIP — hydrate preferences from user profile
+                try {
+                    const profileRes = await fetch(`${API_BASE}/v1/users/me`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                    });
+                    if (profileRes.ok) {
+                        const profileData = await profileRes.json();
+                        const prefs = profileData.preferences;
+                        if (prefs) {
+                            if (prefs.transport_mode) setTransport(prefs.transport_mode);
+                            if (prefs.has_boarding_pass != null) setHasBoardingPass(prefs.has_boarding_pass);
+                            if (prefs.traveling_with_children != null) setWithChildren(prefs.traveling_with_children);
+                            if (prefs.gate_time_minutes != null) setGateTime(prefs.gate_time_minutes);
+                            if (prefs.bag_count != null) setBagCount(prefs.bag_count);
+                            const sec = prefs.security_access;
+                            if (sec === 'priority_lane') {
+                                setHasPriorityLane(true);
+                            } else if (sec === 'clear_precheck') {
+                                setHasPrecheck(true); setHasClear(true);
+                            } else if (sec === 'precheck') {
+                                setHasPrecheck(true);
+                            } else if (sec === 'clear') {
+                                setHasClear(true);
+                            }
+                        }
+                    }
+                } catch {
+                    // Silently fall back to defaults
+                }
+
             } catch {
                 // Fall through to normal flow
             } finally {
@@ -374,6 +378,7 @@ export default function Engine() {
                         trip_id: currentTripId,
                         reason: 'preference_change',
                         preference_overrides: buildPreferences(),
+                        home_address: startingAddress,
                     }),
                 });
                 if (!recRes.ok) throw new Error(`Recompute failed (${recRes.status})`);
@@ -461,6 +466,7 @@ export default function Engine() {
                     trip_id: currentTripId,
                     reason: 'preference_change',
                     preference_overrides: buildPreferences(),
+                    home_address: startingAddress,
                 })
             });
             if (!recRes.ok) {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Switch } from '@/components/ui/switch';
 import { shortCity, formatLocalTime } from '@/utils/format';
@@ -78,9 +78,18 @@ export default function StepDepartureSetup({
     onRecalculate, onBack, onReset,
 }) {
     const hasAddress = startingAddress.trim().length > 0;
-    const [customSliderOpen, setCustomSliderOpen] = useState(false);
+    const isPresetGateTime = BUFFER_PRESETS.some(p => p.value === gateTime);
+    const [customSliderOpen, setCustomSliderOpen] = useState(!isPresetGateTime);
     // Determine if current gateTime matches a preset
     const activePreset = BUFFER_PRESETS.find(p => p.value === gateTime);
+
+    // Auto-expand custom slider when gateTime is set to a non-preset value (e.g., from active trip)
+    useEffect(() => {
+        const isPreset = BUFFER_PRESETS.some(p => p.value === gateTime);
+        if (!isPreset && !customSliderOpen) {
+            setCustomSliderOpen(true);
+        }
+    }, [gateTime]);
 
     // Security chip helpers
     const isNoneSecurity = !hasPrecheck && !hasClear && !hasPriorityLane;
