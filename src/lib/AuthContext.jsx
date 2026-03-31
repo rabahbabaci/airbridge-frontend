@@ -2,7 +2,15 @@ import React, { createContext, useState, useContext, useCallback } from 'react';
 import { identify, resetIdentity } from '@/utils/analytics';
 
 const STORAGE_KEY = 'airbridge_auth';
+const CLEANUP_FLAG = 'airbridge_cleanup_v1';
 const AuthContext = createContext();
+
+// One-time removal of dead Base44 localStorage keys
+if (!localStorage.getItem(CLEANUP_FLAG)) {
+  ['base44_analytics_session_id', 'base44_app_id', 'base44_from_url', 'base44_functions_version']
+    .forEach(k => localStorage.removeItem(k));
+  localStorage.setItem(CLEANUP_FLAG, '1');
+}
 
 function loadStoredAuth() {
   try {

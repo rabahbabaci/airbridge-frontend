@@ -116,6 +116,45 @@ export default function Engine() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // Hydrate preferences from saved user profile
+    const prefsHydratedRef = useRef(false);
+    useEffect(() => {
+        if (prefsHydratedRef.current || !token) return;
+        prefsHydratedRef.current = true;
+
+        (async () => {
+            try {
+                const res = await fetch(`${API_BASE}/v1/users/me`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (!res.ok) return;
+                const data = await res.json();
+                const prefs = data.preferences;
+                if (!prefs) return;
+
+                if (prefs.transport_mode) setTransport(prefs.transport_mode);
+                if (prefs.has_boarding_pass != null) setHasBoardingPass(prefs.has_boarding_pass);
+                if (prefs.traveling_with_children != null) setWithChildren(prefs.traveling_with_children);
+                if (prefs.gate_time_minutes != null) setGateTime(prefs.gate_time_minutes);
+                if (prefs.bag_count != null) setBagCount(prefs.bag_count);
+
+                const sec = prefs.security_access;
+                if (sec === 'priority_lane') {
+                    setHasPriorityLane(true);
+                } else if (sec === 'clear_precheck') {
+                    setHasPrecheck(true);
+                    setHasClear(true);
+                } else if (sec === 'precheck') {
+                    setHasPrecheck(true);
+                } else if (sec === 'clear') {
+                    setHasClear(true);
+                }
+            } catch {
+                // Silently fall back to defaults
+            }
+        })();
+    }, [token]);
+
     // Reset trip when address changes after results exist
     useEffect(() => {
         if (prevAddressRef.current !== startingAddress && currentTripId) {
