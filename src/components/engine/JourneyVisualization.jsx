@@ -371,14 +371,6 @@ export default function JourneyVisualization({
                     </div>
                 )}
 
-                {/* Departure address */}
-                {homeAddress && (
-                    <div className="flex items-center gap-1 mt-1.5 text-white/60">
-                        <MapPin className="w-3 h-3 shrink-0" />
-                        <p className="text-xs truncate">{homeAddress}</p>
-                    </div>
-                )}
-
                 {/* Pro tier badge */}
                 {recommendation.tier === 'pro' && recommendation.remaining_pro_trips != null && (
                     <div className="mt-3 pt-3 border-t border-primary-foreground/10">
@@ -421,6 +413,13 @@ export default function JourneyVisualization({
                 className="bg-card rounded-3xl border border-border px-6 py-4 md:px-8 md:py-5 mb-6"
             >
                 <h3 className="text-sm font-bold text-muted-foreground uppercase tracking-wider mb-6">Your Journey Timeline</h3>
+
+                {homeAddress && (
+                    <div className="flex items-center gap-1.5 text-muted-foreground mb-3 -mt-1">
+                        <MapPin className="w-3.5 h-3.5 shrink-0" />
+                        <p className="text-xs truncate">{homeAddress}</p>
+                    </div>
+                )}
 
                 {/* Desktop: Horizontal */}
                 <div className="hidden md:block">

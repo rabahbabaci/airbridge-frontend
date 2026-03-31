@@ -529,6 +529,18 @@ export default function Engine() {
                 setIsTracked(true);
                 if (data.trip_count != null) updateTripCount(data.trip_count);
                 track('trip_tracked', { trip_id: currentTripId });
+                // Switch to active trip view
+                setActiveTripData({
+                    trip_id: currentTripId,
+                    flight_number: flightNumber,
+                    departure_date: departureDate,
+                    home_address: startingAddress,
+                    status: 'active',
+                    selected_departure_utc: selectedFlight?.departure_time_utc,
+                    preferences_json: JSON.stringify(buildPreferences()),
+                });
+                setActiveTripRec(recommendation);
+                setViewMode('active_trip');
             }
         } catch (err) {
             console.error('Failed to track trip:', err);
@@ -784,6 +796,18 @@ export default function Engine() {
                                 setIsTracked(true);
                                 if (trackData.trip_count != null) updateTripCount(trackData.trip_count);
                                 track('trip_tracked', { trip_id: currentTripId, trigger: 'post_auth' });
+                                // Switch to active trip view
+                                setActiveTripData({
+                                    trip_id: currentTripId,
+                                    flight_number: flightNumber,
+                                    departure_date: departureDate,
+                                    home_address: startingAddress,
+                                    status: 'active',
+                                    selected_departure_utc: selectedFlight?.departure_time_utc,
+                                    preferences_json: JSON.stringify(buildPreferences()),
+                                });
+                                setActiveTripRec(recommendation);
+                                setViewMode('active_trip');
                             }
                         } catch (err) {
                             console.error('Failed to auto-track after auth:', err);
