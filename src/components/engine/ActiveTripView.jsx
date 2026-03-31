@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { Check, Circle, RefreshCw, Plus } from 'lucide-react';
+import { Check, CheckCircle2, Circle, RefreshCw, Plus, Settings as SettingsIcon } from 'lucide-react';
 
 import JourneyVisualization from './JourneyVisualization';
 import ActionCards from './ActionCards';
@@ -58,10 +58,21 @@ function urgencyClasses(level) {
 export default function ActiveTripView({
     trip, recommendation, selectedFlight, transport,
     isAuthenticated, display_name,
-    onNewTrip, onRefresh,
+    onNewTrip, onRefresh, onEdit,
 }) {
     const [countdown, setCountdown] = useState('');
     const [urgency, setUrgency] = useState('calm');
+    const [refreshing, setRefreshing] = useState(false);
+    const [refreshed, setRefreshed] = useState(false);
+
+    const handleRefresh = async () => {
+        setRefreshing(true);
+        setRefreshed(false);
+        await onRefresh();
+        setRefreshing(false);
+        setRefreshed(true);
+        setTimeout(() => setRefreshed(false), 2000);
+    };
 
     useEffect(() => {
         if (!recommendation?.leave_home_at) return;
@@ -109,7 +120,7 @@ export default function ActiveTripView({
                     <p className="text-sm text-muted-foreground mt-3">
                         {trip?.flight_number || ''}
                         {trip?.departure_date ? ` \u00b7 ${trip.departure_date}` : ''}
-                        {trip?.status ? ` \u00b7 ${trip.status}` : ''}
+                        {trip?.status ? ` \u00b7 ${trip.status === 'active' ? 'Tracking' : trip.status === 'en_route' ? 'En Route' : trip.status}` : ''}
                     </p>
                 </div>
             </div>
@@ -197,12 +208,29 @@ export default function ActiveTripView({
 
             {/* ── 6. BOTTOM ACTIONS ── */}
             <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 flex items-center justify-center gap-4">
-                <button
-                    onClick={onRefresh}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-border bg-card text-sm font-medium text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 transition-all"
-                >
-                    <RefreshCw className="w-3.5 h-3.5" />
-                    Refresh
+                <button onClick={onEdit}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-border bg-card text-sm font-medium text-foreground hover:bg-secondary transition-all">
+                    <SettingsIcon className="w-3.5 h-3.5" />
+                    Edit preferences
+                </button>
+                <button onClick={handleRefresh} disabled={refreshing}
+                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-border bg-card text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all disabled:opacity-50">
+                    {refreshing ? (
+                        <>
+                            <div className="w-3.5 h-3.5 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
+                            Updating...
+                        </>
+                    ) : refreshed ? (
+                        <>
+                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                            <span className="text-emerald-600">Updated</span>
+                        </>
+                    ) : (
+                        <>
+                            <RefreshCw className="w-3.5 h-3.5" />
+                            Refresh
+                        </>
+                    )}
                 </button>
                 <button
                     onClick={onNewTrip}

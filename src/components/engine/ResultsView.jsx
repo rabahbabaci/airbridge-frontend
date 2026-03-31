@@ -121,19 +121,17 @@ export default function ResultsView({
                 />
             )}
 
-            {/* App download upsell — only when tracking */}
+            {/* App download upsell — compact banner */}
             {isTracked && (
-                <div className="max-w-md mx-auto px-4 pb-8">
-                    <div className="bg-card rounded-2xl border border-border p-5 text-center">
-                        <Smartphone className="w-6 h-6 text-muted-foreground mx-auto mb-2" />
-                        <p className="text-sm font-medium text-foreground mb-1">Get live departure alerts on your phone</p>
-                        <p className="text-xs text-muted-foreground">
-                            Download AirBridge for real-time notifications, lock screen countdown, and more.
-                        </p>
-                        <div className="flex items-center justify-center gap-3 mt-3">
-                            <span className="text-xs text-muted-foreground/60 border border-border/50 rounded-lg px-3 py-1.5">App Store — coming soon</span>
-                            <span className="text-xs text-muted-foreground/60 border border-border/50 rounded-lg px-3 py-1.5">Play Store — coming soon</span>
+                <div className="max-w-5xl mx-auto px-4 sm:px-6 pb-6">
+                    <div className="flex items-center justify-between gap-3 py-3 px-4 rounded-xl bg-card border border-border">
+                        <div className="flex items-center gap-2">
+                            <Smartphone className="w-4 h-4 text-muted-foreground shrink-0" />
+                            <p className="text-xs text-muted-foreground">
+                                Get lock screen countdown & spoken alerts with the AirBridge app
+                            </p>
                         </div>
+                        <span className="text-xs text-muted-foreground/60 whitespace-nowrap">Coming soon</span>
                     </div>
                 </div>
             )}

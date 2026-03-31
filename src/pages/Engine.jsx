@@ -564,6 +564,17 @@ export default function Engine() {
                             setActiveTripRec(null);
                             resetTripState();
                         }}
+                        onEdit={() => {
+                            setCurrentTripId(activeTripData.trip_id);
+                            if (activeTripData.flight_number) setFlightNumber(activeTripData.flight_number);
+                            if (activeTripData.departure_date) setDepartureDate(activeTripData.departure_date);
+                            setRecommendation(activeTripRec);
+                            setSelectedFlight(selectedFlight);
+                            setActiveTripData(null);
+                            setActiveTripRec(null);
+                            setViewMode('setup');
+                            setStep(3);
+                        }}
                         onRefresh={async () => {
                             if (!activeTripData) return;
                             try {
