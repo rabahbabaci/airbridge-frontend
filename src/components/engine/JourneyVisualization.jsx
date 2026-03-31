@@ -22,6 +22,12 @@ function addMinutesAndFormat(utcStr, minutes) {
 
 function parseDepartureTime(localTimeStr) {
     if (!localTimeStr) return null;
+    // If the string contains a timezone offset (e.g., +00:00, Z), parse as UTC via Date constructor
+    if (/[Zz]|[+-]\d{2}:\d{2}$/.test(localTimeStr)) {
+        const d = new Date(localTimeStr);
+        return isNaN(d.getTime()) ? null : d;
+    }
+    // Otherwise treat as local time (no timezone info)
     const match = localTimeStr.match(/(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})/);
     if (!match) return null;
     return new Date(parseInt(match[1]), parseInt(match[2]) - 1, parseInt(match[3]), parseInt(match[4]), parseInt(match[5]));

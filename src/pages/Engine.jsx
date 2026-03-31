@@ -90,6 +90,7 @@ export default function Engine() {
     const addressContainerRef = useRef(null);
     const addressInputRef = useRef(null);
     const prevAddressRef = useRef(startingAddress);
+    const hydratingActiveTripRef = useRef(false);
 
     // ── Smart reset: clears trip state, keeps user preferences ──────────────
     const resetTripState = () => {
@@ -183,6 +184,7 @@ export default function Engine() {
                 if (data?.trip) {
                     const tripData = data.trip;
                     setActiveTripData(tripData);
+                    hydratingActiveTripRef.current = true;
 
                     // Hydrate preferences from trip
                     if (tripData.preferences_json) {
@@ -208,6 +210,7 @@ export default function Engine() {
                     if (tripData.flight_number) setFlightNumber(tripData.flight_number);
                     if (tripData.departure_date) setDepartureDate(tripData.departure_date);
                     setCurrentTripId(tripData.trip_id);
+                    setTimeout(() => { hydratingActiveTripRef.current = false; }, 100);
 
                     try {
                         const recRes = await fetch(`${API_BASE}/v1/recommendations`, {
@@ -240,6 +243,14 @@ export default function Engine() {
                                 const match = transportSegment.label.match(/to (\w{3})/);
                                 if (match) reconstructedFlight.origin_code = match[1];
                             }
+                            // Try to extract terminal/gate from recommendation segments
+                            const gateSegment = rec.segments?.find(s => s.id === 'walk_to_gate');
+                            if (gateSegment?.advice) {
+                                const gateMatch = gateSegment.advice.match(/Gate\s+(\S+)/);
+                                const termMatch = gateSegment.advice.match(/Terminal\s+(\S+)/);
+                                if (gateMatch) reconstructedFlight.departure_gate = gateMatch[1];
+                                if (termMatch) reconstructedFlight.departure_terminal = termMatch[1];
+                            }
                             setSelectedFlight(reconstructedFlight);
 
                             setViewMode('active_trip');
@@ -258,6 +269,10 @@ export default function Engine() {
 
     // Reset trip when address changes after results exist
     useEffect(() => {
+        if (hydratingActiveTripRef.current) {
+            prevAddressRef.current = startingAddress;
+            return;
+        }
         if (prevAddressRef.current !== startingAddress && currentTripId) {
             setCurrentTripId(null);
             setRecommendation(null);
