@@ -181,17 +181,67 @@ export default function Engine() {
                 if (!res.ok) { setCheckingActiveTrip(false); return; }
                 const data = await res.json();
                 if (data?.trip) {
-                    setActiveTripData(data.trip);
+                    const tripData = data.trip;
+                    setActiveTripData(tripData);
+
+                    // Hydrate preferences from trip
+                    if (tripData.preferences_json) {
+                        try {
+                            const prefs = typeof tripData.preferences_json === 'string'
+                                ? JSON.parse(tripData.preferences_json)
+                                : tripData.preferences_json;
+                            if (prefs.transport_mode) setTransport(prefs.transport_mode);
+                            if (prefs.bag_count != null) setBagCount(prefs.bag_count);
+                            if (prefs.traveling_with_children != null) setWithChildren(prefs.traveling_with_children);
+                            if (prefs.has_boarding_pass != null) setHasBoardingPass(prefs.has_boarding_pass);
+                            if (prefs.gate_time_minutes != null) setGateTime(prefs.gate_time_minutes);
+                            if (prefs.security_access) {
+                                setHasPrecheck(prefs.security_access === 'precheck' || prefs.security_access === 'clear_precheck');
+                                setHasClear(prefs.security_access === 'clear' || prefs.security_access === 'clear_precheck');
+                                setHasPriorityLane(prefs.security_access === 'priority_lane');
+                            }
+                        } catch (e) {
+                            console.error('Failed to parse trip preferences:', e);
+                        }
+                    }
+                    if (tripData.home_address) setStartingAddress(tripData.home_address);
+                    if (tripData.flight_number) setFlightNumber(tripData.flight_number);
+                    if (tripData.departure_date) setDepartureDate(tripData.departure_date);
+                    setCurrentTripId(tripData.trip_id);
+
                     try {
                         const recRes = await fetch(`${API_BASE}/v1/recommendations`, {
                             method: 'POST',
                             headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                            body: JSON.stringify({ trip_id: data.trip.trip_id }),
+                            body: JSON.stringify({ trip_id: tripData.trip_id }),
                         });
                         if (recRes.ok) {
                             const rec = await recRes.json();
                             setActiveTripRec(rec);
+                            setRecommendation(rec);
                             setIsTracked(true);
+
+                            // Reconstruct selectedFlight from trip + recommendation data
+                            const reconstructedFlight = {
+                                flight_number: tripData.flight_number,
+                                departure_date: tripData.departure_date,
+                                departure_time_utc: tripData.selected_departure_utc,
+                                departure_time: tripData.selected_departure_utc,
+                                origin_code: '',
+                                destination_code: '',
+                                destination_name: '',
+                                origin_name: '',
+                                departure_terminal: '',
+                                departure_gate: '',
+                                status: 'scheduled',
+                            };
+                            const transportSegment = rec.segments?.[0];
+                            if (transportSegment?.label) {
+                                const match = transportSegment.label.match(/to (\w{3})/);
+                                if (match) reconstructedFlight.origin_code = match[1];
+                            }
+                            setSelectedFlight(reconstructedFlight);
+
                             setViewMode('active_trip');
                         }
                     } catch {
@@ -323,6 +373,12 @@ export default function Engine() {
             } finally {
                 setIsSubmitting(false);
             }
+            return;
+        }
+
+        if (!selectedFlight) {
+            setApiError('No flight selected. Please start over.');
+            setViewMode('setup');
             return;
         }
 
@@ -565,15 +621,13 @@ export default function Engine() {
                             resetTripState();
                         }}
                         onEdit={() => {
-                            setCurrentTripId(activeTripData.trip_id);
-                            if (activeTripData.flight_number) setFlightNumber(activeTripData.flight_number);
-                            if (activeTripData.departure_date) setDepartureDate(activeTripData.departure_date);
-                            setRecommendation(activeTripRec);
-                            setSelectedFlight(selectedFlight);
+                            // State is already hydrated from active trip load
                             setActiveTripData(null);
                             setActiveTripRec(null);
                             setViewMode('setup');
                             setStep(3);
+                            setDir(1);
+                            setLocked(false);
                         }}
                         onRefresh={async () => {
                             if (!activeTripData) return;
