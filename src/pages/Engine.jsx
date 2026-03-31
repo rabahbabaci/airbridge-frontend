@@ -468,7 +468,7 @@ export default function Engine() {
     };
 
     const handleRecompute = async () => {
-        if (!currentTripId || isRecomputing) return false;
+        if (!currentTripId || isRecomputing) return null;
         setIsRecomputing(true);
         setApiError(null);
 
@@ -489,11 +489,11 @@ export default function Engine() {
             }
             const rec = await recRes.json();
             setRecommendation(rec);
-            return true;
+            return rec;
         } catch (err) {
             console.error('Recompute failed:', err);
             setApiError(err.message || 'Could not update your recommendation. Please try again.');
-            return false;
+            return null;
         } finally {
             setIsRecomputing(false);
         }
@@ -574,8 +574,8 @@ export default function Engine() {
             setJourneyReady(false);
             setViewMode('loading');
             setApiError(null);
-            const success = await handleRecompute();
-            if (success) {
+            const result = await handleRecompute();
+            if (result) {
                 setJourneyReady(true);
                 if (isTracked) {
                     setActiveTripData({
@@ -587,7 +587,7 @@ export default function Engine() {
                         selected_departure_utc: selectedFlight?.departure_time_utc,
                         preferences_json: JSON.stringify(buildPreferences()),
                     });
-                    setActiveTripRec(recommendation);
+                    setActiveTripRec(result);
                     setViewMode('active_trip');
                 } else {
                     setViewMode('results');
