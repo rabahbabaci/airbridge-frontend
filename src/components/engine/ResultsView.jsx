@@ -26,7 +26,7 @@ export default function ResultsView({
     onEditSetup, onReset, onReady,
     onSignIn,
     isTracked, onTrack,
-    securityLabel,
+    securityLabel, homeAddress,
 }) {
     const [copied, setCopied] = useState(false);
 
@@ -110,6 +110,7 @@ export default function ResultsView({
                 isTracked={isTracked}
                 onTrack={onTrack}
                 isAuthenticated={isAuthenticated}
+                homeAddress={homeAddress}
             />
 
             {/* Action cards — rideshare / navigation deep links (post-auth feature) */}

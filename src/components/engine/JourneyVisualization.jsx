@@ -130,7 +130,7 @@ function smartBoardingLabel(boardingTime) {
 // ── Main Component ──────────────────────────────────────────────────────────
 export default function JourneyVisualization({
     locked, recommendation, selectedFlight, transport, onReady,
-    securityLabel,
+    securityLabel, homeAddress,
     isTracked, onTrack, isAuthenticated,
 }) {
     const [leaveInfo, setLeaveInfo] = useState({ label: 'Leave by', urgency: 'calm' });
@@ -213,6 +213,15 @@ export default function JourneyVisualization({
             const waitMatch = seg.advice?.match(/wait:(\d+)/);
             const waitMin = waitMatch ? parseInt(waitMatch[1], 10) : seg.duration_minutes;
             subtitle = `${formatDuration(waitMin)} wait`;
+            // Parse security type from advice (last pipe-delimited part)
+            const adviceParts = seg.advice?.split('|') || [];
+            const secType = adviceParts[adviceParts.length - 1]?.trim();
+            if (secType && secType !== 'none') {
+                seg._securityBadge = secType === 'precheck' ? 'PreCheck' :
+                    secType === 'clear' ? 'CLEAR' :
+                    secType === 'clear_precheck' ? 'CLEAR + PreCheck' :
+                    secType === 'priority_lane' ? 'Priority' : '';
+            }
         } else if (seg.id === 'walk_to_gate') {
             if (comfortBuffer) subtitle = `+${formatDuration(comfortBuffer.duration_minutes)} buffer`;
         } else if (seg.id === 'at_airport') {
@@ -244,7 +253,7 @@ export default function JourneyVisualization({
             subtitle = seg.advice;
         }
 
-        return { ...meta, time: displayTime, durationMinutes: seg.duration_minutes, duration: formatDuration(seg.duration_minutes), connectorExtra, subtitle, seg, isLast };
+        return { ...meta, time: displayTime, durationMinutes: seg.duration_minutes, duration: formatDuration(seg.duration_minutes), connectorExtra, subtitle, securityBadge: seg._securityBadge || '', seg, isLast };
     });
 
     function connectorLabel(idx) {
@@ -362,6 +371,14 @@ export default function JourneyVisualization({
                     </div>
                 )}
 
+                {/* Departure address */}
+                {homeAddress && (
+                    <div className="flex items-center gap-1 mt-1.5 text-white/60">
+                        <MapPin className="w-3 h-3 shrink-0" />
+                        <p className="text-xs truncate">{homeAddress}</p>
+                    </div>
+                )}
+
                 {/* Pro tier badge */}
                 {recommendation.tier === 'pro' && recommendation.remaining_pro_trips != null && (
                     <div className="mt-3 pt-3 border-t border-primary-foreground/10">
@@ -440,6 +457,9 @@ export default function JourneyVisualization({
                                         <p className="font-bold text-foreground text-sm">{step.time}</p>
                                         <p className="text-xs text-muted-foreground font-medium mt-0.5">{step.shortLabel}</p>
                                         {step.subtitle && <p className="text-[10px] text-primary font-medium mt-1 max-w-[140px] leading-tight">{step.subtitle}</p>}
+                                        {step.securityBadge && (
+                                            <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded mt-0.5 inline-block">{step.securityBadge}</span>
+                                        )}
                                     </motion.div>
                                 </div>
                             ))}
@@ -474,6 +494,9 @@ export default function JourneyVisualization({
                                         <span className="text-xs font-mono text-primary font-bold bg-accent px-2 py-0.5 rounded-md">{step.time}</span>
                                     </div>
                                     {step.subtitle && <p className="text-xs text-primary font-medium mt-0.5">{step.subtitle}</p>}
+                                    {step.securityBadge && (
+                                        <span className="text-[10px] font-medium text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded mt-0.5 inline-block">{step.securityBadge}</span>
+                                    )}
                                 </div>
                             </div>
                         </motion.div>

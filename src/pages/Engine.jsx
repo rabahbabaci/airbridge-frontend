@@ -761,6 +761,7 @@ export default function Engine() {
                             hasPrecheck ? 'TSA PreCheck' :
                             hasClear ? 'CLEAR' : 'Standard TSA'
                         }
+                        homeAddress={startingAddress}
                     />
                 )}
 

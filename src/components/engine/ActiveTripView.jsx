@@ -171,6 +171,7 @@ export default function ActiveTripView({
                     recommendation={recommendation}
                     selectedFlight={selectedFlight}
                     transport={transport}
+                    homeAddress={trip?.home_address}
                 />
             ) : (
                 <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
