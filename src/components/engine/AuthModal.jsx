@@ -7,6 +7,7 @@ import { InputOTP, InputOTPGroup, InputOTPSlot } from '@/components/ui/input-otp
 
 import { API_BASE, GOOGLE_CLIENT_ID } from '@/config';
 import { isNative } from '@/utils/platform';
+import { AppleSignIn, GoogleSignIn } from '@/utils/nativeAuth';
 
 export default function AuthModal({ open, onOpenChange, onSuccess }) {
     const [view, setView] = useState('main'); // 'main' | 'phone' | 'code' | 'success'
@@ -114,8 +115,6 @@ export default function AuthModal({ open, onOpenChange, onSuccess }) {
         setError(null);
         setLoading(true);
         try {
-            const { registerPlugin } = await import('@capacitor/core');
-            const AppleSignIn = registerPlugin('AppleSignIn');
             const result = await AppleSignIn.signIn();
             const { identityToken, givenName, familyName } = result;
             const res = await fetch(`${API_BASE}/v1/auth/social`, {
@@ -149,8 +148,6 @@ export default function AuthModal({ open, onOpenChange, onSuccess }) {
         setError(null);
         setLoading(true);
         try {
-            const { registerPlugin } = await import('@capacitor/core');
-            const GoogleSignIn = registerPlugin('GoogleSignIn');
             const result = await GoogleSignIn.signIn();
             const idToken = result.idToken;
             const res = await fetch(`${API_BASE}/v1/auth/social`, {

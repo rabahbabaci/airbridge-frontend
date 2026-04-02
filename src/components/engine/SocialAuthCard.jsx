@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils';
 
 import { API_BASE, GOOGLE_CLIENT_ID } from '@/config';
 import { isNative } from '@/utils/platform';
+import { AppleSignIn, GoogleSignIn } from '@/utils/nativeAuth';
 
 export default function SocialAuthCard({ onSuccess, onPhoneClick, className }) {
     const [loading, setLoading] = useState(false);
@@ -82,8 +83,6 @@ export default function SocialAuthCard({ onSuccess, onPhoneClick, className }) {
         setError(null);
         setLoading(true);
         try {
-            const { registerPlugin } = await import('@capacitor/core');
-            const AppleSignIn = registerPlugin('AppleSignIn');
             const result = await AppleSignIn.signIn();
             const { identityToken, givenName, familyName } = result;
             const res = await fetch(`${API_BASE}/v1/auth/social`, {
@@ -115,8 +114,6 @@ export default function SocialAuthCard({ onSuccess, onPhoneClick, className }) {
         setError(null);
         setLoading(true);
         try {
-            const { registerPlugin } = await import('@capacitor/core');
-            const GoogleSignIn = registerPlugin('GoogleSignIn');
             const result = await GoogleSignIn.signIn();
             const idToken = result.idToken;
             const res = await fetch(`${API_BASE}/v1/auth/social`, {
