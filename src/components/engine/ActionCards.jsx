@@ -2,8 +2,15 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Car, Navigation, Map, ExternalLink } from 'lucide-react';
 import { track } from '@/utils/analytics';
+import { isNative } from '@/utils/platform';
+
+const native = isNative();
 
 function buildUberUrl({ homeLat, homeLng, termLat, termLng, airportCode, terminal }) {
+    if (native) {
+        const dropoffNickname = terminal ? `${airportCode} Terminal ${terminal}` : airportCode;
+        return `uber://?action=setPickup&pickup=my_location&dropoff[latitude]=${termLat}&dropoff[longitude]=${termLng}&dropoff[nickname]=${encodeURIComponent(dropoffNickname)}`;
+    }
     const dropoffNickname = terminal
         ? `${airportCode} Terminal ${terminal}`
         : airportCode;
@@ -11,22 +18,36 @@ function buildUberUrl({ homeLat, homeLng, termLat, termLng, airportCode, termina
 }
 
 function buildLyftUrl({ homeLat, homeLng, termLat, termLng }) {
+    if (native) {
+        return `lyft://ridetype?id=lyft&destination[latitude]=${termLat}&destination[longitude]=${termLng}`;
+    }
     return `https://lyft.com/ride?id=lyft&pickup[latitude]=${homeLat}&pickup[longitude]=${homeLng}&destination[latitude]=${termLat}&destination[longitude]=${termLng}`;
 }
 
 function buildAppleMapsUrl({ homeLat, homeLng, termLat, termLng, transit }) {
     const dirflg = transit ? 'r' : 'd';
+    if (native) {
+        const saddr = homeLat != null && homeLng != null ? `saddr=${homeLat},${homeLng}&` : '';
+        return `maps://?${saddr}daddr=${termLat},${termLng}&dirflg=${dirflg}`;
+    }
     const saddr = homeLat != null && homeLng != null ? `saddr=${homeLat},${homeLng}&` : '';
     return `http://maps.apple.com/?${saddr}daddr=${termLat},${termLng}&dirflg=${dirflg}`;
 }
 
 function buildGoogleMapsUrl({ homeLat, homeLng, termLat, termLng, transit }) {
+    if (native) {
+        const directionsmode = transit ? 'transit' : 'driving';
+        return `comgooglemaps://?daddr=${termLat},${termLng}&directionsmode=${directionsmode}`;
+    }
     const travelmode = transit ? 'transit' : 'driving';
     const origin = homeLat != null && homeLng != null ? `&origin=${homeLat},${homeLng}` : '';
     return `https://www.google.com/maps/dir/?api=1${origin}&destination=${termLat},${termLng}&travelmode=${travelmode}`;
 }
 
 function buildWazeUrl({ termLat, termLng }) {
+    if (native) {
+        return `waze://?ll=${termLat},${termLng}&navigate=yes`;
+    }
     return `https://waze.com/ul?ll=${termLat},${termLng}&navigate=yes`;
 }
 
