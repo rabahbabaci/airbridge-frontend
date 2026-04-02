@@ -82,13 +82,10 @@ export default function SocialAuthCard({ onSuccess, onPhoneClick, className }) {
         setError(null);
         setLoading(true);
         try {
-            const { SignInWithApple } = await import('@capacitor-community/apple-sign-in');
-            const result = await SignInWithApple.authorize({
-                clientId: 'live.airbridge.app',
-                redirectURI: '',
-                scopes: 'email name',
-            });
-            const { identityToken, givenName, familyName } = result.response;
+            const { registerPlugin } = await import('@capacitor/core');
+            const AppleSignIn = registerPlugin('AppleSignIn');
+            const result = await AppleSignIn.signIn();
+            const { identityToken, givenName, familyName } = result;
             const res = await fetch(`${API_BASE}/v1/auth/social`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -106,7 +103,7 @@ export default function SocialAuthCard({ onSuccess, onPhoneClick, className }) {
             const data = await res.json();
             callbackRef.current?.({ ...data, auth_provider: 'apple' });
         } catch (err) {
-            if (err?.message?.includes('cancel') || err?.code === 'ERR_CANCELED' || err?.code === 1001) return;
+            if (err?.message?.includes('USER_CANCELED') || err?.code === '1001') return;
             setError(err.message);
         } finally {
             setLoading(false);
@@ -118,13 +115,10 @@ export default function SocialAuthCard({ onSuccess, onPhoneClick, className }) {
         setError(null);
         setLoading(true);
         try {
-            const { GoogleAuth } = await import('@southdevs/capacitor-google-auth');
-            await GoogleAuth.initialize({
-                clientId: GOOGLE_CLIENT_ID,
-                scopes: ['profile', 'email'],
-            });
-            const user = await GoogleAuth.signIn({ scopes: ['profile', 'email'] });
-            const idToken = user.authentication.idToken;
+            const { registerPlugin } = await import('@capacitor/core');
+            const GoogleSignIn = registerPlugin('GoogleSignIn');
+            const result = await GoogleSignIn.signIn();
+            const idToken = result.idToken;
             const res = await fetch(`${API_BASE}/v1/auth/social`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -137,7 +131,7 @@ export default function SocialAuthCard({ onSuccess, onPhoneClick, className }) {
             const data = await res.json();
             callbackRef.current?.({ ...data, auth_provider: 'google' });
         } catch (err) {
-            if (err?.message?.includes('cancel') || err?.code === 'ERR_CANCELED' || err?.code === 12501) return;
+            if (err?.message?.includes('NOT_CONFIGURED') || err?.message?.includes('cancel') || err?.code === 'ERR_CANCELED') return;
             setError(err.message);
         } finally {
             setLoading(false);

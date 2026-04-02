@@ -15,13 +15,7 @@ const config: CapacitorConfig = {
     contentInset: 'automatic',
     scheme: 'AirBridge',
   },
-  plugins: {
-    GoogleAuth: {
-      scopes: ['profile', 'email'],
-      serverClientId: '416070164916-m6s2e5legchoeim69h4ejn4rrcbafvb4.apps.googleusercontent.com',
-      forceCodeForRefreshToken: false,
-    },
-  },
+  plugins: {},
 };
 
 export default config;
