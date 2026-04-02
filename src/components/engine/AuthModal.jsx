@@ -123,8 +123,8 @@ export default function AuthModal({ open, onOpenChange, onSuccess }) {
                 body: JSON.stringify({
                     provider: 'apple',
                     id_token: identityToken,
-                    given_name: givenName,
-                    family_name: familyName,
+                    given_name: givenName || '',
+                    family_name: familyName || '',
                 }),
             });
             if (!res.ok) {
