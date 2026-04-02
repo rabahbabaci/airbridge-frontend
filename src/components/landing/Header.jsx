@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Button } from "@/components/ui/button";
-import { Menu, X, Plane } from 'lucide-react';
+import { Menu, X, Plane, Settings } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
@@ -73,6 +73,9 @@ export default function Header() {
                                     {(display_name || '').charAt(0).toUpperCase() || 'U'}
                                 </div>
                                 <span className="text-sm font-medium text-foreground">{display_name ? display_name.split(' ')[0] : 'Account'}</span>
+                                <button onClick={() => navigate(createPageUrl('Settings'))} className="text-muted-foreground hover:text-foreground transition-colors ml-1" title="Settings">
+                                    <Settings className="w-3.5 h-3.5" />
+                                </button>
                                 <button onClick={logout} className="text-xs text-muted-foreground hover:text-foreground transition-colors ml-1">
                                     Sign out
                                 </button>
