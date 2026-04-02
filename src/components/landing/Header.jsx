@@ -129,10 +129,13 @@ export default function Header() {
                             ))}
                             <div className="pt-4 space-y-3">
                                 {isAuthenticated ? (
-                                    <div className="flex items-center justify-between">
-                                        <span className="text-sm font-medium text-foreground">{display_name ? display_name.split(' ')[0] : 'Account'}</span>
-                                        <Button variant="outline" size="sm" onClick={() => { setMobileMenuOpen(false); logout(); }}>Sign out</Button>
-                                    </div>
+                                    <>
+                                        <div className="flex items-center justify-between">
+                                            <span className="text-sm font-medium text-foreground">{display_name ? display_name.split(' ')[0] : 'Account'}</span>
+                                            <Button variant="outline" size="sm" onClick={() => { setMobileMenuOpen(false); logout(); }}>Sign out</Button>
+                                        </div>
+                                        <button onClick={() => { setMobileMenuOpen(false); navigate(createPageUrl('Settings')); }} className="block text-muted-foreground hover:text-foreground text-sm">Settings</button>
+                                    </>
                                 ) : (
                                     <Button variant="outline" className="w-full" onClick={() => { setMobileMenuOpen(false); setAuthOpen(true); }}>Sign In</Button>
                                 )}

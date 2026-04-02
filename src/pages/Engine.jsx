@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plane, Settings } from 'lucide-react';
+import { Plane, Settings, Menu, X } from 'lucide-react';
 
 import StepEntry from '@/components/engine/StepEntry';
 import StepSelectFlight from '@/components/engine/StepSelectFlight';
@@ -63,6 +63,9 @@ export default function Engine() {
     const [bagCount, setBagCount] = useState(0);
     const [withChildren, setWithChildren] = useState(false);
     const [gateTime, setGateTime] = useState(15);
+
+    // Mobile menu
+    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     // OTP modal
     const [authOpen, setAuthOpen] = useState(false);
@@ -655,8 +658,47 @@ export default function Engine() {
                         ) : (
                             <button onClick={() => { track('auth_modal_opened', { trigger: 'navbar' }); setAuthOpen(true); }} className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden md:block">Sign In</button>
                         )}
+                        <button className="md:hidden p-2 -mr-2" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
+                            {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
+                        </button>
                     </div>
                 </div>
+
+                {/* Mobile menu */}
+                <AnimatePresence>
+                    {mobileMenuOpen && (
+                        <motion.div
+                            initial={{ opacity: 0, height: 0 }}
+                            animate={{ opacity: 1, height: 'auto' }}
+                            exit={{ opacity: 0, height: 0 }}
+                            className="md:hidden border-t border-border bg-card"
+                        >
+                            <div className="px-6 py-4 space-y-4">
+                                {isAuthenticated && (
+                                    <div className="flex items-center gap-2 pb-3 border-b border-border">
+                                        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-primary-foreground">
+                                            {(display_name || '').charAt(0).toUpperCase() || 'U'}
+                                        </div>
+                                        <span className="text-sm font-medium text-foreground">{display_name ? display_name.split(' ')[0] : 'Account'}</span>
+                                    </div>
+                                )}
+                                <Link to={createPageUrl('Home')} onClick={() => setMobileMenuOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground">Home</Link>
+                                {isAuthenticated && (
+                                    <Link to={createPageUrl('Settings')} onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+                                        <Settings className="w-4 h-4" />Settings
+                                    </Link>
+                                )}
+                                <div className="pt-3 border-t border-border">
+                                    {isAuthenticated ? (
+                                        <button onClick={() => { setMobileMenuOpen(false); logout(); }} className="text-sm text-muted-foreground hover:text-foreground">Sign out</button>
+                                    ) : (
+                                        <button onClick={() => { setMobileMenuOpen(false); track('auth_modal_opened', { trigger: 'mobile_menu' }); setAuthOpen(true); }} className="text-sm text-muted-foreground hover:text-foreground">Sign In</button>
+                                    )}
+                                </div>
+                            </div>
+                        </motion.div>
+                    )}
+                </AnimatePresence>
             </header>
 
             {/* ── MAIN CONTENT ── */}
