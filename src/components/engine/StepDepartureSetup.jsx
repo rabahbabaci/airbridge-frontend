@@ -101,9 +101,16 @@ export default function StepDepartureSetup({
             setHasPriorityLane(false);
         } else if (chip === 'precheck') {
             setHasPrecheck(v => !v);
+            setHasClear(false);
             setHasPriorityLane(false);
         } else if (chip === 'clear') {
             setHasClear(v => !v);
+            setHasPrecheck(false);
+            setHasPriorityLane(false);
+        } else if (chip === 'clear_precheck') {
+            const isComboActive = hasPrecheck && hasClear;
+            setHasPrecheck(!isComboActive);
+            setHasClear(!isComboActive);
             setHasPriorityLane(false);
         } else if (chip === 'priority') {
             setHasPriorityLane(v => !v);
@@ -220,16 +227,18 @@ export default function StepDepartureSetup({
                             <div className="flex flex-wrap gap-2">
                                 {[
                                     { id: 'none', label: 'None', active: isNoneSecurity },
-                                    { id: 'precheck', label: 'PreCheck', active: hasPrecheck },
-                                    { id: 'clear', label: 'CLEAR', active: hasClear },
-                                    { id: 'priority', label: 'Priority', active: hasPriorityLane },
+                                    { id: 'precheck', label: 'PreCheck', active: hasPrecheck && !hasClear },
+                                    { id: 'clear', label: 'CLEAR', active: hasClear && !hasPrecheck },
+                                    { id: 'clear_precheck', label: 'PreCheck + CLEAR', active: hasPrecheck && hasClear },
+                                    { id: 'priority', label: 'Priority Lane', active: hasPriorityLane, subtitle: 'First/Business or elite status' },
                                 ].map(chip => (
                                     <button key={chip.id} onClick={() => handleSecurityChip(chip.id)}
                                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
                                             chip.active
                                                 ? 'bg-primary text-primary-foreground border-primary'
                                                 : 'bg-secondary text-foreground/70 border-border hover:border-muted-foreground/30'
-                                        }`}>
+                                        }`}
+                                        title={chip.subtitle || ''}>
                                         <ShieldCheck className="w-3 h-3" />
                                         {chip.label}
                                     </button>

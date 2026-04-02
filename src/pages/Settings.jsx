@@ -72,7 +72,7 @@ function ProviderBadge({ provider }) {
 
 export default function Settings() {
     const navigate = useNavigate();
-    const { token, isAuthenticated, display_name, tier, auth_provider, logout } = useAuth();
+    const { token, isAuthenticated, display_name, tier, auth_provider, logout, isPro, trip_count, remainingProTrips } = useAuth();
     const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
 
     // Redirect if not authenticated
@@ -118,8 +118,11 @@ export default function Settings() {
     const saveTimerRef = useRef(null);
     const debounceRef = useRef(null);
 
-    // Remaining trips
-    const remainingTrips = useAuth().remainingProTrips;
+    // Subscription state
+    const tripCount = trip_count ?? 0;
+    const isTrialActive = isPro && tripCount <= 3;
+    const isSubscribed = isPro && tripCount > 3;
+    const isTrialExpired = !isPro;
 
     // ── Load profile + preferences ──
     useEffect(() => {
@@ -210,9 +213,16 @@ export default function Settings() {
             setHasPriorityLane(false);
         } else if (chip === 'precheck') {
             setHasPrecheck(v => !v);
+            setHasClear(false);
             setHasPriorityLane(false);
         } else if (chip === 'clear') {
             setHasClear(v => !v);
+            setHasPrecheck(false);
+            setHasPriorityLane(false);
+        } else if (chip === 'clear_precheck') {
+            const isComboActive = hasPrecheck && hasClear;
+            setHasPrecheck(!isComboActive);
+            setHasClear(!isComboActive);
             setHasPriorityLane(false);
         } else if (chip === 'priority') {
             setHasPriorityLane(v => !v);
@@ -359,16 +369,18 @@ export default function Settings() {
                                 <div className="flex flex-wrap gap-2">
                                     {[
                                         { id: 'none', label: 'None', active: isNoneSecurity },
-                                        { id: 'precheck', label: 'PreCheck', active: hasPrecheck },
-                                        { id: 'clear', label: 'CLEAR', active: hasClear },
-                                        { id: 'priority', label: 'Priority', active: hasPriorityLane },
+                                        { id: 'precheck', label: 'PreCheck', active: hasPrecheck && !hasClear },
+                                        { id: 'clear', label: 'CLEAR', active: hasClear && !hasPrecheck },
+                                        { id: 'clear_precheck', label: 'PreCheck + CLEAR', active: hasPrecheck && hasClear },
+                                        { id: 'priority', label: 'Priority Lane', active: hasPriorityLane, subtitle: 'First/Business or elite status' },
                                     ].map(chip => (
                                         <button key={chip.id} onClick={() => handleSecurityChip(chip.id)}
                                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
                                                 chip.active
                                                     ? 'bg-primary text-primary-foreground border-primary'
                                                     : 'bg-secondary text-foreground/70 border-border hover:border-muted-foreground/30'
-                                            }`}>
+                                            }`}
+                                            title={chip.subtitle || ''}>
                                             <ShieldCheck className="w-3 h-3" />
                                             {chip.label}
                                         </button>
@@ -472,99 +484,157 @@ export default function Settings() {
 
                         {/* ── NOTIFICATIONS ── */}
                         <SectionCard title="Notifications" icon={Bell}>
-                            <div className="flex items-center justify-between">
+                            <div className={`flex items-center justify-between ${isTrialExpired ? 'opacity-50' : ''}`}>
                                 <div className="flex items-center gap-3">
                                     <Bell className="w-4 h-4 text-muted-foreground" />
                                     <div>
                                         <p className="text-sm font-medium text-foreground">Leave-by time changes</p>
                                         <p className="text-xs text-muted-foreground">Alert when traffic or delays shift your departure time</p>
+                                        {isTrialExpired && <p className="text-xs text-muted-foreground/60 mt-0.5">Requires AirBridge Pro</p>}
                                     </div>
                                 </div>
-                                <Switch checked={notifPrefs.leave_time} onCheckedChange={v => setNotif('leave_time', v)} />
+                                <Switch checked={notifPrefs.leave_time} onCheckedChange={v => setNotif('leave_time', v)} disabled={isTrialExpired} />
                             </div>
 
-                            <div className="flex items-center justify-between">
+                            <div className={`flex items-center justify-between ${isTrialExpired ? 'opacity-50' : ''}`}>
                                 <div className="flex items-center gap-3">
                                     <AlertCircle className="w-4 h-4 text-muted-foreground" />
                                     <div>
                                         <p className="text-sm font-medium text-foreground">Flight delays & cancellations</p>
                                         <p className="text-xs text-muted-foreground">Alert when your flight status changes</p>
+                                        {isTrialExpired && <p className="text-xs text-muted-foreground/60 mt-0.5">Requires AirBridge Pro</p>}
                                     </div>
                                 </div>
-                                <Switch checked={notifPrefs.delays} onCheckedChange={v => setNotif('delays', v)} />
+                                <Switch checked={notifPrefs.delays} onCheckedChange={v => setNotif('delays', v)} disabled={isTrialExpired} />
                             </div>
 
-                            <div className="flex items-center justify-between">
+                            <div className={`flex items-center justify-between ${isTrialExpired ? 'opacity-50' : ''}`}>
                                 <div className="flex items-center gap-3">
                                     <Clock className="w-4 h-4 text-muted-foreground" />
                                     <div>
                                         <p className="text-sm font-medium text-foreground">Time to go!</p>
                                         <p className="text-xs text-muted-foreground">Final nudge when it's time to leave</p>
+                                        {isTrialExpired && <p className="text-xs text-muted-foreground/60 mt-0.5">Requires AirBridge Pro</p>}
                                     </div>
                                 </div>
-                                <Switch checked={notifPrefs.time_to_go} onCheckedChange={v => setNotif('time_to_go', v)} />
+                                <Switch checked={notifPrefs.time_to_go} onCheckedChange={v => setNotif('time_to_go', v)} disabled={isTrialExpired} />
                             </div>
 
                             <div className="border-t border-border" />
 
-                            <div className="flex items-center justify-between">
+                            <div className={`flex items-center justify-between ${isTrialExpired ? 'opacity-50' : ''}`}>
                                 <div className="flex items-center gap-3">
                                     <Navigation className="w-4 h-4 text-muted-foreground" />
                                     <div>
                                         <p className="text-sm font-medium text-foreground">
                                             Gate changes
-                                            {tier !== 'pro' && <span className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary text-primary-foreground">Pro</span>}
+                                            {!isSubscribed && <span className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary text-primary-foreground">Pro</span>}
                                         </p>
                                         <p className="text-xs text-muted-foreground">Alert when your gate assignment changes</p>
                                     </div>
                                 </div>
-                                <Switch checked={notifPrefs.gate_change} onCheckedChange={v => setNotif('gate_change', v)} disabled={tier !== 'pro'} />
+                                <Switch checked={notifPrefs.gate_change} onCheckedChange={v => setNotif('gate_change', v)} disabled={isTrialExpired} />
                             </div>
 
-                            <div className="flex items-center justify-between">
+                            <div className={`flex items-center justify-between ${isTrialExpired ? 'opacity-50' : ''}`}>
                                 <div className="flex items-center gap-3">
                                     <FileText className="w-4 h-4 text-muted-foreground" />
                                     <div>
                                         <p className="text-sm font-medium text-foreground">
                                             Trip summary
-                                            {tier !== 'pro' && <span className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary text-primary-foreground">Pro</span>}
+                                            {!isSubscribed && <span className="ml-1.5 px-1.5 py-0.5 rounded text-[10px] font-bold bg-primary text-primary-foreground">Pro</span>}
                                         </p>
                                         <p className="text-xs text-muted-foreground">Post-flight accuracy report</p>
                                     </div>
                                 </div>
-                                <Switch checked={notifPrefs.trip_summary} onCheckedChange={v => setNotif('trip_summary', v)} disabled={tier !== 'pro'} />
+                                <Switch checked={notifPrefs.trip_summary} onCheckedChange={v => setNotif('trip_summary', v)} disabled={isTrialExpired} />
                             </div>
 
                             <div className="border-t border-border" />
                             <p className="text-xs text-muted-foreground/60">
-                                Notifications require the AirBridge app. Coming soon.
+                                {isTrialExpired
+                                    ? 'Upgrade to Pro to enable notifications'
+                                    : 'Notifications require the AirBridge app. Coming soon.'}
                             </p>
                         </SectionCard>
 
                         {/* ── SUBSCRIPTION ── */}
                         <SectionCard title="Subscription" icon={CreditCard}>
-                            <div className="flex items-center justify-between">
-                                <div>
-                                    <p className="text-sm font-medium text-foreground">
-                                        {tier === 'pro' ? 'Pro' : 'Free'} Plan
+                            {isTrialActive && (
+                                <>
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-sm font-bold text-foreground">
+                                                {tripCount === 0 ? '3 Pro trips available' : `Trip ${tripCount} of 3`}
+                                            </p>
+                                            <p className="text-xs text-primary font-medium mt-0.5">
+                                                {tripCount === 0
+                                                    ? 'Start your first trip to begin'
+                                                    : `You have ${remainingProTrips ?? 3} Pro trip${(remainingProTrips ?? 3) === 1 ? '' : 's'} remaining`}
+                                            </p>
+                                        </div>
+                                        <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-primary text-primary-foreground">
+                                            Pro Trial
+                                        </span>
+                                    </div>
+                                    <div className="grid grid-cols-3 gap-1.5">
+                                        {[1, 2, 3].map(i => (
+                                            <div key={i} className={`h-2 rounded-full transition-all ${
+                                                i <= tripCount ? 'bg-primary' : 'bg-secondary'
+                                            }`} />
+                                        ))}
+                                    </div>
+                                    <p className="text-xs text-muted-foreground">
+                                        Enjoy the full AirBridge experience
                                     </p>
-                                    {tier === 'pro' && remainingTrips != null && (
-                                        <p className="text-xs text-primary font-medium mt-0.5">
-                                            {remainingTrips} free trips remaining
-                                        </p>
-                                    )}
-                                </div>
-                                <span className={`px-2.5 py-1 rounded-lg text-xs font-bold ${
-                                    tier === 'pro'
-                                        ? 'bg-primary text-primary-foreground'
-                                        : 'bg-accent text-primary'
-                                }`}>
-                                    {tier === 'pro' ? 'Pro' : 'Free'}
-                                </span>
-                            </div>
-                            <p className="text-xs text-muted-foreground">
-                                Subscription management coming soon.
-                            </p>
+                                </>
+                            )}
+
+                            {isTrialExpired && (
+                                <>
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-sm font-medium text-foreground">Free Plan</p>
+                                            <p className="text-xs text-muted-foreground mt-0.5">3 of 3 Pro trips used</p>
+                                        </div>
+                                        <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-accent text-primary">
+                                            Free Plan
+                                        </span>
+                                    </div>
+                                    <button
+                                        onClick={() => console.log('Upgrade tapped')}
+                                        className="w-full py-2.5 rounded-xl text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                                    >
+                                        Upgrade to Pro — $4.99/mo
+                                    </button>
+                                    <ul className="space-y-1.5 text-xs text-muted-foreground">
+                                        <li className="flex items-center gap-2"><Clock className="w-3 h-3" />Live lock screen countdown</li>
+                                        <li className="flex items-center gap-2"><Bell className="w-3 h-3" />Spoken &ldquo;Time to go!&rdquo; alerts</li>
+                                        <li className="flex items-center gap-2"><Navigation className="w-3 h-3" />Gate change notifications</li>
+                                        <li className="flex items-center gap-2"><FileText className="w-3 h-3" />Full trip history &amp; accuracy stats</li>
+                                    </ul>
+                                </>
+                            )}
+
+                            {isSubscribed && (
+                                <>
+                                    <div className="flex items-center justify-between">
+                                        <div>
+                                            <p className="text-sm font-medium text-foreground">Pro Plan</p>
+                                            <p className="text-xs text-muted-foreground mt-0.5">Active subscription</p>
+                                        </div>
+                                        <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-primary text-primary-foreground">
+                                            Pro Plan
+                                        </span>
+                                    </div>
+                                    <button
+                                        onClick={() => console.log('Manage subscription tapped')}
+                                        className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+                                    >
+                                        Manage subscription
+                                    </button>
+                                </>
+                            )}
                         </SectionCard>
 
                         {/* ── ABOUT ── */}

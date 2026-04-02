@@ -66,6 +66,7 @@ export default function Engine() {
 
     // OTP modal
     const [authOpen, setAuthOpen] = useState(false);
+    const pendingTrackAfterAuth = useRef(false);
 
     // Results — trip-specific
     const [locked, setLocked] = useState(false);
@@ -530,6 +531,7 @@ export default function Engine() {
         if (!currentTripId) return;
         if (!isAuthenticated) {
             track('auth_modal_opened', { trigger: 'track_trip' });
+            pendingTrackAfterAuth.current = true;
             setAuthOpen(true);
             return;
         }
@@ -808,11 +810,12 @@ export default function Engine() {
             </AnimatePresence>
             )}
 
-            <AuthModal open={authOpen} onOpenChange={setAuthOpen} onSuccess={(data) => {
+            <AuthModal open={authOpen} onOpenChange={(open) => { setAuthOpen(open); if (!open) pendingTrackAfterAuth.current = false; }} onSuccess={(data) => {
                 track('auth_completed', { provider: data.auth_provider || 'phone' });
                 login(data);
-                // Auto-track if there's a pending trip
-                if (currentTripId && !isTracked) {
+                // Auto-track only if auth was triggered by the Track button
+                if (pendingTrackAfterAuth.current && currentTripId && !isTracked) {
+                    pendingTrackAfterAuth.current = false;
                     setTimeout(async () => {
                         try {
                             const res = await fetch(`${API_BASE}/v1/trips/${currentTripId}/track`, {

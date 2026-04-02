@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { Check, CheckCircle2, Circle, RefreshCw, Plus, Settings as SettingsIcon } from 'lucide-react';
 
+import { formatCountdownText } from '@/utils/format';
 import JourneyVisualization from './JourneyVisualization';
 import ActionCards from './ActionCards';
 
@@ -28,13 +29,7 @@ function statusToPhaseIndex(status) {
 }
 
 function formatCountdown(leaveAt) {
-    const diffMs = new Date(leaveAt) - Date.now();
-    if (diffMs <= 0) return null; // past
-    const totalMin = Math.floor(diffMs / 60000);
-    const h = Math.floor(totalMin / 60);
-    const m = totalMin % 60;
-    if (h > 0) return `Leave in ${h}h ${m}m`;
-    return `Leave in ${m}m`;
+    return formatCountdownText(leaveAt);
 }
 
 function getUrgencyLevel(leaveAt) {

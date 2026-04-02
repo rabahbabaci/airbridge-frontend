@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { shortCity, formatLocalTime, formatDuration } from '@/utils/format';
+import { shortCity, formatLocalTime, formatDuration, formatCountdownText } from '@/utils/format';
 import {
     Plane, Car, Train, Bus, Shield, Clock, MapPin, Luggage,
     Building2, PersonStanding, Ticket, AlertTriangle, CircleParking,
@@ -98,7 +98,7 @@ function getLeaveUrgency(leaveHomeAt) {
         const m = Math.round(diffMin % 60);
         return { label: `Leave in ${h > 0 ? `${h}h ${m}m` : `${m}m`}`, urgency: 'aware' };
     }
-    return { label: 'Leave by', urgency: 'calm' };
+    return { label: formatCountdownText(leaveHomeAt) || 'Leave by', urgency: 'calm' };
 }
 
 function urgencyClasses(urgency) {
@@ -110,7 +110,7 @@ function urgencyClasses(urgency) {
 }
 
 // ── Smart boarding countdown ────────────────────────────────────────────────
-function smartBoardingLabel(boardingTime) {
+function smartBoardingLabel(boardingTime, departureDate) {
     if (!boardingTime) return 'Boarding time TBD';
     const diffMin = (boardingTime.getTime() - Date.now()) / 60000;
 
@@ -118,13 +118,13 @@ function smartBoardingLabel(boardingTime) {
     if (diffMin < 120) return `Boarding in ${formatDuration(Math.round(diffMin))}`;
     if (diffMin < 720) return `Boarding in ${formatDuration(Math.round(diffMin))}`;
     const fmt = boardingTime.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    // If boarding is on the same date as the flight departure, omit the date (it's shown in the info line)
+    const sameDay = departureDate && boardingTime.toDateString() === departureDate.toDateString();
+    if (sameDay) return `Boarding at ${fmt}`;
     const today = new Date();
-    const tomorrow = new Date(today);
-    tomorrow.setDate(tomorrow.getDate() + 1);
     if (boardingTime.toDateString() === today.toDateString()) return `Boarding at ${fmt}`;
-    if (boardingTime.toDateString() === tomorrow.toDateString()) return `Boarding tomorrow at ${fmt}`;
-    const day = boardingTime.toLocaleDateString('en-US', { weekday: 'short' });
-    return `Boarding ${day} at ${fmt}`;
+    const dateFmt = boardingTime.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    return `Boarding ${dateFmt} at ${fmt}`;
 }
 
 // ── Main Component ──────────────────────────────────────────────────────────
@@ -138,14 +138,12 @@ export default function JourneyVisualization({
 
     useEffect(() => {
         if (!recommendation?.leave_home_at) return;
-        const bt = selectedFlight?.departure_time ? (() => {
-            const d = parseDepartureTime(selectedFlight.departure_time);
-            return d ? new Date(d.getTime() - 30 * 60000) : null;
-        })() : null;
+        const depDate = selectedFlight?.departure_time ? parseDepartureTime(selectedFlight.departure_time) : null;
+        const bt = depDate ? new Date(depDate.getTime() - 30 * 60000) : null;
 
         function update() {
             setLeaveInfo(getLeaveUrgency(recommendation.leave_home_at));
-            setBoardingLabel(smartBoardingLabel(bt));
+            setBoardingLabel(smartBoardingLabel(bt, depDate));
         }
         update();
         const id = setInterval(update, 30000);
@@ -172,7 +170,7 @@ export default function JourneyVisualization({
         : { boarding: '', departure: '' };
 
     const segments = recommendation.segments || [];
-    const comfortBuffer = segments.find(s => s.id === 'comfort_buffer');
+    const comfortBuffer = segments.find(s => s.id === 'comfort_buffer' || s.id === 'gate_buffer');
     const parkingSeg = segments.find(s => s.id === 'parking');
     const airportCode = selectedFlight?.origin_code || '';
     const isDriving = (transport || '').toLowerCase() === 'driving';
@@ -268,20 +266,20 @@ export default function JourneyVisualization({
         return nextStep.duration;
     }
 
-    // Stats — show user preferences in labels
+    // Stats — 3 key metrics
     const transportStatLabel = (TRANSPORT_STAT_LABELS[(transport || '').toLowerCase()] || 'Transport').toUpperCase();
     const securityStatLabel = (securityLabel || 'Standard TSA').toUpperCase();
+    const transportSeg = segments.find(s => s.id === 'transport');
+    const tsaSeg = segments.find(s => s.id === 'tsa');
+    const bufferMinutes = comfortBuffer?.duration_minutes || recommendation.gate_time_minutes || 0;
 
     const stats = [];
-    displaySegments.forEach(seg => {
-        if (seg.id === 'transport') stats.push({ label: transportStatLabel, value: formatDuration(seg.duration_minutes) });
-        if (seg.id === 'tsa') {
-            const waitMatch = seg.advice?.match(/wait:(\d+)/);
-            stats.push({ label: securityStatLabel, value: formatDuration(waitMatch ? parseInt(waitMatch[1]) : seg.duration_minutes) });
-        }
-        if (seg.id === 'walk_to_gate') stats.push({ label: 'Gate Walk', value: formatDuration(seg.duration_minutes) });
-    });
-    if (comfortBuffer) stats.push({ label: 'Buffer', value: formatDuration(comfortBuffer.duration_minutes) });
+    if (transportSeg) stats.push({ label: transportStatLabel, value: formatDuration(transportSeg.duration_minutes) });
+    if (tsaSeg) {
+        const waitMatch = tsaSeg.advice?.match(/wait:(\d+)/);
+        stats.push({ label: securityStatLabel, value: formatDuration(waitMatch ? parseInt(waitMatch[1]) : tsaSeg.duration_minutes) });
+    }
+    stats.push({ label: 'BUFFER', value: formatDuration(bufferMinutes) });
 
     const isDelayed = selectedFlight?.is_delayed && selectedFlight?.revised_departure_local;
     const revisedDepartureTime = isDelayed ? formatLocalTime(selectedFlight.revised_departure_local) : null;
@@ -331,18 +329,14 @@ export default function JourneyVisualization({
                             {boardingLabel}
                         </span>
                         <span className={`inline-flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-bold backdrop-blur-sm ${
-                            gateCushionMinutes == null ? 'bg-primary-foreground/20 text-primary-foreground' :
-                            gateCushionMinutes === 0 ? 'bg-red-100 text-red-600' :
-                            gateCushionMinutes <= 30 ? 'bg-orange-400/30 text-orange-100' :
+                            bufferMinutes === 0 ? 'bg-primary-foreground/20 text-primary-foreground' :
                             'bg-emerald-400/30 text-emerald-100'
                         }`}>
                             <span className={`w-2 h-2 rounded-full ${
-                                gateCushionMinutes == null ? 'bg-primary-foreground/50' :
-                                gateCushionMinutes === 0 ? 'bg-red-500' :
-                                gateCushionMinutes <= 30 ? 'bg-orange-300' :
+                                bufferMinutes === 0 ? 'bg-primary-foreground/50' :
                                 'bg-emerald-300'
                             }`} />
-                            {gateCushionMinutes == null ? 'Buffer unknown' : gateCushionMinutes === 0 ? 'No buffer' : `${formatDuration(gateCushionMinutes)} buffer`}
+                            {bufferMinutes === 0 ? 'No buffer' : bufferMinutes === 60 ? '1 hr buffer' : `${bufferMinutes} min buffer`}
                         </span>
                     </div>
                 </div>
@@ -367,7 +361,10 @@ export default function JourneyVisualization({
                             {selectedFlight.departure_gate ? `Gate ${selectedFlight.departure_gate}` : 'Gate TBD'}
                         </span>
                         <span className="text-primary-foreground/40">·</span>
-                        <span className="text-primary-foreground/70 text-sm">{formatDuration(totalMinutesFromSegments)} door-to-gate</span>
+                        <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-primary-foreground/10 text-primary-foreground text-xs font-semibold">
+                            <Clock className="w-3 h-3" />
+                            {formatDuration(totalMinutesFromSegments)} door-to-gate
+                        </span>
                     </div>
                 )}
 
@@ -513,8 +510,8 @@ export default function JourneyVisualization({
                 <div className="bg-card rounded-2xl border border-border p-5">
                     <p className="text-xs font-bold text-muted-foreground uppercase tracking-wider mb-1">Boarding</p>
                     <p className="text-2xl md:text-3xl font-black text-emerald-600">{boarding}</p>
-                    {gateCushionMinutes != null && gateCushionMinutes > 0 && (
-                        <p className="text-xs font-semibold text-emerald-600 mt-1">{formatDuration(gateCushionMinutes)} cushion at gate</p>
+                    {bufferMinutes > 0 && (
+                        <p className="text-xs font-semibold text-emerald-600 mt-1">{bufferMinutes === 60 ? '1 hr' : `${bufferMinutes} min`} cushion at gate</p>
                     )}
                 </div>
                 <div className="bg-card rounded-2xl border border-border p-5">
@@ -538,8 +535,7 @@ export default function JourneyVisualization({
                 transition={{ delay: 0.4, duration: 0.4 }}
                 className="bg-card rounded-2xl border border-border overflow-hidden"
             >
-                <div className={`grid divide-x divide-border`}
-                    style={{ gridTemplateColumns: `repeat(${stats.length}, 1fr)` }}>
+                <div className="grid grid-cols-3 divide-x divide-border">
                     {stats.map(({ label, value }) => (
                         <div key={label} className="flex flex-col items-center gap-1 px-3 py-4 text-center">
                             <p className="text-[10px] md:text-xs uppercase tracking-wider font-bold text-muted-foreground">{label}</p>

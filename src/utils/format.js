@@ -24,6 +24,23 @@ export function formatDuration(minutes) {
     return `${h} hr ${r} min`;
 }
 
+export function formatCountdownText(leaveAtISO) {
+    const diffMs = new Date(leaveAtISO) - Date.now();
+    if (diffMs <= 0) return null; // past — caller handles this
+    const totalMin = Math.floor(diffMs / 60000);
+    if (totalMin < 60) return `Leave in ${totalMin}m`;
+    const h = Math.floor(totalMin / 60);
+    const m = totalMin % 60;
+    if (h < 24) return `Leave in ${h}h ${m}m`;
+    const days = Math.floor(h / 24);
+    const remH = h % 24;
+    if (days < 7) return `Leave in ${days} day${days > 1 ? 's' : ''}, ${remH} hour${remH !== 1 ? 's' : ''}`;
+    const d = new Date(leaveAtISO);
+    const dateStr = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+    const timeStr = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+    return `Leave on ${dateStr} at ${timeStr}`;
+}
+
 export function parseTimeToDate(localTimeStr) {
     if (!localTimeStr) return null;
     const match = localTimeStr.match(/(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})/);
