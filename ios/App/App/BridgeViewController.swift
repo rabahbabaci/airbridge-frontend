@@ -1,8 +1,9 @@
 import UIKit
 import Capacitor
 
+@objc(BridgeViewController)
 class BridgeViewController: CAPBridgeViewController {
-    override open func capacitorDidLoad() {
+    override func capacitorDidLoad() {
         bridge?.registerPluginInstance(AppleSignInPlugin())
         bridge?.registerPluginInstance(GoogleSignInPlugin())
     }
