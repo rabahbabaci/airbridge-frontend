@@ -1,84 +1,92 @@
 # CLAUDE.md
 
-This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
-
 ## Project Overview
 
-AirBridge is a React SPA that helps travelers plan their door-to-gate airport journey. It provides departure time recommendations based on flight details, transport preferences, and security options. Currently in beta for Bay Area airports (SFO, OAK, SJC).
+AirBridge is a React + Vite SPA with a Capacitor native wrapper for iOS and Android. It helps travelers plan their door-to-gate airport journey with real-time departure recommendations. Beta for Bay Area airports (SFO, OAK, SJC). Live at airbridge.live.
 
 ## Commands
 
 ```bash
-npm run dev           # Start Vite dev server
-npm run build         # Production build
-npm run build:dev     # Development build
-npm run lint          # ESLint check
-npm run lint:fix      # Auto-fix lint issues
-npm run typecheck     # TypeScript type checking
-npm run preview       # Preview production build
+npm run dev             # Vite dev server (web)
+npm run build           # Production build (web)
+npm run lint            # ESLint check
+npm run lint:fix        # Auto-fix lint issues
+npm run cap:build       # Build web + sync to native (iOS/Android)
+npm run cap:open:ios    # Open Xcode project
+npm run cap:open:android # Open Android Studio
 ```
 
 No test framework is configured.
 
 ## Tech Stack
 
-- **React 18** with React Router v6, JavaScript (JSX) with some TypeScript for API contracts
-- **Vite 6** for build tooling
-- **Tailwind CSS 3** with shadcn/ui components (Radix UI primitives)
-- **Framer Motion** for animations
-- **date-fns** for date handling
-- Native `fetch()` for API calls (no axios or react-query)
-- React Context + hooks for state (no Redux/Zustand)
-
-## Architecture
-
-**Routing:** File-based via `src/pages.config.js` → two pages: `/` (Home landing) and `/Engine` (main app).
-
-**Key application flow (Engine.jsx):**
-1. Step 1: Flight input (number or route search)
-2. Step 2: Flight selection from search results
-3. Step 3: Preference customization (transport, TSA, bags, children, security)
-4. Results: Journey timeline visualization with departure recommendation
-
-**API integration:** Engine.jsx calls the backend at `https://airbridge-backend-production.up.railway.app`:
-- `GET /v1/flights/{flightNumber}/{date}` — search flights
-- `POST /v1/trips` — create trip
-- `POST /v1/recommendations` — get departure recommendation
-- `POST /v1/recommendations/recompute` — update recommendation
-
-**API contract types** are defined in `src/api/airbridge.contracts.ts` mirroring the backend's Pydantic schemas.
+React 18, React Router v6, Vite 6, Tailwind CSS 3 + shadcn/ui, Framer Motion, date-fns. Native `fetch()` for API calls. React Context + hooks for state. Capacitor 8 for native iOS/Android.
 
 ## Key Directories
 
-- `src/pages/` — Page components (Home.jsx, Engine.jsx)
-- `src/components/engine/` — Engine sub-components (flight input, selection, preferences, results, journey visualization)
-- `src/components/landing/` — Landing page sections (Header, Hero, Problem, Solution, HowItWorks, Comparison, Trust, CTA, Footer)
-- `src/components/ui/` — shadcn/ui component library (40+ components, do not hand-edit)
-- `src/lib/` — AuthContext (Google OAuth + localStorage persistence), utils (cn helper), PageNotFound
-- `src/utils/` — Formatting helpers (format.js), PostHog analytics (analytics.js), flight data mapping (mapFlight.js), createPageUrl (index.ts)
-- `src/hooks/` — Custom hooks (use-mobile.jsx)
-- `src/data/` — Static data (airports.json)
-- `src/integrations/supabase/` — Supabase client and types
-- `src/config.js` — Runtime config (API base URL, Google client ID, Google Maps key, PostHog key)
+- `src/pages/` — Home.jsx, Engine.jsx, Settings.jsx (routed via `src/pages.config.js`)
+- `src/components/engine/` — Engine sub-components: StepEntry, StepSelectFlight, StepDepartureSetup, ResultsView, ActiveTripView, JourneyVisualization, AuthModal, PushPrimingModal, ActionCards, LoadingView
+- `src/components/landing/` — Landing page sections (Header, Hero, HowItWorks, etc.)
+- `src/components/ui/` — shadcn/ui components (do not hand-edit)
+- `src/lib/` — AuthContext.jsx, utils.js (cn helper), PageNotFound
+- `src/utils/` — platform.js, pushNotifications.js, analytics.js, format.js, mapFlight.js, nativeAuth.js
+- `src/config.js` — API_BASE, GOOGLE_CLIENT_ID, GOOGLE_MAPS_API_KEY, POSTHOG_API_KEY
+- `ios/App/App/Plugins/` — Custom Swift plugins (AppleSignInPlugin, GoogleSignInPlugin)
+
+## Native (Capacitor 8)
+
+- **iOS:** `ios/` directory. Bundle ID: `live.airbridge.app`. Scheme: AirBridge.
+- **Android:** `android/` directory.
+- **Custom Swift plugins:** `ios/App/App/Plugins/` — AppleSignInPlugin.swift, GoogleSignInPlugin.swift
+- **AppDelegate:** `ios/App/App/AppDelegate.swift` — includes remote notification forwarding for FCM
+- **Platform detection:** `src/utils/platform.js` — `isNative()` and `getPlatform()` gate all native-only code
+- **TestFlight:** Xcode → Product → Archive → Distribute → TestFlight Internal Only
+
+## Auth
+
+- **Apple Sign In** — native iOS only (via custom AppleSignInPlugin)
+- **Google Sign In** — web only via Google Identity Services (GIS library)
+- **Phone OTP** — both web and native
+- **AuthContext** stores: token, user_id, trip_count, tier, auth_provider, display_name. Persisted in localStorage under `airbridge_auth`.
+
+## Push Notifications
+
+- `@capacitor-firebase/messaging` for FCM tokens (not raw APNs)
+- `src/utils/pushNotifications.js` — requestPermission(), registerTokenWithBackend(), setupPushListeners()
+- `src/components/engine/PushPrimingModal.jsx` — shown after first tracked trip. "Not now" preserves iOS system prompt for next time (re-prompts on trip 2+).
+- `GoogleService-Info.plist` in `ios/App/App/` (included in Xcode build)
+- Web: all push functions are no-ops when `!isNative()`
+
+## Backend API
+
+Base URL: `https://airbridge-backend-production.up.railway.app` (configured in `src/config.js`)
+
+| Endpoint | Auth | Method |
+|---|---|---|
+| /v1/auth/send-otp, /v1/auth/verify-otp, /v1/auth/social | none | POST |
+| /v1/users/me, /v1/users/preferences | required | GET, PUT |
+| /v1/trips, /v1/trips/active, /v1/trips/{id}, /v1/trips/{id}/track | opt/req | POST, GET |
+| /v1/recommendations, /v1/recommendations/recompute | optional | POST |
+| /v1/flights/{number}/{date}, /v1/flights/search | optional | GET |
+| /v1/devices/register, /v1/devices/unregister | required | POST, DELETE |
+| /v1/events | optional | POST |
+
+Auth = `Authorization: Bearer <token>` from /v1/auth/social or /v1/auth/verify-otp.
+
+## Build Notes
+
+- `.env` has `VITE_API_URL` for local dev — comment it out for production builds
+- Path alias: `@` → `src/`
+- `npm run cap:build` = `npm run build && npx cap sync` (builds web then syncs to native)
 
 ## Conventions
 
-- **Path alias:** `@` → `src/` (e.g., `@/components/ui/button`)
-- **Naming:** PascalCase components, camelCase utils, UPPER_SNAKE_CASE constants
-- **Styling:** Utility-first Tailwind; use `cn()` from `@/lib/utils` for conditional class merging
-- **ESLint:** Enforces React best practices + unused import removal
+- PascalCase components, camelCase utils, UPPER_SNAKE_CASE constants
+- Utility-first Tailwind; use `cn()` from `@/lib/utils` for conditional class merging
+- `isNative()` gates all native-only code — web must always work
+- Build must pass before committing
+- ESLint enforces React best practices + unused import removal
 
-## Backend API Contract
+## Current State
 
-Base URL: `https://airbridge-backend-production.up.railway.app`
-Auth: "req" = `Authorization: Bearer <token>` (from /v1/auth/verify-otp or /v1/auth/social). "opt" = token sent if available.
-
-**Auth:** POST /v1/auth/send-otp, /v1/auth/verify-otp, /v1/auth/social → `{user_id, token, trip_count, tier}`
-**User:** GET /v1/users/me (req), PUT /v1/users/preferences (req)
-**Trips:** POST /v1/trips (opt), GET /v1/trips/active (req), GET /v1/trips/{id} (req)
-**Recs:** POST /v1/recommendations/compute (opt), POST /v1/recommendations/recompute (opt)
-**Flights:** GET /v1/flights/{number}/{date}, GET /v1/flights/search
-**Devices:** POST /v1/devices/register (req) `{token, platform}`, DELETE /v1/devices/unregister (req) `{token}`
-**Events:** POST /v1/events (opt)
-
-Also verify: the frontend may be calling POST /v1/recommendations but the backend route is /v1/recommendations/compute. Check Engine.jsx and airbridge.contracts.ts to confirm which URL is actually used.
+Sprint 5 complete. Sprint 6 next.
