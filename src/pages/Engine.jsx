@@ -378,7 +378,11 @@ export default function Engine() {
         if (f.departed || f.canceled || f.is_boarding) return;
         track('flight_selected', { flight_number: f.flight_number, origin: f.origin_code, destination: f.destination_code });
         setSelectedFlight(f);
-        if (locked) { setLocked(false); setRecommendation(null); setJourneyReady(false); setCurrentTripId(null); }
+        // Always clear trip state so a fresh trip + recommendation is created for the new flight
+        setCurrentTripId(null);
+        setRecommendation(null);
+        setLocked(false);
+        setJourneyReady(false);
     };
 
     const handleContinueToSetup = () => { if (selectedFlight) goTo(3); };
