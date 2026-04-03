@@ -11,11 +11,14 @@ import LoadingView from '@/components/engine/LoadingView';
 import ResultsView from '@/components/engine/ResultsView';
 import ActiveTripView from '@/components/engine/ActiveTripView';
 import AuthModal from '@/components/engine/AuthModal';
+import PushPrimingModal, { shouldShowPushPriming } from '@/components/engine/PushPrimingModal';
 import { useAuth } from '@/lib/AuthContext';
 import { mapFlights } from '@/utils/mapFlight';
 
 import { API_BASE } from '@/config';
 import { track } from '@/utils/analytics';
+import { isNative } from '@/utils/platform';
+import { setupPushListeners, removePushListeners } from '@/utils/pushNotifications';
 
 // ── Animations ──────────────────────────────────────────────────────────────
 const pageTransition = {
@@ -90,6 +93,9 @@ export default function Engine() {
 
     // Track flow
     const [isTracked, setIsTracked] = useState(false);
+
+    // Push priming
+    const [pushPrimingOpen, setPushPrimingOpen] = useState(false);
 
     const addressContainerRef = useRef(null);
     const addressInputRef = useRef(null);
@@ -289,6 +295,18 @@ export default function Engine() {
             }
         })();
     }, [token]);
+
+    // Set up push notification listeners (native only)
+    useEffect(() => {
+        if (!isNative()) return;
+        setupPushListeners(
+            // Foreground notification — log for now
+            (notification) => { console.log('Push received in foreground:', notification); },
+            // User tapped notification — could navigate to trip
+            (notification) => { console.log('Push notification tapped:', notification); }
+        );
+        return () => { removePushListeners(); };
+    }, []);
 
     const goTo = (next) => { setDir(next > step ? 1 : -1); setStep(next); };
 
@@ -560,6 +578,11 @@ export default function Engine() {
                 });
                 setActiveTripRec(recommendation);
                 setViewMode('active_trip');
+
+                // Show push priming on native after tracking
+                if (isNative() && shouldShowPushPriming(data.trip_count)) {
+                    setPushPrimingOpen(true);
+                }
             }
         } catch (err) {
             console.error('Failed to track trip:', err);
@@ -881,6 +904,11 @@ export default function Engine() {
                                 });
                                 setActiveTripRec(recommendation);
                                 setViewMode('active_trip');
+
+                                // Show push priming on native after first tracked trip
+                                if (isNative() && shouldShowPushPriming(trackData.trip_count)) {
+                                    setPushPrimingOpen(true);
+                                }
                             }
                         } catch (err) {
                             console.error('Failed to auto-track after auth:', err);
@@ -888,6 +916,12 @@ export default function Engine() {
                     }, 500);
                 }
             }} />
+
+            <PushPrimingModal
+                open={pushPrimingOpen}
+                onClose={() => setPushPrimingOpen(false)}
+                authToken={token}
+            />
         </div>
     );
 }

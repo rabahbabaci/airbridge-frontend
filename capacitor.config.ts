@@ -15,7 +15,11 @@ const config: CapacitorConfig = {
     contentInset: 'automatic',
     scheme: 'AirBridge',
   },
-  plugins: {},
+  plugins: {
+    PushNotifications: {
+      presentationOptions: ["badge", "sound", "alert"],
+    },
+  },
 };
 
 export default config;
