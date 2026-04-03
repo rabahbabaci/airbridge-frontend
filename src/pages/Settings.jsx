@@ -287,10 +287,13 @@ export default function Settings() {
                         className="w-9 h-9 rounded-xl border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 transition-all">
                         <ArrowLeft className="w-4 h-4" />
                     </Link>
-                    <div>
+                    <div className="flex-1">
                         <h1 className="text-2xl font-black text-foreground tracking-tight">Settings</h1>
                         <p className="text-sm text-muted-foreground">Manage your account and preferences</p>
                     </div>
+                    <Link to={createPageUrl('Home')} className="md:hidden w-9 h-9 rounded-xl border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 transition-all" title="Home">
+                        <Plane className="w-4 h-4" />
+                    </Link>
                 </div>
 
                 {loadingProfile ? (

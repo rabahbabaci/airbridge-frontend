@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">AirBridge</string>
+    <string name="title_activity_main">AirBridge</string>
+    <string name="package_name">live.airbridge.app</string>
+    <string name="custom_url_scheme">live.airbridge.app</string>
+</resources>
