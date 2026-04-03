@@ -1,41 +1,28 @@
 import { isNative, getPlatform } from '@/utils/platform';
 import { API_BASE } from '@/config';
 
-// No-op on web — all functions safely return without doing anything
 const NOOP = () => {};
 
 let listenerHandles = [];
 
 /**
- * Request push notification permission and return the device token.
+ * Request push notification permission and return the FCM device token.
  * Returns the token string or null if denied/unavailable.
  */
 export async function requestPermission() {
   if (!isNative()) return null;
 
-  const { PushNotifications } = await import('@capacitor/push-notifications');
+  const { FirebaseMessaging } = await import('@capacitor-firebase/messaging');
 
-  const permResult = await PushNotifications.requestPermissions();
+  const permResult = await FirebaseMessaging.requestPermissions();
   if (permResult.receive !== 'granted') return null;
 
-  return new Promise((resolve) => {
-    // Listen for registration success
-    PushNotifications.addListener('registration', (token) => {
-      resolve(token.value);
-    });
-
-    // Listen for registration failure
-    PushNotifications.addListener('registrationError', (err) => {
-      console.error('Push registration failed:', err);
-      resolve(null);
-    });
-
-    PushNotifications.register();
-  });
+  const { token } = await FirebaseMessaging.getToken();
+  return token || null;
 }
 
 /**
- * Send the device token to the backend for push delivery.
+ * Send the FCM device token to the backend for push delivery.
  */
 export async function registerTokenWithBackend(token, authToken) {
   if (!token || !authToken) return;
@@ -64,17 +51,15 @@ export async function registerTokenWithBackend(token, authToken) {
 export async function setupPushListeners(onNotificationReceived = NOOP, onNotificationTapped = NOOP) {
   if (!isNative()) return;
 
-  const { PushNotifications } = await import('@capacitor/push-notifications');
+  const { FirebaseMessaging } = await import('@capacitor-firebase/messaging');
 
-  // Foreground notification
-  const fgHandle = await PushNotifications.addListener('pushNotificationReceived', (notification) => {
-    onNotificationReceived(notification);
+  const fgHandle = await FirebaseMessaging.addListener('notificationReceived', (event) => {
+    onNotificationReceived(event.notification);
   });
   listenerHandles.push(fgHandle);
 
-  // User tapped a notification (background/killed)
-  const tapHandle = await PushNotifications.addListener('pushNotificationActionPerformed', (action) => {
-    onNotificationTapped(action.notification);
+  const tapHandle = await FirebaseMessaging.addListener('notificationActionPerformed', (event) => {
+    onNotificationTapped(event.notification);
   });
   listenerHandles.push(tapHandle);
 }

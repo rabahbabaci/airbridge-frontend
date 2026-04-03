@@ -16,7 +16,7 @@ const config: CapacitorConfig = {
     scheme: 'AirBridge',
   },
   plugins: {
-    PushNotifications: {
+    FirebaseMessaging: {
       presentationOptions: ["badge", "sound", "alert"],
     },
   },
