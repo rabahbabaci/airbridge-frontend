@@ -32,11 +32,14 @@ export function formatCountdownText(leaveAtISO) {
     const h = Math.floor(totalMin / 60);
     const m = totalMin % 60;
     if (h < 24) return `Leave in ${h}h ${m}m`;
-    const days = Math.floor(h / 24);
-    const remH = h % 24;
-    if (days < 7) return `Leave in ${days} day${days > 1 ? 's' : ''}, ${remH} hour${remH !== 1 ? 's' : ''}`;
+    // ── More than a day out: stop running a countdown, show the date instead.
     const d = new Date(leaveAtISO);
-    const dateStr = d.toLocaleDateString('en-US', { month: 'long', day: 'numeric' });
+    const dateStr = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+    if (h >= 72) {
+        // > 3 days: date only
+        return `Leave on ${dateStr}`;
+    }
+    // 24–72h: date + time
     const timeStr = d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
     return `Leave on ${dateStr} at ${timeStr}`;
 }
