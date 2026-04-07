@@ -1,9 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Browser } from '@capacitor/browser';
 import { createPageUrl } from '@/utils';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/lib/AuthContext';
 import { API_BASE } from '@/config';
+import { isNative } from '@/utils/platform';
+import PaywallModal from '@/components/PaywallModal';
 import {
     ArrowLeft, Plane, Car, Train, Bus, ShieldCheck,
     Smartphone, Baby, Clock, LogOut, Mail, User,
@@ -117,6 +120,38 @@ export default function Settings() {
     const [saveStatus, setSaveStatus] = useState(null); // 'saving' | 'saved' | null
     const saveTimerRef = useRef(null);
     const debounceRef = useRef(null);
+
+    // Subscription management (F6.3)
+    const [paywallOpen, setPaywallOpen] = useState(false);
+    const [openingPortal, setOpeningPortal] = useState(false);
+    const [portalError, setPortalError] = useState(null);
+
+    const handleManageSubscription = useCallback(async () => {
+        if (!token || openingPortal) return;
+        setOpeningPortal(true);
+        setPortalError(null);
+        try {
+            const res = await fetch(`${API_BASE}/v1/subscriptions/portal`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) {
+                throw new Error(`Portal failed (${res.status})`);
+            }
+            const data = await res.json();
+            if (!data.portal_url) throw new Error('Missing portal URL');
+            if (isNative()) {
+                await Browser.open({ url: data.portal_url });
+            } else {
+                window.open(data.portal_url, '_blank');
+            }
+        } catch (err) {
+            console.error('Failed to open billing portal:', err);
+            setPortalError("Couldn't open the billing portal. Please try again.");
+        } finally {
+            setOpeningPortal(false);
+        }
+    }, [token, openingPortal]);
 
     // Subscription state is owned by AuthContext (Sprint 6 F6.2). We just
     // derive the local view flags from it.
@@ -625,6 +660,15 @@ export default function Settings() {
                                 </>
                             )}
 
+                            {!loadingSub && isTrialActive && (
+                                <button
+                                    onClick={() => setPaywallOpen(true)}
+                                    className="w-full py-2.5 rounded-xl text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                                >
+                                    Upgrade to Pro — $4.99/mo
+                                </button>
+                            )}
+
                             {!loadingSub && isTrialExpired && (
                                 <>
                                     <div className="flex items-center justify-between">
@@ -637,7 +681,7 @@ export default function Settings() {
                                         </span>
                                     </div>
                                     <button
-                                        onClick={() => console.log('Upgrade tapped')}
+                                        onClick={() => setPaywallOpen(true)}
                                         className="w-full py-2.5 rounded-xl text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                                     >
                                         Upgrade to Pro — $4.99/mo
@@ -667,11 +711,15 @@ export default function Settings() {
                                         </span>
                                     </div>
                                     <button
-                                        onClick={() => console.log('Manage subscription tapped')}
-                                        className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+                                        onClick={handleManageSubscription}
+                                        disabled={openingPortal}
+                                        className="text-sm font-medium text-primary hover:text-primary/80 transition-colors disabled:opacity-60"
                                     >
-                                        Manage subscription
+                                        {openingPortal ? 'Opening…' : 'Manage subscription'}
                                     </button>
+                                    {portalError && (
+                                        <p className="text-xs text-destructive">{portalError}</p>
+                                    )}
                                 </>
                             )}
                         </SectionCard>
@@ -696,6 +744,12 @@ export default function Settings() {
                     </>
                 )}
             </div>
+
+            <PaywallModal
+                open={paywallOpen}
+                onOpenChange={setPaywallOpen}
+                token={token}
+            />
         </div>
     );
 }
