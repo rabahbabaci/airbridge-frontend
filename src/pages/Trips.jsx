@@ -20,21 +20,6 @@ function formatDate(dateStr) {
     }
 }
 
-function tripRoute(trip) {
-    const origin = trip.origin_airport || trip.origin_code || trip.origin || '';
-    const dest = trip.destination_airport || trip.destination_code || trip.destination || '';
-    if (origin && dest) return `${origin} → ${dest}`;
-    return origin || dest || '';
-}
-
-function tripAccuracy(trip) {
-    // Backend may surface accuracy as accuracy_minutes / delta_minutes / feedback delta.
-    const acc = trip.accuracy_minutes ?? trip.delta_minutes ?? trip.feedback?.accuracy_minutes;
-    if (acc == null) return null;
-    const rounded = Math.round(Math.abs(acc));
-    return `±${rounded} min`;
-}
-
 export default function Trips() {
     const navigate = useNavigate();
     const { token, isAuthenticated, isPro } = useAuth();
@@ -173,36 +158,36 @@ export default function Trips() {
                 {/* Trip rows */}
                 {!loading && visibleTrips.length > 0 && (
                     <div className="bg-card border border-border rounded-2xl overflow-hidden">
-                        {visibleTrips.map((trip, idx) => {
-                            const acc = tripAccuracy(trip);
-                            const route = tripRoute(trip);
-                            return (
-                                <div
-                                    key={trip.trip_id || idx}
-                                    className={`px-5 py-4 flex items-center gap-3 ${idx > 0 ? 'border-t border-border' : ''}`}
-                                >
-                                    <div className="w-9 h-9 rounded-xl bg-accent flex items-center justify-center shrink-0">
-                                        <PlaneIcon className="w-4 h-4 text-primary" />
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <div className="flex items-baseline gap-2">
-                                            <p className="text-sm font-bold text-foreground truncate">
-                                                {trip.flight_number || 'Trip'}
-                                            </p>
-                                            {route && <span className="text-xs text-muted-foreground truncate">{route}</span>}
-                                        </div>
-                                        <p className="text-xs text-muted-foreground mt-0.5">
-                                            {formatDate(trip.departure_date)}
+                        {visibleTrips.map((trip, idx) => (
+                            <div
+                                key={trip.trip_id}
+                                className={`px-5 py-4 flex items-center gap-3 ${idx > 0 ? 'border-t border-border' : ''}`}
+                            >
+                                <div className="w-9 h-9 rounded-xl bg-accent flex items-center justify-center shrink-0">
+                                    <PlaneIcon className="w-4 h-4 text-primary" />
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-baseline gap-2">
+                                        <p className="text-sm font-bold text-foreground truncate">
+                                            {trip.flight_number}
                                         </p>
-                                    </div>
-                                    {acc && (
-                                        <span className="text-xs font-bold text-emerald-600 shrink-0">
-                                            {acc}
+                                        <span className="text-xs text-muted-foreground shrink-0">
+                                            {formatDate(trip.departure_date)}
                                         </span>
+                                    </div>
+                                    {trip.home_address && (
+                                        <p className="text-xs text-muted-foreground mt-0.5 truncate">
+                                            From {trip.home_address}
+                                        </p>
                                     )}
                                 </div>
-                            );
-                        })}
+                                {trip.feedback && (
+                                    <span className="text-[10px] font-bold text-emerald-600 bg-emerald-50 px-2 py-1 rounded-lg shrink-0">
+                                        Reviewed
+                                    </span>
+                                )}
+                            </div>
+                        ))}
                     </div>
                 )}
 
