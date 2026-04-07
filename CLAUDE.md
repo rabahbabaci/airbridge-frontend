@@ -24,12 +24,13 @@ React 18, React Router v6, Vite 6, Tailwind CSS 3 + shadcn/ui, Framer Motion, da
 
 ## Key Directories
 
-- `src/pages/` — Home.jsx, Engine.jsx, Settings.jsx (routed via `src/pages.config.js`)
+- `src/pages/` — Home.jsx, Engine.jsx, Settings.jsx, Trips.jsx (routed via `src/pages.config.js`)
 - `src/components/engine/` — Engine sub-components: StepEntry, StepSelectFlight, StepDepartureSetup, ResultsView, ActiveTripView, JourneyVisualization, AuthModal, PushPrimingModal, ActionCards, LoadingView
+- `src/components/` — Top-level shared components: PaywallModal.jsx, FeedbackPrompt.jsx
 - `src/components/landing/` — Landing page sections (Header, Hero, HowItWorks, etc.)
 - `src/components/ui/` — shadcn/ui components (do not hand-edit)
-- `src/lib/` — AuthContext.jsx, utils.js (cn helper), PageNotFound
-- `src/utils/` — platform.js, pushNotifications.js, analytics.js, format.js, mapFlight.js, nativeAuth.js
+- `src/lib/` — AuthContext.jsx (exposes `isPro()` helper), utils.js (cn helper), PageNotFound
+- `src/utils/` — platform.js, pushNotifications.js, analytics.js, events.js (postEvent → /v1/events), format.js, mapFlight.js, nativeAuth.js
 - `src/config.js` — API_BASE, GOOGLE_CLIENT_ID, GOOGLE_MAPS_API_KEY, POSTHOG_API_KEY
 - `ios/App/App/Plugins/` — Custom Swift plugins (AppleSignInPlugin, GoogleSignInPlugin)
 
@@ -47,7 +48,8 @@ React 18, React Router v6, Vite 6, Tailwind CSS 3 + shadcn/ui, Framer Motion, da
 - **Apple Sign In** — native iOS only (via custom AppleSignInPlugin)
 - **Google Sign In** — web only via Google Identity Services (GIS library)
 - **Phone OTP** — both web and native
-- **AuthContext** stores: token, user_id, trip_count, tier, auth_provider, display_name. Persisted in localStorage under `airbridge_auth`.
+- **AuthContext** stores: token, user_id, trip_count, tier, subscription_status, auth_provider, display_name. Persisted in localStorage under `airbridge_auth`.
+- **Pro gating** centralized in `isPro()` from AuthContext: returns `true` if `subscription_status === 'active'` OR `trip_count <= 3` (3-trip free trial). Never inline this logic.
 
 ## Push Notifications
 
@@ -70,8 +72,36 @@ Base URL: `https://airbridge-backend-production.up.railway.app` (configured in `
 | /v1/flights/{number}/{date}, /v1/flights/search | optional | GET |
 | /v1/devices/register, /v1/devices/unregister | required | POST, DELETE |
 | /v1/events | optional | POST |
+| /v1/subscriptions/checkout, /v1/subscriptions/portal | required | POST |
+| /v1/subscriptions/status | required | GET |
+| /v1/feedback | required | POST |
+| /v1/trips/history | required | GET |
+| /v1/users/me | required | DELETE (account deletion) |
 
 Auth = `Authorization: Bearer <token>` from /v1/auth/social or /v1/auth/verify-otp.
+
+## Subscriptions (Stripe)
+
+- **Stripe Checkout** opens in a browser, never via native IAP (legal per Epic v. Apple, April 2025).
+  - Web: `window.open(checkout_url, '_blank')`
+  - Native: `Browser.open({ url })` from `@capacitor/browser`
+- **PaywallModal** (`src/components/PaywallModal.jsx`) is shown after the 3-trip trial ends; calls `POST /v1/subscriptions/checkout` with `success_url`/`cancel_url` pointing back to `/Settings`.
+- After Stripe redirect: Settings polls `GET /v1/subscriptions/status` every 2s for up to 30s when `?subscription=success` is in the URL.
+- **Manage Subscription** (Pro only): `POST /v1/subscriptions/portal` → opens `portal_url` in browser.
+- Pricing: $4.99/mo, $39.99/yr.
+
+## Active Trip State Machine (Sprint 6)
+
+ActiveTripView polls `GET /v1/trips/active` and adapts UI to `trip_status`:
+- `active` → countdown + full timeline (Pro: rideshare/nav cards)
+- `en_route` → drive ETA + Maps button only
+- `at_airport` → "Head to TSA → Gate X" + TSA estimate
+- `at_gate` → "Boarding at [time]," minimal UI
+- `complete` → FeedbackPrompt (or "Trip complete" if dismissed)
+
+Interaction signals (POST /v1/events, dual-fired alongside PostHog):
+- `rideshare_tap`, `nav_tap` from ActionCards
+- `timetogo_tap` from push notification action listener
 
 ## Build Notes
 
@@ -89,4 +119,4 @@ Auth = `Authorization: Bearer <token>` from /v1/auth/social or /v1/auth/verify-o
 
 ## Current State
 
-Sprint 5 complete. Sprint 6 next.
+Sprint 6 in progress. Wiring backend Sprint 6 APIs (Stripe subscriptions, feedback, trip history, account deletion, smart trip tracking).
