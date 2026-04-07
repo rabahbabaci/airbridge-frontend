@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Plane, Car, Shield, Luggage, Footprints, CheckCircle2, Train, Search, SlidersHorizontal } from 'lucide-react';
+import { Plane, Car, Shield, Luggage, CheckCircle2, Search, SlidersHorizontal } from 'lucide-react';
 
 const steps = [
     {
