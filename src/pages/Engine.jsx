@@ -34,7 +34,7 @@ function todayStr() {
 
 // ── Main Component ──────────────────────────────────────────────────────────
 export default function Engine() {
-    const { token, login, logout, updateTripCount, isAuthenticated, display_name, trip_count } = useAuth();
+    const { token, login, logout, updateTripCount, isAuthenticated, display_name, trip_count, isPro } = useAuth();
     const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
 
     const [step, setStep] = useState(1);
@@ -133,21 +133,22 @@ export default function Engine() {
         setRouteTimeWindow('any');
     };
 
-    // Paywall trigger — show once per results view when trial is exhausted.
-    // PaywallModal does its own subscription_status check on mount, so users
-    // who have an active sub never see it. F6.2 will centralize this behind
-    // an isPro() helper; for now we use the inline trip_count > 3 check.
+    // Paywall trigger — show once per results view when the user is no
+    // longer Pro (trial exhausted and no active subscription). isPro from
+    // AuthContext is the canonical check (Sprint 6 F6.2).
     useEffect(() => {
         if (viewMode !== 'results') {
             paywallShownForResultsRef.current = false;
             return;
         }
         if (paywallShownForResultsRef.current) return;
-        if (trip_count != null && trip_count > 3) {
+        if (!isAuthenticated) return;
+        if (trip_count == null) return; // wait for trip_count to load
+        if (!isPro) {
             paywallShownForResultsRef.current = true;
             setPaywallOpen(true);
         }
-    }, [viewMode, trip_count]);
+    }, [viewMode, isPro, isAuthenticated, trip_count]);
 
     // Fresh state on page mount
     const mountedRef = useRef(false);

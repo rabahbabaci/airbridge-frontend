@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { motion } from 'framer-motion';
-import { AlertCircle, ArrowLeft, Smartphone, Share2, Check } from 'lucide-react';
+import { AlertCircle, ArrowLeft, Smartphone, Share2, Check, Sparkles } from 'lucide-react';
 import { formatLocalTime, shortCity } from '@/utils/format';
 import { track } from '@/utils/analytics';
+import { useAuth } from '@/lib/AuthContext';
 
 import JourneyVisualization from './JourneyVisualization';
 import ActionCards from './ActionCards';
@@ -29,6 +30,7 @@ export default function ResultsView({
     securityLabel, homeAddress,
 }) {
     const [copied, setCopied] = useState(false);
+    const { isPro } = useAuth();
 
     const handleShare = async () => {
         const leaveTime = formatUTCToLocal(recommendation?.leave_home_at);
@@ -69,6 +71,12 @@ export default function ResultsView({
                         </div>
                     </div>
                     <div className="flex items-center gap-3">
+                        {!isPro && (
+                            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 text-primary text-[11px] font-bold">
+                                <Sparkles className="w-3 h-3" />
+                                Upgrade to Pro
+                            </span>
+                        )}
                         <button onClick={handleShare}
                             className="w-9 h-9 rounded-xl border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 transition-all"
                             title="Share">

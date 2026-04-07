@@ -1,5 +1,6 @@
-import React, { createContext, useState, useContext, useCallback } from 'react';
+import React, { createContext, useState, useContext, useCallback, useEffect } from 'react';
 import { identify, resetIdentity } from '@/utils/analytics';
+import { API_BASE } from '@/config';
 
 const STORAGE_KEY = 'airbridge_auth';
 const CLEANUP_FLAG = 'airbridge_cleanup_v1';
@@ -22,15 +23,65 @@ function loadStoredAuth() {
   return null;
 }
 
+const EMPTY_AUTH = {
+  token: null,
+  user_id: null,
+  trip_count: null,
+  tier: null,
+  subStatus: null,
+  auth_provider: null,
+  display_name: null,
+};
+
 export const AuthProvider = ({ children }) => {
   const [auth, setAuth] = useState(() => {
     const stored = loadStoredAuth();
-    return stored || { token: null, user_id: null, trip_count: null, tier: null, auth_provider: null, display_name: null };
+    return stored ? { ...EMPTY_AUTH, ...stored } : EMPTY_AUTH;
   });
 
   const isAuthenticated = !!auth.token;
-  const isPro = auth.tier === 'pro';
+
+  // Centralized Pro check (Sprint 6 F6.2):
+  //   - Active Stripe subscription → Pro
+  //   - Free trial (first 3 trips) → Pro
+  //   - Unknown trip_count yet → assume Pro to avoid premature gating flicker
+  const isPro = (
+    auth.subStatus?.subscription_status === 'active'
+    || auth.trip_count == null
+    || auth.trip_count <= 3
+  );
+
   const remainingProTrips = auth.trip_count != null ? Math.max(0, 3 - auth.trip_count) : null;
+
+  const persist = (next) => {
+    setAuth(next);
+    if (next.token) {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    } else {
+      localStorage.removeItem(STORAGE_KEY);
+    }
+  };
+
+  const refreshSubscriptionStatus = useCallback(async (overrideToken) => {
+    const t = overrideToken || auth.token;
+    if (!t) return null;
+    try {
+      const res = await fetch(`${API_BASE}/v1/subscriptions/status`, {
+        headers: { Authorization: `Bearer ${t}` },
+      });
+      if (!res.ok) return null;
+      const data = await res.json();
+      setAuth(prev => {
+        const next = { ...prev, subStatus: data };
+        if (next.token) localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        return next;
+      });
+      return data;
+    } catch (err) {
+      console.error('refreshSubscriptionStatus failed:', err);
+      return null;
+    }
+  }, [auth.token]);
 
   const login = useCallback((data) => {
     const next = {
@@ -38,17 +89,18 @@ export const AuthProvider = ({ children }) => {
       user_id: data.user_id,
       trip_count: data.trip_count ?? null,
       tier: data.tier ?? 'free',
+      subStatus: null,
       auth_provider: data.auth_provider ?? null,
       display_name: data.display_name ?? null,
     };
-    setAuth(next);
-    localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+    persist(next);
     identify(next.user_id, { display_name: next.display_name, tier: next.tier, auth_provider: next.auth_provider });
-  }, []);
+    // Fetch authoritative subscription status right after login.
+    refreshSubscriptionStatus(next.token);
+  }, [refreshSubscriptionStatus]);
 
   const logout = useCallback(() => {
-    setAuth({ token: null, user_id: null, trip_count: null, tier: null, auth_provider: null, display_name: null });
-    localStorage.removeItem(STORAGE_KEY);
+    persist(EMPTY_AUTH);
     resetIdentity();
   }, []);
 
@@ -58,6 +110,15 @@ export const AuthProvider = ({ children }) => {
       localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
       return next;
     });
+    // Trial may have just expired — refetch subscription status.
+    refreshSubscriptionStatus();
+  }, [refreshSubscriptionStatus]);
+
+  // On mount with a stored token, refresh subscription status so the
+  // cached value isn't stale across sessions.
+  useEffect(() => {
+    if (auth.token) refreshSubscriptionStatus(auth.token);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const navigateToLogin = () => {};
@@ -68,6 +129,7 @@ export const AuthProvider = ({ children }) => {
       user_id: auth.user_id,
       trip_count: auth.trip_count,
       tier: auth.tier,
+      subStatus: auth.subStatus,
       auth_provider: auth.auth_provider,
       display_name: auth.display_name,
       isAuthenticated,
@@ -76,6 +138,7 @@ export const AuthProvider = ({ children }) => {
       login,
       logout,
       updateTripCount,
+      refreshSubscriptionStatus,
       navigateToLogin,
       // Kept for compatibility
       user: auth.user_id ? { id: auth.user_id } : null,

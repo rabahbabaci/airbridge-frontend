@@ -72,7 +72,7 @@ function ProviderBadge({ provider }) {
 
 export default function Settings() {
     const navigate = useNavigate();
-    const { token, isAuthenticated, display_name, auth_provider, logout, trip_count } = useAuth();
+    const { token, isAuthenticated, display_name, auth_provider, logout, trip_count, subStatus, isPro, refreshSubscriptionStatus } = useAuth();
     const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
 
     // Redirect if not authenticated
@@ -118,44 +118,15 @@ export default function Settings() {
     const saveTimerRef = useRef(null);
     const debounceRef = useRef(null);
 
-    // Subscription state — sourced from GET /v1/subscriptions/status
-    // Shape: { subscription_status, stripe_customer_id, trial_trips_remaining, current_period_end? }
-    const [subStatus, setSubStatus] = useState(null);
-    const [loadingSub, setLoadingSub] = useState(true);
-
+    // Subscription state is owned by AuthContext (Sprint 6 F6.2). We just
+    // derive the local view flags from it.
     const tripCount = trip_count ?? 0;
     const isSubActive = subStatus?.subscription_status === 'active';
     const trialRemaining = subStatus?.trial_trips_remaining ?? Math.max(0, 3 - tripCount);
+    const loadingSub = subStatus == null;
     const isTrialActive = !isSubActive && trialRemaining > 0;
     const isTrialExpired = !isSubActive && trialRemaining === 0;
     const isSubscribed = isSubActive;
-    // Inline Pro check until F6.2 introduces isPro() in AuthContext.
-    // Matches: subscription_status === 'active' OR within the 3-trip free trial.
-    const isProInline = isSubActive || tripCount <= 3;
-
-    // ── Load subscription status ──
-    const fetchSubStatus = useCallback(async () => {
-        if (!token) return null;
-        try {
-            const res = await fetch(`${API_BASE}/v1/subscriptions/status`, {
-                headers: { Authorization: `Bearer ${token}` },
-            });
-            if (res.ok) {
-                const data = await res.json();
-                setSubStatus(data);
-                return data;
-            }
-        } catch (err) {
-            console.error('Failed to load subscription status:', err);
-        } finally {
-            setLoadingSub(false);
-        }
-        return null;
-    }, [token]);
-
-    useEffect(() => {
-        fetchSubStatus();
-    }, [fetchSubStatus]);
 
     // ── Poll subscription status after returning from Stripe Checkout ──
     useEffect(() => {
@@ -169,10 +140,9 @@ export default function Settings() {
         const interval = setInterval(async () => {
             if (cancelled) return;
             elapsed += 2000;
-            const data = await fetchSubStatus();
+            const data = await refreshSubscriptionStatus();
             if (data?.subscription_status === 'active' || elapsed >= 30000) {
                 clearInterval(interval);
-                // Strip query param so we don't keep polling on next mount
                 const url = new URL(window.location.href);
                 url.searchParams.delete('subscription');
                 window.history.replaceState({}, '', url.toString());
@@ -180,7 +150,7 @@ export default function Settings() {
         }, 2000);
 
         return () => { cancelled = true; clearInterval(interval); };
-    }, [token, fetchSubStatus]);
+    }, [token, refreshSubscriptionStatus]);
 
     // ── Load profile + preferences ──
     useEffect(() => {
@@ -583,7 +553,7 @@ export default function Settings() {
 
                             <div className="border-t border-border" />
 
-                            <div className={`flex items-center justify-between ${!isProInline ? 'opacity-50' : ''}`} title={!isProInline ? 'Pro feature' : ''}>
+                            <div className={`flex items-center justify-between ${!isPro ? 'opacity-50' : ''}`} title={!isPro ? 'Pro feature' : ''}>
                                 <div className="flex items-center gap-3">
                                     <Navigation className="w-4 h-4 text-muted-foreground" />
                                     <div>
@@ -594,7 +564,7 @@ export default function Settings() {
                                         <p className="text-xs text-muted-foreground">Alert when your gate assignment changes</p>
                                     </div>
                                 </div>
-                                <Switch checked={notifPrefs.gate_change} onCheckedChange={v => setNotif('gate_change', v)} disabled={!isProInline} />
+                                <Switch checked={notifPrefs.gate_change} onCheckedChange={v => setNotif('gate_change', v)} disabled={!isPro} />
                             </div>
 
                             <div className={`flex items-center justify-between ${isTrialExpired ? 'opacity-50' : ''}`}>

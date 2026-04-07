@@ -3,6 +3,7 @@ import { motion } from 'framer-motion';
 import { Car, Navigation, Map, ExternalLink } from 'lucide-react';
 import { track } from '@/utils/analytics';
 import { isNative } from '@/utils/platform';
+import { useAuth } from '@/lib/AuthContext';
 
 const native = isNative();
 
@@ -53,8 +54,11 @@ function buildWazeUrl({ termLat, termLng }) {
 
 export default function ActionCards({ recommendation, selectedFlight, transport }) {
     const [rideClicked, setRideClicked] = useState(false);
+    const { isPro } = useAuth();
 
     if (!recommendation) return null;
+    // Sprint 6 F6.2 — one-tap rideshare/navigation are Pro features.
+    if (!isPro) return null;
 
     const termCoords = recommendation.terminal_coordinates;
     const homeCoords = recommendation.home_coordinates;
