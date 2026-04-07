@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { Car, Navigation, Map, ExternalLink } from 'lucide-react';
 import { track } from '@/utils/analytics';
+import { postEvent } from '@/utils/events';
 import { isNative } from '@/utils/platform';
 import { useAuth } from '@/lib/AuthContext';
 
@@ -54,11 +55,13 @@ function buildWazeUrl({ termLat, termLng }) {
 
 export default function ActionCards({ recommendation, selectedFlight, transport }) {
     const [rideClicked, setRideClicked] = useState(false);
-    const { isPro } = useAuth();
+    const { isPro, token } = useAuth();
 
     if (!recommendation) return null;
     // Sprint 6 F6.2 — one-tap rideshare/navigation are Pro features.
     if (!isPro) return null;
+
+    const tripId = recommendation.trip_id;
 
     const termCoords = recommendation.terminal_coordinates;
     const homeCoords = recommendation.home_coordinates;
@@ -111,7 +114,7 @@ export default function ActionCards({ recommendation, selectedFlight, transport 
                             href={buildUberUrl(coordData)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            onClick={() => { track('rideshare_deeplink_tapped', { provider: 'uber' }); setRideClicked(true); }}
+                            onClick={() => { track('rideshare_deeplink_tapped', { provider: 'uber' }); postEvent('rideshare_tap', tripId, token); setRideClicked(true); }}
                             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-border bg-secondary text-foreground hover:border-muted-foreground/30 transition-all"
                         >
                             Uber
@@ -121,7 +124,7 @@ export default function ActionCards({ recommendation, selectedFlight, transport 
                             href={buildLyftUrl(coordData)}
                             target="_blank"
                             rel="noopener noreferrer"
-                            onClick={() => { track('rideshare_deeplink_tapped', { provider: 'lyft' }); setRideClicked(true); }}
+                            onClick={() => { track('rideshare_deeplink_tapped', { provider: 'lyft' }); postEvent('rideshare_tap', tripId, token); setRideClicked(true); }}
                             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-border bg-secondary text-foreground hover:border-muted-foreground/30 transition-all"
                         >
                             Lyft
@@ -162,7 +165,7 @@ export default function ActionCards({ recommendation, selectedFlight, transport 
                             href={buildAppleMapsUrl({ ...coordData, transit: isTransit })}
                             target="_blank"
                             rel="noopener noreferrer"
-                            onClick={() => track('navigation_deeplink_tapped', { provider: 'apple_maps' })}
+                            onClick={() => { track('navigation_deeplink_tapped', { provider: 'apple_maps' }); postEvent('nav_tap', tripId, token); }}
                             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-border bg-secondary text-foreground hover:border-muted-foreground/30 transition-all"
                         >
                             <Map className="w-3.5 h-3.5" />
@@ -172,7 +175,7 @@ export default function ActionCards({ recommendation, selectedFlight, transport 
                             href={buildGoogleMapsUrl({ ...coordData, transit: isTransit })}
                             target="_blank"
                             rel="noopener noreferrer"
-                            onClick={() => track('navigation_deeplink_tapped', { provider: 'google_maps' })}
+                            onClick={() => { track('navigation_deeplink_tapped', { provider: 'google_maps' }); postEvent('nav_tap', tripId, token); }}
                             className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-border bg-secondary text-foreground hover:border-muted-foreground/30 transition-all"
                         >
                             Google Maps
@@ -182,7 +185,7 @@ export default function ActionCards({ recommendation, selectedFlight, transport 
                                 href={buildWazeUrl(coordData)}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                onClick={() => track('navigation_deeplink_tapped', { provider: 'waze' })}
+                                onClick={() => { track('navigation_deeplink_tapped', { provider: 'waze' }); postEvent('nav_tap', tripId, token); }}
                                 className="flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold border border-border bg-secondary text-foreground hover:border-muted-foreground/30 transition-all"
                             >
                                 Waze
