@@ -12,6 +12,7 @@ import ResultsView from '@/components/engine/ResultsView';
 import ActiveTripView from '@/components/engine/ActiveTripView';
 import AuthModal from '@/components/engine/AuthModal';
 import PushPrimingModal, { shouldShowPushPriming } from '@/components/engine/PushPrimingModal';
+import PaywallModal from '@/components/PaywallModal';
 import { useAuth } from '@/lib/AuthContext';
 import { mapFlights } from '@/utils/mapFlight';
 
@@ -33,7 +34,7 @@ function todayStr() {
 
 // ── Main Component ──────────────────────────────────────────────────────────
 export default function Engine() {
-    const { token, login, logout, updateTripCount, isAuthenticated, display_name } = useAuth();
+    const { token, login, logout, updateTripCount, isAuthenticated, display_name, trip_count } = useAuth();
     const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
 
     const [step, setStep] = useState(1);
@@ -97,6 +98,10 @@ export default function Engine() {
     // Push priming
     const [pushPrimingOpen, setPushPrimingOpen] = useState(false);
 
+    // Paywall — F6.1
+    const [paywallOpen, setPaywallOpen] = useState(false);
+    const paywallShownForResultsRef = useRef(false);
+
     const addressContainerRef = useRef(null);
     const addressInputRef = useRef(null);
 
@@ -127,6 +132,22 @@ export default function Engine() {
         setRouteDestination('');
         setRouteTimeWindow('any');
     };
+
+    // Paywall trigger — show once per results view when trial is exhausted.
+    // PaywallModal does its own subscription_status check on mount, so users
+    // who have an active sub never see it. F6.2 will centralize this behind
+    // an isPro() helper; for now we use the inline trip_count > 3 check.
+    useEffect(() => {
+        if (viewMode !== 'results') {
+            paywallShownForResultsRef.current = false;
+            return;
+        }
+        if (paywallShownForResultsRef.current) return;
+        if (trip_count != null && trip_count > 3) {
+            paywallShownForResultsRef.current = true;
+            setPaywallOpen(true);
+        }
+    }, [viewMode, trip_count]);
 
     // Fresh state on page mount
     const mountedRef = useRef(false);
@@ -925,6 +946,12 @@ export default function Engine() {
                 open={pushPrimingOpen}
                 onClose={() => setPushPrimingOpen(false)}
                 authToken={token}
+            />
+
+            <PaywallModal
+                open={paywallOpen}
+                onOpenChange={setPaywallOpen}
+                token={token}
             />
         </div>
     );
