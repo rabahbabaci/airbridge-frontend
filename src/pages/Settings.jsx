@@ -129,6 +129,9 @@ export default function Settings() {
     const isTrialActive = !isSubActive && trialRemaining > 0;
     const isTrialExpired = !isSubActive && trialRemaining === 0;
     const isSubscribed = isSubActive;
+    // Inline Pro check until F6.2 introduces isPro() in AuthContext.
+    // Matches: subscription_status === 'active' OR within the 3-trip free trial.
+    const isProInline = isSubActive || tripCount <= 3;
 
     // ── Load subscription status ──
     const fetchSubStatus = useCallback(async () => {
@@ -580,7 +583,7 @@ export default function Settings() {
 
                             <div className="border-t border-border" />
 
-                            <div className={`flex items-center justify-between ${isTrialExpired ? 'opacity-50' : ''}`}>
+                            <div className={`flex items-center justify-between ${!isProInline ? 'opacity-50' : ''}`} title={!isProInline ? 'Pro feature' : ''}>
                                 <div className="flex items-center gap-3">
                                     <Navigation className="w-4 h-4 text-muted-foreground" />
                                     <div>
@@ -591,7 +594,7 @@ export default function Settings() {
                                         <p className="text-xs text-muted-foreground">Alert when your gate assignment changes</p>
                                     </div>
                                 </div>
-                                <Switch checked={notifPrefs.gate_change} onCheckedChange={v => setNotif('gate_change', v)} disabled={isTrialExpired} />
+                                <Switch checked={notifPrefs.gate_change} onCheckedChange={v => setNotif('gate_change', v)} disabled={!isProInline} />
                             </div>
 
                             <div className={`flex items-center justify-between ${isTrialExpired ? 'opacity-50' : ''}`}>
