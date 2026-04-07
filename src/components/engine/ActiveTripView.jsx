@@ -1,8 +1,10 @@
 import React, { useEffect, useState } from 'react';
-import { motion } from 'framer-motion';
-import { Check, CheckCircle2, Circle, RefreshCw, Plus, Settings as SettingsIcon } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { Check, CheckCircle2, Circle, RefreshCw, Plus, Settings as SettingsIcon, PartyPopper } from 'lucide-react';
 
-import { formatCountdownText } from '@/utils/format';
+import { formatCountdownText, formatLocalTime } from '@/utils/format';
+import { useAuth } from '@/lib/AuthContext';
+import { API_BASE } from '@/config';
 import JourneyVisualization from './JourneyVisualization';
 import ActionCards from './ActionCards';
 
@@ -55,10 +57,13 @@ export default function ActiveTripView({
     isAuthenticated, display_name,
     onNewTrip, onRefresh, onEdit,
 }) {
+    const { token } = useAuth();
     const [countdown, setCountdown] = useState('');
     const [urgency, setUrgency] = useState('calm');
     const [refreshing, setRefreshing] = useState(false);
     const [refreshed, setRefreshed] = useState(false);
+    // Sprint 6 F6.6 — backend-driven trip_status, polled every 30s.
+    const [polledStatus, setPolledStatus] = useState(null);
 
     const handleRefresh = async () => {
         setRefreshing(true);
@@ -81,42 +86,112 @@ export default function ActiveTripView({
         return () => clearInterval(id);
     }, [recommendation?.leave_home_at]);
 
-    const currentPhase = statusToPhaseIndex(trip?.status);
+    // Poll /v1/trips/active for the latest backend trip_status. Backend
+    // ticks the state machine through active -> en_route -> at_airport ->
+    // at_gate -> complete based on push acknowledgements and timing.
+    useEffect(() => {
+        if (!token || !trip?.trip_id) return;
+        let cancelled = false;
+
+        async function poll() {
+            try {
+                const res = await fetch(`${API_BASE}/v1/trips/active`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (!res.ok || cancelled) return;
+                const data = await res.json();
+                if (cancelled) return;
+                if (data?.trip?.trip_id === trip.trip_id && data.trip.status) {
+                    setPolledStatus(data.trip.status);
+                }
+            } catch (err) {
+                console.error('Active trip poll failed:', err);
+            }
+        }
+
+        poll();
+        const id = setInterval(poll, 30000);
+        return () => { cancelled = true; clearInterval(id); };
+    }, [token, trip?.trip_id]);
+
+    // Backend status takes precedence; fall back to whatever the parent
+    // passed in (which itself may be a stale prop snapshot).
+    const effectiveStatus = polledStatus || trip?.status || 'active';
+    const currentPhase = statusToPhaseIndex(effectiveStatus);
     const isPast = urgency === 'critical';
+
+    // Phase-specific hero content. Returns { label, sub, urgencyOverride? }.
+    const phaseHero = (() => {
+        const flightNumber = trip?.flight_number || '';
+        const dateStr = trip?.departure_date || '';
+        const terminal = selectedFlight?.departure_terminal;
+        const gate = selectedFlight?.departure_gate;
+        const depTime = selectedFlight?.departure_time
+            ? formatLocalTime(selectedFlight.departure_time)
+            : '';
+
+        switch (effectiveStatus) {
+            case 'en_route':
+                return {
+                    label: `On your way to ${terminal ? `Terminal ${terminal}` : 'the airport'}`,
+                    sub: `${flightNumber}${dateStr ? ` · ${dateStr}` : ''}`,
+                };
+            case 'at_airport':
+                return {
+                    label: gate ? `Head to TSA → Gate ${gate}` : 'Head to TSA',
+                    sub: `${flightNumber}${terminal ? ` · Terminal ${terminal}` : ''}`,
+                };
+            case 'at_gate':
+                return {
+                    label: depTime ? `Boarding around ${depTime}` : "You're set",
+                    sub: `${flightNumber}${gate ? ` · Gate ${gate}` : ''}`,
+                };
+            case 'complete':
+                return {
+                    label: 'Trip complete',
+                    sub: `${flightNumber}${dateStr ? ` · ${dateStr}` : ''}`,
+                };
+            default: // 'active' / 'created' / unknown
+                return {
+                    label: isPast ? 'Leave NOW' : countdown || 'Calculating...',
+                    sub: `${flightNumber}${dateStr ? ` · ${dateStr}` : ''}`,
+                };
+        }
+    })();
+
+    // Section visibility per phase.
+    const showActionCards = isAuthenticated && (effectiveStatus === 'active' || effectiveStatus === 'en_route');
+    const showFullTimeline = effectiveStatus === 'active';
+    const showFlightStatus = effectiveStatus !== 'complete';
+    const showCompleteCard = effectiveStatus === 'complete';
 
     return (
         <motion.div key="active_trip" {...pageTransition} className="min-h-[calc(100vh-57px)] bg-secondary/50">
 
             {/* ── 1. HERO COUNTDOWN ── */}
-            <div className={`border-b ${urgencyClasses(urgency)} transition-colors duration-500`}>
+            <div className={`border-b ${urgencyClasses(effectiveStatus === 'active' ? urgency : 'calm')} transition-colors duration-500`}>
                 <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 text-center">
-                    {recommendation ? (
-                        <>
-                            <motion.p
-                                key={countdown || 'now'}
-                                initial={{ scale: 0.95, opacity: 0 }}
-                                animate={{ scale: 1, opacity: 1 }}
-                                className={`font-black tracking-tight ${
-                                    isPast
-                                        ? 'text-4xl md:text-5xl text-red-600 animate-pulse'
-                                        : urgency === 'urgent'
-                                            ? 'text-4xl md:text-5xl text-red-600'
-                                            : urgency === 'attention'
-                                                ? 'text-4xl md:text-5xl text-amber-700'
-                                                : 'text-4xl md:text-5xl text-foreground'
-                                }`}
-                            >
-                                {isPast ? 'Leave NOW' : countdown || 'Calculating...'}
-                            </motion.p>
-                        </>
-                    ) : (
-                        <p className="text-3xl md:text-4xl font-black text-muted-foreground/50">Calculating...</p>
-                    )}
-                    <p className="text-sm text-muted-foreground mt-3">
-                        {trip?.flight_number || ''}
-                        {trip?.departure_date ? ` \u00b7 ${trip.departure_date}` : ''}
-                        {trip?.status ? ` \u00b7 ${trip.status === 'active' ? 'Tracking' : trip.status === 'en_route' ? 'En Route' : trip.status}` : ''}
-                    </p>
+                    <AnimatePresence mode="wait">
+                        <motion.p
+                            key={`${effectiveStatus}-${phaseHero.label}`}
+                            initial={{ scale: 0.95, opacity: 0 }}
+                            animate={{ scale: 1, opacity: 1 }}
+                            exit={{ opacity: 0 }}
+                            transition={{ duration: 0.3 }}
+                            className={`font-black tracking-tight ${
+                                effectiveStatus === 'active' && isPast
+                                    ? 'text-4xl md:text-5xl text-red-600 animate-pulse'
+                                    : effectiveStatus === 'active' && urgency === 'urgent'
+                                        ? 'text-4xl md:text-5xl text-red-600'
+                                        : effectiveStatus === 'active' && urgency === 'attention'
+                                            ? 'text-4xl md:text-5xl text-amber-700'
+                                            : 'text-3xl md:text-4xl text-foreground'
+                            }`}
+                        >
+                            {phaseHero.label}
+                        </motion.p>
+                    </AnimatePresence>
+                    <p className="text-sm text-muted-foreground mt-3">{phaseHero.sub}</p>
                 </div>
             </div>
 
@@ -159,27 +234,44 @@ export default function ActiveTripView({
                 </div>
             </div>
 
-            {/* ── 3. SEGMENT TIMELINE ── */}
-            {recommendation ? (
-                <JourneyVisualization
-                    locked={true}
-                    recommendation={recommendation}
-                    selectedFlight={selectedFlight}
-                    transport={transport}
-                    homeAddress={trip?.home_address}
-                />
-            ) : (
+            {/* ── 3. SEGMENT TIMELINE ── (only while planning the trip) */}
+            {showFullTimeline && (
+                recommendation ? (
+                    <JourneyVisualization
+                        locked={true}
+                        recommendation={recommendation}
+                        selectedFlight={selectedFlight}
+                        transport={transport}
+                        homeAddress={trip?.home_address}
+                    />
+                ) : (
+                    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
+                        <div className="bg-card rounded-3xl border border-border p-8 space-y-4 animate-pulse">
+                            <div className="h-4 bg-secondary rounded w-1/3" />
+                            <div className="h-12 bg-secondary rounded" />
+                            <div className="h-12 bg-secondary rounded" />
+                        </div>
+                    </div>
+                )
+            )}
+
+            {/* ── 3b. TRIP COMPLETE CARD ── */}
+            {showCompleteCard && (
                 <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
-                    <div className="bg-card rounded-3xl border border-border p-8 space-y-4 animate-pulse">
-                        <div className="h-4 bg-secondary rounded w-1/3" />
-                        <div className="h-12 bg-secondary rounded" />
-                        <div className="h-12 bg-secondary rounded" />
+                    <div className="bg-card rounded-3xl border border-border p-8 text-center">
+                        <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-4">
+                            <PartyPopper className="w-7 h-7 text-emerald-600" />
+                        </div>
+                        <h3 className="text-lg font-bold text-foreground mb-1">You made it</h3>
+                        <p className="text-sm text-muted-foreground">
+                            Tell us how it went next time you open AirBridge so we can keep getting smarter.
+                        </p>
                     </div>
                 </div>
             )}
 
             {/* ── 4. FLIGHT STATUS BAR ── */}
-            {selectedFlight && (
+            {showFlightStatus && selectedFlight && (
                 <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex justify-center">
                     {selectedFlight.is_delayed ? (
                         <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-sm font-semibold">
@@ -193,8 +285,8 @@ export default function ActiveTripView({
                 </div>
             )}
 
-            {/* ── 5. ACTION CARDS ── */}
-            {isAuthenticated && (
+            {/* ── 5. ACTION CARDS ── (active + en_route only) */}
+            {showActionCards && (
                 <ActionCards
                     recommendation={recommendation}
                     selectedFlight={selectedFlight}
