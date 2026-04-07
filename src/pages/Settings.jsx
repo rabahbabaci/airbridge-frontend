@@ -11,7 +11,7 @@ import {
     ArrowLeft, Plane, Car, Train, Bus, ShieldCheck,
     Smartphone, Baby, Clock, LogOut, Mail, User,
     Map, Navigation, ExternalLink, Bell, CreditCard, Info,
-    Settings as SettingsIcon, Check, AlertCircle, FileText,
+    Settings as SettingsIcon, Check, AlertCircle, FileText, History,
 } from 'lucide-react';
 
 const TRANSPORT_OPTIONS = [
@@ -325,6 +325,7 @@ export default function Settings() {
                         </Link>
                         <nav className="hidden md:flex items-center gap-1 text-sm">
                             <Link to={createPageUrl('Engine')} className="text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg transition-colors">Engine</Link>
+                            <Link to={createPageUrl('Trips')} className="text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg transition-colors">Trip History</Link>
                             <span className="text-foreground font-semibold px-3 py-1.5 bg-secondary rounded-lg">Settings</span>
                         </nav>
                     </div>
@@ -396,6 +397,15 @@ export default function Settings() {
                                     </div>
                                 </>
                             )}
+                            <div className="border-t border-border" />
+                            <Link to={createPageUrl('Trips')}
+                                className="flex items-center justify-between text-sm font-medium text-foreground hover:text-primary transition-colors">
+                                <span className="flex items-center gap-2">
+                                    <History className="w-4 h-4 text-muted-foreground" />
+                                    Trip history
+                                </span>
+                                <ArrowLeft className="w-4 h-4 text-muted-foreground rotate-180" />
+                            </Link>
                             <div className="border-t border-border" />
                             <button onClick={handleSignOut}
                                 className="flex items-center gap-2 text-sm font-medium text-destructive hover:text-destructive/80 transition-colors">
