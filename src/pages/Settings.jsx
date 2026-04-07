@@ -72,7 +72,7 @@ function ProviderBadge({ provider }) {
 
 export default function Settings() {
     const navigate = useNavigate();
-    const { token, isAuthenticated, display_name, tier, auth_provider, logout, isPro, trip_count, remainingProTrips } = useAuth();
+    const { token, isAuthenticated, display_name, auth_provider, logout, trip_count } = useAuth();
     const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
 
     // Redirect if not authenticated
@@ -118,11 +118,66 @@ export default function Settings() {
     const saveTimerRef = useRef(null);
     const debounceRef = useRef(null);
 
-    // Subscription state
+    // Subscription state — sourced from GET /v1/subscriptions/status
+    // Shape: { subscription_status, stripe_customer_id, trial_trips_remaining, current_period_end? }
+    const [subStatus, setSubStatus] = useState(null);
+    const [loadingSub, setLoadingSub] = useState(true);
+
     const tripCount = trip_count ?? 0;
-    const isTrialActive = isPro && tripCount <= 3;
-    const isSubscribed = isPro && tripCount > 3;
-    const isTrialExpired = !isPro;
+    const isSubActive = subStatus?.subscription_status === 'active';
+    const trialRemaining = subStatus?.trial_trips_remaining ?? Math.max(0, 3 - tripCount);
+    const isTrialActive = !isSubActive && trialRemaining > 0;
+    const isTrialExpired = !isSubActive && trialRemaining === 0;
+    const isSubscribed = isSubActive;
+
+    // ── Load subscription status ──
+    const fetchSubStatus = useCallback(async () => {
+        if (!token) return null;
+        try {
+            const res = await fetch(`${API_BASE}/v1/subscriptions/status`, {
+                headers: { Authorization: `Bearer ${token}` },
+            });
+            if (res.ok) {
+                const data = await res.json();
+                setSubStatus(data);
+                return data;
+            }
+        } catch (err) {
+            console.error('Failed to load subscription status:', err);
+        } finally {
+            setLoadingSub(false);
+        }
+        return null;
+    }, [token]);
+
+    useEffect(() => {
+        fetchSubStatus();
+    }, [fetchSubStatus]);
+
+    // ── Poll subscription status after returning from Stripe Checkout ──
+    useEffect(() => {
+        if (!token) return;
+        const params = new URLSearchParams(window.location.search);
+        const result = params.get('subscription');
+        if (result !== 'success') return;
+
+        let cancelled = false;
+        let elapsed = 0;
+        const interval = setInterval(async () => {
+            if (cancelled) return;
+            elapsed += 2000;
+            const data = await fetchSubStatus();
+            if (data?.subscription_status === 'active' || elapsed >= 30000) {
+                clearInterval(interval);
+                // Strip query param so we don't keep polling on next mount
+                const url = new URL(window.location.href);
+                url.searchParams.delete('subscription');
+                window.history.replaceState({}, '', url.toString());
+            }
+        }, 2000);
+
+        return () => { cancelled = true; clearInterval(interval); };
+    }, [token, fetchSubStatus]);
 
     // ── Load profile + preferences ──
     useEffect(() => {
@@ -563,17 +618,21 @@ export default function Settings() {
 
                         {/* ── SUBSCRIPTION ── */}
                         <SectionCard title="Subscription" icon={CreditCard}>
-                            {isTrialActive && (
+                            {loadingSub && (
+                                <p className="text-xs text-muted-foreground">Loading subscription…</p>
+                            )}
+
+                            {!loadingSub && isTrialActive && (
                                 <>
                                     <div className="flex items-center justify-between">
                                         <div>
                                             <p className="text-sm font-bold text-foreground">
-                                                {tripCount === 0 ? '3 Pro trips available' : `Trip ${tripCount} of 3`}
+                                                {trialRemaining === 3 ? '3 Pro trips available' : `Trip ${3 - trialRemaining} of 3`}
                                             </p>
                                             <p className="text-xs text-primary font-medium mt-0.5">
-                                                {tripCount === 0
+                                                {trialRemaining === 3
                                                     ? 'Start your first trip to begin'
-                                                    : `You have ${remainingProTrips ?? 3} Pro trip${(remainingProTrips ?? 3) === 1 ? '' : 's'} remaining`}
+                                                    : `You have ${trialRemaining} Pro trip${trialRemaining === 1 ? '' : 's'} remaining`}
                                             </p>
                                         </div>
                                         <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-primary text-primary-foreground">
@@ -583,7 +642,7 @@ export default function Settings() {
                                     <div className="grid grid-cols-3 gap-1.5">
                                         {[1, 2, 3].map(i => (
                                             <div key={i} className={`h-2 rounded-full transition-all ${
-                                                i <= tripCount ? 'bg-primary' : 'bg-secondary'
+                                                i <= (3 - trialRemaining) ? 'bg-primary' : 'bg-secondary'
                                             }`} />
                                         ))}
                                     </div>
@@ -593,7 +652,7 @@ export default function Settings() {
                                 </>
                             )}
 
-                            {isTrialExpired && (
+                            {!loadingSub && isTrialExpired && (
                                 <>
                                     <div className="flex items-center justify-between">
                                         <div>
@@ -619,12 +678,16 @@ export default function Settings() {
                                 </>
                             )}
 
-                            {isSubscribed && (
+                            {!loadingSub && isSubscribed && (
                                 <>
                                     <div className="flex items-center justify-between">
                                         <div>
                                             <p className="text-sm font-medium text-foreground">Pro Plan</p>
-                                            <p className="text-xs text-muted-foreground mt-0.5">Active subscription</p>
+                                            <p className="text-xs text-muted-foreground mt-0.5">
+                                                {subStatus?.current_period_end
+                                                    ? `Renews ${new Date(subStatus.current_period_end).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`
+                                                    : 'Active subscription'}
+                                            </p>
                                         </div>
                                         <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-primary text-primary-foreground">
                                             Pro Plan
