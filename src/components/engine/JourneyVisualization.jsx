@@ -371,7 +371,11 @@ export default function JourneyVisualization({
                 {/* Pro tier badge */}
                 {recommendation.tier === 'pro' && recommendation.remaining_pro_trips != null && (
                     <div className="mt-3 pt-3 border-t border-primary-foreground/10">
-                        <span className="text-xs font-medium text-primary-foreground/60">Pro · {recommendation.remaining_pro_trips} free trips remaining</span>
+                        <span className="text-xs font-medium text-primary-foreground/60">
+                            {recommendation.remaining_pro_trips > 0
+                                ? `Pro Trial · ${recommendation.remaining_pro_trips} trip${recommendation.remaining_pro_trips === 1 ? '' : 's'} remaining`
+                                : 'Pro'}
+                        </span>
                     </div>
                 )}
 

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Switch } from '@/components/ui/switch';
 import {
-    Plane, Car, Train, Bus, ArrowLeft, AlertCircle, CheckCircle2,
+    Car, Train, Bus, ArrowLeft, AlertCircle, CheckCircle2,
     ShieldCheck, Clock, Luggage, Baby, Smartphone, Minus, Plus,
     ChevronDown, Loader2,
 } from 'lucide-react';

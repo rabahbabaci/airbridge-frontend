@@ -50,12 +50,14 @@
 import Home from './pages/Home';
 import Engine from './pages/Engine';
 import Settings from './pages/Settings';
+import Trips from './pages/Trips';
 
 
 export const PAGES = {
     "Home": Home,
     "Engine": Engine,
     "Settings": Settings,
+    "Trips": Trips,
 }
 
 export const pagesConfig = {

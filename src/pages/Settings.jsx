@@ -1,14 +1,17 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
+import { Browser } from '@capacitor/browser';
 import { createPageUrl } from '@/utils';
 import { Switch } from '@/components/ui/switch';
 import { useAuth } from '@/lib/AuthContext';
 import { API_BASE } from '@/config';
+import { isNative } from '@/utils/platform';
+import PaywallModal from '@/components/PaywallModal';
 import {
     ArrowLeft, Plane, Car, Train, Bus, ShieldCheck,
     Smartphone, Baby, Clock, LogOut, Mail, User,
     Map, Navigation, ExternalLink, Bell, CreditCard, Info,
-    Settings as SettingsIcon, Check, AlertCircle, FileText,
+    Settings as SettingsIcon, Check, AlertCircle, FileText, History,
 } from 'lucide-react';
 
 const TRANSPORT_OPTIONS = [
@@ -72,7 +75,7 @@ function ProviderBadge({ provider }) {
 
 export default function Settings() {
     const navigate = useNavigate();
-    const { token, isAuthenticated, display_name, tier, auth_provider, logout, isPro, trip_count, remainingProTrips } = useAuth();
+    const { token, isAuthenticated, display_name, auth_provider, logout, trip_count, subStatus, isPro, refreshSubscriptionStatus } = useAuth();
     const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
 
     // Redirect if not authenticated
@@ -118,11 +121,71 @@ export default function Settings() {
     const saveTimerRef = useRef(null);
     const debounceRef = useRef(null);
 
-    // Subscription state
+    // Subscription management (F6.3)
+    const [paywallOpen, setPaywallOpen] = useState(false);
+    const [openingPortal, setOpeningPortal] = useState(false);
+    const [portalError, setPortalError] = useState(null);
+
+    const handleManageSubscription = useCallback(async () => {
+        if (!token || openingPortal) return;
+        setOpeningPortal(true);
+        setPortalError(null);
+        try {
+            const res = await fetch(`${API_BASE}/v1/subscriptions/portal`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            });
+            if (!res.ok) {
+                throw new Error(`Portal failed (${res.status})`);
+            }
+            const data = await res.json();
+            if (!data.portal_url) throw new Error('Missing portal URL');
+            if (isNative()) {
+                await Browser.open({ url: data.portal_url });
+            } else {
+                window.open(data.portal_url, '_blank');
+            }
+        } catch (err) {
+            console.error('Failed to open billing portal:', err);
+            setPortalError("Couldn't open the billing portal. Please try again.");
+        } finally {
+            setOpeningPortal(false);
+        }
+    }, [token, openingPortal]);
+
+    // Subscription state is owned by AuthContext (Sprint 6 F6.2). We just
+    // derive the local view flags from it.
     const tripCount = trip_count ?? 0;
-    const isTrialActive = isPro && tripCount <= 3;
-    const isSubscribed = isPro && tripCount > 3;
-    const isTrialExpired = !isPro;
+    const isSubActive = subStatus?.subscription_status === 'active';
+    const trialRemaining = subStatus?.trial_trips_remaining ?? Math.max(0, 3 - tripCount);
+    const loadingSub = subStatus == null;
+    const isTrialActive = !isSubActive && trialRemaining > 0;
+    const isTrialExpired = !isSubActive && trialRemaining === 0;
+    const isSubscribed = isSubActive;
+
+    // ── Poll subscription status after returning from Stripe Checkout ──
+    useEffect(() => {
+        if (!token) return;
+        const params = new URLSearchParams(window.location.search);
+        const result = params.get('subscription');
+        if (result !== 'success') return;
+
+        let cancelled = false;
+        let elapsed = 0;
+        const interval = setInterval(async () => {
+            if (cancelled) return;
+            elapsed += 2000;
+            const data = await refreshSubscriptionStatus();
+            if (data?.subscription_status === 'active' || elapsed >= 30000) {
+                clearInterval(interval);
+                const url = new URL(window.location.href);
+                url.searchParams.delete('subscription');
+                window.history.replaceState({}, '', url.toString());
+            }
+        }, 2000);
+
+        return () => { cancelled = true; clearInterval(interval); };
+    }, [token, refreshSubscriptionStatus]);
 
     // ── Load profile + preferences ──
     useEffect(() => {
@@ -262,6 +325,7 @@ export default function Settings() {
                         </Link>
                         <nav className="hidden md:flex items-center gap-1 text-sm">
                             <Link to={createPageUrl('Engine')} className="text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg transition-colors">Engine</Link>
+                            <Link to={createPageUrl('Trips')} className="text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg transition-colors">Trip History</Link>
                             <span className="text-foreground font-semibold px-3 py-1.5 bg-secondary rounded-lg">Settings</span>
                         </nav>
                     </div>
@@ -334,6 +398,15 @@ export default function Settings() {
                                 </>
                             )}
                             <div className="border-t border-border" />
+                            <Link to={createPageUrl('Trips')}
+                                className="flex items-center justify-between text-sm font-medium text-foreground hover:text-primary transition-colors">
+                                <span className="flex items-center gap-2">
+                                    <History className="w-4 h-4 text-muted-foreground" />
+                                    Trip history
+                                </span>
+                                <ArrowLeft className="w-4 h-4 text-muted-foreground rotate-180" />
+                            </Link>
+                            <div className="border-t border-border" />
                             <button onClick={handleSignOut}
                                 className="flex items-center gap-2 text-sm font-medium text-destructive hover:text-destructive/80 transition-colors">
                                 <LogOut className="w-4 h-4" />
@@ -371,11 +444,11 @@ export default function Settings() {
                                 <label className="text-xs font-medium text-muted-foreground mb-2 block">Security access</label>
                                 <div className="flex flex-wrap gap-2">
                                     {[
-                                        { id: 'none', label: 'None', active: isNoneSecurity },
+                                        { id: 'none', label: 'Standard', active: isNoneSecurity },
                                         { id: 'precheck', label: 'PreCheck', active: hasPrecheck && !hasClear },
                                         { id: 'clear', label: 'CLEAR', active: hasClear && !hasPrecheck },
                                         { id: 'clear_precheck', label: 'PreCheck + CLEAR', active: hasPrecheck && hasClear },
-                                        { id: 'priority', label: 'Priority Lane', active: hasPriorityLane, subtitle: 'First/Business or elite status' },
+                                        { id: 'priority', label: 'Priority Lane (Airline)', active: hasPriorityLane, subtitle: 'First/Business or elite status' },
                                     ].map(chip => (
                                         <button key={chip.id} onClick={() => handleSecurityChip(chip.id)}
                                             className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
@@ -525,7 +598,7 @@ export default function Settings() {
 
                             <div className="border-t border-border" />
 
-                            <div className={`flex items-center justify-between ${isTrialExpired ? 'opacity-50' : ''}`}>
+                            <div className={`flex items-center justify-between ${!isPro ? 'opacity-50' : ''}`} title={!isPro ? 'Pro feature' : ''}>
                                 <div className="flex items-center gap-3">
                                     <Navigation className="w-4 h-4 text-muted-foreground" />
                                     <div>
@@ -536,7 +609,7 @@ export default function Settings() {
                                         <p className="text-xs text-muted-foreground">Alert when your gate assignment changes</p>
                                     </div>
                                 </div>
-                                <Switch checked={notifPrefs.gate_change} onCheckedChange={v => setNotif('gate_change', v)} disabled={isTrialExpired} />
+                                <Switch checked={notifPrefs.gate_change} onCheckedChange={v => setNotif('gate_change', v)} disabled={!isPro} />
                             </div>
 
                             <div className={`flex items-center justify-between ${isTrialExpired ? 'opacity-50' : ''}`}>
@@ -563,17 +636,21 @@ export default function Settings() {
 
                         {/* ── SUBSCRIPTION ── */}
                         <SectionCard title="Subscription" icon={CreditCard}>
-                            {isTrialActive && (
+                            {loadingSub && (
+                                <p className="text-xs text-muted-foreground">Loading subscription…</p>
+                            )}
+
+                            {!loadingSub && isTrialActive && (
                                 <>
                                     <div className="flex items-center justify-between">
                                         <div>
                                             <p className="text-sm font-bold text-foreground">
-                                                {tripCount === 0 ? '3 Pro trips available' : `Trip ${tripCount} of 3`}
+                                                {trialRemaining === 3 ? '3 Pro trips available' : `Trip ${3 - trialRemaining} of 3`}
                                             </p>
                                             <p className="text-xs text-primary font-medium mt-0.5">
-                                                {tripCount === 0
+                                                {trialRemaining === 3
                                                     ? 'Start your first trip to begin'
-                                                    : `You have ${remainingProTrips ?? 3} Pro trip${(remainingProTrips ?? 3) === 1 ? '' : 's'} remaining`}
+                                                    : `You have ${trialRemaining} Pro trip${trialRemaining === 1 ? '' : 's'} remaining`}
                                             </p>
                                         </div>
                                         <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-primary text-primary-foreground">
@@ -583,7 +660,7 @@ export default function Settings() {
                                     <div className="grid grid-cols-3 gap-1.5">
                                         {[1, 2, 3].map(i => (
                                             <div key={i} className={`h-2 rounded-full transition-all ${
-                                                i <= tripCount ? 'bg-primary' : 'bg-secondary'
+                                                i <= (3 - trialRemaining) ? 'bg-primary' : 'bg-secondary'
                                             }`} />
                                         ))}
                                     </div>
@@ -593,7 +670,16 @@ export default function Settings() {
                                 </>
                             )}
 
-                            {isTrialExpired && (
+                            {!loadingSub && isTrialActive && (
+                                <button
+                                    onClick={() => setPaywallOpen(true)}
+                                    className="w-full py-2.5 rounded-xl text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+                                >
+                                    Upgrade to Pro — $4.99/mo
+                                </button>
+                            )}
+
+                            {!loadingSub && isTrialExpired && (
                                 <>
                                     <div className="flex items-center justify-between">
                                         <div>
@@ -605,7 +691,7 @@ export default function Settings() {
                                         </span>
                                     </div>
                                     <button
-                                        onClick={() => console.log('Upgrade tapped')}
+                                        onClick={() => setPaywallOpen(true)}
                                         className="w-full py-2.5 rounded-xl text-sm font-bold bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
                                     >
                                         Upgrade to Pro — $4.99/mo
@@ -619,23 +705,31 @@ export default function Settings() {
                                 </>
                             )}
 
-                            {isSubscribed && (
+                            {!loadingSub && isSubscribed && (
                                 <>
                                     <div className="flex items-center justify-between">
                                         <div>
                                             <p className="text-sm font-medium text-foreground">Pro Plan</p>
-                                            <p className="text-xs text-muted-foreground mt-0.5">Active subscription</p>
+                                            <p className="text-xs text-muted-foreground mt-0.5">
+                                                {subStatus?.current_period_end
+                                                    ? `Renews ${new Date(subStatus.current_period_end).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}`
+                                                    : 'Active subscription'}
+                                            </p>
                                         </div>
                                         <span className="px-2.5 py-1 rounded-lg text-xs font-bold bg-primary text-primary-foreground">
                                             Pro Plan
                                         </span>
                                     </div>
                                     <button
-                                        onClick={() => console.log('Manage subscription tapped')}
-                                        className="text-sm font-medium text-primary hover:text-primary/80 transition-colors"
+                                        onClick={handleManageSubscription}
+                                        disabled={openingPortal}
+                                        className="text-sm font-medium text-primary hover:text-primary/80 transition-colors disabled:opacity-60"
                                     >
-                                        Manage subscription
+                                        {openingPortal ? 'Opening…' : 'Manage subscription'}
                                     </button>
+                                    {portalError && (
+                                        <p className="text-xs text-destructive">{portalError}</p>
+                                    )}
                                 </>
                             )}
                         </SectionCard>
@@ -660,6 +754,12 @@ export default function Settings() {
                     </>
                 )}
             </div>
+
+            <PaywallModal
+                open={paywallOpen}
+                onOpenChange={setPaywallOpen}
+                token={token}
+            />
         </div>
     );
 }

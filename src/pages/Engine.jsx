@@ -12,6 +12,7 @@ import ResultsView from '@/components/engine/ResultsView';
 import ActiveTripView from '@/components/engine/ActiveTripView';
 import AuthModal from '@/components/engine/AuthModal';
 import PushPrimingModal, { shouldShowPushPriming } from '@/components/engine/PushPrimingModal';
+import PaywallModal from '@/components/PaywallModal';
 import { useAuth } from '@/lib/AuthContext';
 import { mapFlights } from '@/utils/mapFlight';
 
@@ -19,6 +20,7 @@ import { API_BASE } from '@/config';
 import { track } from '@/utils/analytics';
 import { isNative } from '@/utils/platform';
 import { setupPushListeners, removePushListeners } from '@/utils/pushNotifications';
+import { postEvent } from '@/utils/events';
 
 // ── Animations ──────────────────────────────────────────────────────────────
 const pageTransition = {
@@ -33,7 +35,7 @@ function todayStr() {
 
 // ── Main Component ──────────────────────────────────────────────────────────
 export default function Engine() {
-    const { token, login, logout, updateTripCount, isAuthenticated, display_name } = useAuth();
+    const { token, login, logout, updateTripCount, isAuthenticated, display_name, trip_count, isPro } = useAuth();
     const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
 
     const [step, setStep] = useState(1);
@@ -97,6 +99,15 @@ export default function Engine() {
     // Push priming
     const [pushPrimingOpen, setPushPrimingOpen] = useState(false);
 
+    // Paywall — F6.1
+    const [paywallOpen, setPaywallOpen] = useState(false);
+    const paywallShownForResultsRef = useRef(false);
+
+    // Latest token, kept in a ref so the push notification listener
+    // (registered once on mount) can always read the current value.
+    const tokenRef = useRef(token);
+    useEffect(() => { tokenRef.current = token; }, [token]);
+
     const addressContainerRef = useRef(null);
     const addressInputRef = useRef(null);
 
@@ -127,6 +138,23 @@ export default function Engine() {
         setRouteDestination('');
         setRouteTimeWindow('any');
     };
+
+    // Paywall trigger — show once per results view when the user is no
+    // longer Pro (trial exhausted and no active subscription). isPro from
+    // AuthContext is the canonical check (Sprint 6 F6.2).
+    useEffect(() => {
+        if (viewMode !== 'results') {
+            paywallShownForResultsRef.current = false;
+            return;
+        }
+        if (paywallShownForResultsRef.current) return;
+        if (!isAuthenticated) return;
+        if (trip_count == null) return; // wait for trip_count to load
+        if (!isPro) {
+            paywallShownForResultsRef.current = true;
+            setPaywallOpen(true);
+        }
+    }, [viewMode, isPro, isAuthenticated, trip_count]);
 
     // Fresh state on page mount
     const mountedRef = useRef(false);
@@ -302,8 +330,18 @@ export default function Engine() {
         setupPushListeners(
             // Foreground notification — log for now
             (notification) => { console.log('Push received in foreground:', notification); },
-            // User tapped notification — could navigate to trip
-            (notification) => { console.log('Push notification tapped:', notification); }
+            // User tapped notification — record interaction signals (Sprint 6 F6.6)
+            (notification) => {
+                console.log('Push notification tapped:', notification);
+                // Backend tags the "Time to go!" push with type=time_to_go in
+                // notification.data so we can attribute the tap.
+                const data = notification?.data || {};
+                const pushType = data.type || data.notification_type;
+                const tripId = data.trip_id;
+                if (pushType === 'time_to_go' && tripId) {
+                    postEvent('timetogo_tap', tripId, tokenRef.current);
+                }
+            }
         );
         return () => { removePushListeners(); };
     }, []);
@@ -925,6 +963,12 @@ export default function Engine() {
                 open={pushPrimingOpen}
                 onClose={() => setPushPrimingOpen(false)}
                 authToken={token}
+            />
+
+            <PaywallModal
+                open={paywallOpen}
+                onOpenChange={setPaywallOpen}
+                token={token}
             />
         </div>
     );

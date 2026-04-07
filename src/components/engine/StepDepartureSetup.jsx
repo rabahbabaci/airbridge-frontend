@@ -226,11 +226,11 @@ export default function StepDepartureSetup({
                             <label className="text-xs font-medium text-muted-foreground mb-2 block">Security access</label>
                             <div className="flex flex-wrap gap-2">
                                 {[
-                                    { id: 'none', label: 'None', active: isNoneSecurity },
+                                    { id: 'none', label: 'Standard', active: isNoneSecurity },
                                     { id: 'precheck', label: 'PreCheck', active: hasPrecheck && !hasClear },
                                     { id: 'clear', label: 'CLEAR', active: hasClear && !hasPrecheck },
                                     { id: 'clear_precheck', label: 'PreCheck + CLEAR', active: hasPrecheck && hasClear },
-                                    { id: 'priority', label: 'Priority Lane', active: hasPriorityLane, subtitle: 'First/Business or elite status' },
+                                    { id: 'priority', label: 'Priority Lane (Airline)', active: hasPriorityLane, subtitle: 'First/Business or elite status' },
                                 ].map(chip => (
                                     <button key={chip.id} onClick={() => handleSecurityChip(chip.id)}
                                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
