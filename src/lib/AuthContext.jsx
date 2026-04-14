@@ -1,6 +1,8 @@
-import React, { createContext, useState, useContext, useCallback, useEffect } from 'react';
+import React, { createContext, useState, useContext, useCallback, useEffect, useRef } from 'react';
 import { identify, resetIdentity } from '@/utils/analytics';
 import { API_BASE } from '@/config';
+import { isNative } from '@/utils/platform';
+import { App } from '@capacitor/app';
 
 const STORAGE_KEY = 'airbridge_auth';
 const CLEANUP_FLAG = 'airbridge_cleanup_v1';
@@ -114,10 +116,46 @@ export const AuthProvider = ({ children }) => {
     refreshSubscriptionStatus();
   }, [refreshSubscriptionStatus]);
 
+  // Keep a ref to the current token so the visibilitychange handler
+  // doesn't close over a stale value.
+  const tokenRef = useRef(auth.token);
+  useEffect(() => { tokenRef.current = auth.token; }, [auth.token]);
+
   // On mount with a stored token, refresh subscription status so the
   // cached value isn't stale across sessions.
+  // Also refresh when the app/tab regains visibility (e.g. returning from
+  // Stripe billing portal in Safari).
+  const lastRefreshRef = useRef(0);
   useEffect(() => {
     if (auth.token) refreshSubscriptionStatus(auth.token);
+
+    const guardedRefresh = () => {
+      if (!tokenRef.current) return;
+      const now = Date.now();
+      if (now - lastRefreshRef.current < 2000) return;
+      lastRefreshRef.current = now;
+      refreshSubscriptionStatus();
+    };
+
+    // Web: tab regains focus
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') guardedRefresh();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    // Native (Capacitor): app returns to foreground (e.g. after Browser.open
+    // for Stripe portal)
+    let nativeListener;
+    if (isNative()) {
+      nativeListener = App.addListener('appStateChange', ({ isActive }) => {
+        if (isActive) guardedRefresh();
+      });
+    }
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+      nativeListener?.then(handle => handle.remove());
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
