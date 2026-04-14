@@ -25,7 +25,7 @@ React 18, React Router v6, Vite 6, Tailwind CSS 3 + shadcn/ui, Framer Motion, da
 ## Key Directories
 
 - `src/pages/` — Home.jsx, Engine.jsx, Settings.jsx, Trips.jsx (routed via `src/pages.config.js`)
-- `src/components/engine/` — Engine sub-components: StepEntry, StepSelectFlight, StepDepartureSetup, ResultsView, ActiveTripView, JourneyVisualization, AuthModal, PushPrimingModal, ActionCards, LoadingView
+- `src/components/engine/` — Engine sub-components: StepEntry, StepSelectFlight, StepDepartureSetup, ResultsView, ActiveTripView, JourneyVisualization, AuthModal, PushPrimingModal, ActionCards, LoadingView, RouteSearchForm, AddressAutocomplete, AirportAutocomplete, SocialAuthCard, OTPModal
 - `src/components/` — Top-level shared components: PaywallModal.jsx, FeedbackPrompt.jsx
 - `src/components/landing/` — Landing page sections (Header, Hero, HowItWorks, etc.)
 - `src/components/ui/` — shadcn/ui components (do not hand-edit)
@@ -67,7 +67,9 @@ Base URL: `https://airbridge-backend-production.up.railway.app` (configured in `
 |---|---|---|
 | /v1/auth/send-otp, /v1/auth/verify-otp, /v1/auth/social | none | POST |
 | /v1/users/me, /v1/users/preferences | required | GET, PUT |
-| /v1/trips, /v1/trips/active, /v1/trips/{id}, /v1/trips/{id}/track | opt/req | POST, GET |
+| /v1/trips, /v1/trips/active, /v1/trips/active-list, /v1/trips/{id}, /v1/trips/{id}/track | opt/req | POST, GET |
+| /v1/trips/{id} | required | PUT (edit trip) |
+| /v1/trips/{id}/untrack | required | POST (revert to draft) |
 | /v1/recommendations, /v1/recommendations/recompute | optional | POST |
 | /v1/flights/{number}/{date}, /v1/flights/search | optional | GET |
 | /v1/devices/register, /v1/devices/unregister | required | POST, DELETE |
@@ -119,4 +121,40 @@ Interaction signals (POST /v1/events, dual-fired alongside PostHog):
 
 ## Current State
 
-Sprint 6 in progress. Wiring backend Sprint 6 APIs (Stripe subscriptions, feedback, trip history, account deletion, smart trip tracking).
+Sprint 7 in progress. Sprint 6 shipped (Stripe subscriptions, feedback, trip history, account deletion, smart trip tracking). Sprint 7 is mobile redesign, multi-trip experience, and App Store hardening.
+
+## Design Source of Truth
+
+`AIRBRIDGE_DESIGN_BRIEF.md` at repo root is authoritative for all UI work (v2.0). Every UI-touching task reads the relevant section(s) before writing code. Cite sections by number (e.g., "Section 4.4 Setup", "Section 3.1 Color palette"). Do not re-derive decisions the brief settles. If the brief is unclear or contradicts a prompt mid-implementation, surface to user — do not guess.
+
+Reference materials in `docs/design-ideations/`: 14 PNGs — home screen (v1–v3), my trip screen (v1–v3, two sets), settings screen (v1–v3, partial second set). These are visual exploration, not authoritative — the brief wins where they disagree.
+
+## Sprint 7 Tasks (condensed)
+
+CLAUDE.md update → C7.3 visibilitychange listener → F7.1 unified Trips page → F7.2 trip editing → F7.3 adaptive routing → F7.4 drafts in Active list → [Rab's native iOS checkpoint C7.5] → F7.5 mobile redesign (design system foundation PR, then screens in brief Section 8.1 order) → F7.6 error states → F7.7 privacy policy → F7.8 account deletion UI. App Store prep (A7.1–A7.4) is a separate session later.
+
+## Sprint 7 Backend Endpoints (live)
+
+- `GET /v1/trips/active-list` — all non-completed trips (drafts + active), sorted by departure_at asc, includes status, flight info, projected_timeline.
+- `PUT /v1/trips/{id}` — edit trip (flight_number, departure_date, home_address, transport_mode, security_access, buffer_preference). 409 if status is en_route/at_airport/at_gate/complete. Recomputes recommendation.
+- `POST /v1/trips/{id}/untrack` — revert tracked trip to draft, decrements trip_count (floor 0), clears projected_timeline.
+- `GET /v1/trips/history` — enriched row shape: origin_iata, destination_iata, airline, accuracy_delta_minutes.
+- `GET /v1/subscriptions/status` — includes current_period_end from Stripe.
+
+## Cut from v1 — Do Not Implement
+
+Live Activities / lock-screen countdowns / ActivityKit / any custom Capacitor plugin for native iOS APIs. CLEAR security option (security is PreCheck or None). Bag stepper (single toggle). Dashboard greeting on home. Recent trips card on home. Decorative map on Search. Multi-modal comparison. Auto-triggered geolocation on first launch. Calendar event auto-creation, phone collection UI for SMS, real airport indoor maps.
+
+## Copy Rules
+
+- Never "Calculate Departure." Use "Find your leave-by time," "Your leave-by time," "Track my trip."
+- "🇺🇸 US domestic flights only" badge on Search and Settings.
+- Bottom nav labels: Search / My Trip / Settings.
+
+## Draft/Track Separation (architectural invariant)
+
+Recommendation calculations create draft trips. No trip_count increment, no polling, no notifications on drafts. "Track this trip" explicitly promotes draft → active. Respect this in every trip-related UI.
+
+## Testing Principle
+
+Avoid over-mocking that masks real bugs. Use realistic fixtures. Integration tests preferred where they can run cheaply.
