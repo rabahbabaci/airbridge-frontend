@@ -576,15 +576,21 @@ export default function Engine() {
             setApiError(null);
             setIsSubmitting(true);
             try {
+                const lockInRecomputeBody = {
+                    trip_id: currentTripId,
+                    reason: 'preference_change',
+                    preference_overrides: buildPreferences(),
+                    home_address: startingAddress,
+                };
+                if (editMode) {
+                    lockInRecomputeBody.flight_number = flightNumber.trim();
+                    lockInRecomputeBody.departure_date = departureDate;
+                    lockInRecomputeBody.selected_departure_utc = selectedFlight?.departure_time_utc || undefined;
+                }
                 const recRes = await fetch(`${API_BASE}/v1/recommendations/recompute`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', ...authHeaders },
-                    body: JSON.stringify({
-                        trip_id: currentTripId,
-                        reason: 'preference_change',
-                        preference_overrides: buildPreferences(),
-                        home_address: startingAddress,
-                    }),
+                    body: JSON.stringify(lockInRecomputeBody),
                 });
                 if (!recRes.ok) throw new Error(`Recompute failed (${recRes.status})`);
                 const rec = await recRes.json();
@@ -678,15 +684,22 @@ export default function Engine() {
         setApiError(null);
 
         try {
+            const recomputeBody = {
+                trip_id: currentTripId,
+                reason: 'preference_change',
+                preference_overrides: buildPreferences(),
+                home_address: startingAddress,
+            };
+            // Edit mode: pass wizard state so recompute previews edited values
+            if (editMode) {
+                recomputeBody.flight_number = flightNumber.trim();
+                recomputeBody.departure_date = departureDate;
+                recomputeBody.selected_departure_utc = selectedFlight?.departure_time_utc || undefined;
+            }
             const recRes = await fetch(`${API_BASE}/v1/recommendations/recompute`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...authHeaders },
-                body: JSON.stringify({
-                    trip_id: currentTripId,
-                    reason: 'preference_change',
-                    preference_overrides: buildPreferences(),
-                    home_address: startingAddress,
-                })
+                body: JSON.stringify(recomputeBody),
             });
             if (!recRes.ok) {
                 const errBody = await recRes.text();
