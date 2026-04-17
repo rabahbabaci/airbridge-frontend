@@ -1,12 +1,16 @@
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, CheckCircle2, Circle, RefreshCw, Plus, Settings as SettingsIcon, PartyPopper } from 'lucide-react';
+import { Check, CheckCircle2, Circle, RefreshCw, Plus, Settings as SettingsIcon, PartyPopper, Pencil } from 'lucide-react';
 
 import { formatCountdownText, formatLocalTime } from '@/utils/format';
 import { useAuth } from '@/lib/AuthContext';
 import { API_BASE } from '@/config';
+import { createPageUrl } from '@/utils';
+import { track } from '@/utils/analytics';
 import JourneyVisualization from './JourneyVisualization';
 import ActionCards from './ActionCards';
+import UntrackConfirmModal from './UntrackConfirmModal';
 
 const pageTransition = {
     initial: { opacity: 0, y: 24 },
@@ -57,13 +61,17 @@ export default function ActiveTripView({
     isAuthenticated, display_name,
     onNewTrip, onRefresh, onEdit,
 }) {
-    const { token } = useAuth();
+    const { token, updateTripCount } = useAuth();
+    const navigate = useNavigate();
     const [countdown, setCountdown] = useState('');
     const [urgency, setUrgency] = useState('calm');
     const [refreshing, setRefreshing] = useState(false);
     const [refreshed, setRefreshed] = useState(false);
     // Sprint 6 F6.6 — backend-driven trip_status, polled every 30s.
     const [polledStatus, setPolledStatus] = useState(null);
+    // Untrack modal state
+    const [untrackOpen, setUntrackOpen] = useState(false);
+    const [untracking, setUntracking] = useState(false);
 
     const handleRefresh = async () => {
         setRefreshing(true);
@@ -72,6 +80,35 @@ export default function ActiveTripView({
         setRefreshing(false);
         setRefreshed(true);
         setTimeout(() => setRefreshed(false), 2000);
+    };
+
+    const handleEditTrip = () => {
+        navigate(createPageUrl('Engine'), { state: { editTrip: trip } });
+    };
+
+    const handleUntrack = async () => {
+        if (!trip?.trip_id || untracking) return;
+        setUntracking(true);
+        try {
+            const res = await fetch(`${API_BASE}/v1/trips/${trip.trip_id}/untrack`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+            });
+            if (res.ok) {
+                const data = await res.json();
+                if (data.trip_count != null) updateTripCount(data.trip_count);
+                track('trip_untracked', { trip_id: trip.trip_id });
+                navigate(createPageUrl('Trips'), { replace: true });
+            } else {
+                const err = await res.json().catch(() => ({}));
+                console.error('Untrack failed:', err.detail || res.status);
+            }
+        } catch (err) {
+            console.error('Untrack request failed:', err);
+        } finally {
+            setUntracking(false);
+            setUntrackOpen(false);
+        }
     };
 
     useEffect(() => {
@@ -295,39 +332,66 @@ export default function ActiveTripView({
             )}
 
             {/* ── 6. BOTTOM ACTIONS ── */}
-            <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 flex items-center justify-center gap-4">
-                <button onClick={onEdit}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-border bg-card text-sm font-medium text-foreground hover:bg-secondary transition-all">
-                    <SettingsIcon className="w-3.5 h-3.5" />
-                    Edit preferences
-                </button>
-                <button onClick={handleRefresh} disabled={refreshing}
-                    className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-border bg-card text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all disabled:opacity-50">
-                    {refreshing ? (
-                        <>
-                            <div className="w-3.5 h-3.5 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
-                            Updating...
-                        </>
-                    ) : refreshed ? (
-                        <>
-                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                            <span className="text-emerald-600">Updated</span>
-                        </>
-                    ) : (
-                        <>
-                            <RefreshCw className="w-3.5 h-3.5" />
-                            Refresh
-                        </>
+            <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 flex flex-col items-center gap-4">
+                <div className="flex items-center justify-center gap-4">
+                    {/* Planning phase: Edit button to open wizard */}
+                    {effectiveStatus === 'active' && (
+                        <button onClick={handleEditTrip}
+                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-border bg-card text-sm font-medium text-foreground hover:bg-secondary transition-all">
+                            <Pencil className="w-3.5 h-3.5" />
+                            Edit
+                        </button>
                     )}
-                </button>
-                <button
-                    onClick={onNewTrip}
-                    className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                >
-                    <Plus className="w-3.5 h-3.5" />
-                    New Trip
-                </button>
+                    <button onClick={onEdit}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-border bg-card text-sm font-medium text-foreground hover:bg-secondary transition-all">
+                        <SettingsIcon className="w-3.5 h-3.5" />
+                        Edit preferences
+                    </button>
+                    <button onClick={handleRefresh} disabled={refreshing}
+                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-border bg-card text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all disabled:opacity-50">
+                        {refreshing ? (
+                            <>
+                                <div className="w-3.5 h-3.5 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
+                                Updating...
+                            </>
+                        ) : refreshed ? (
+                            <>
+                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
+                                <span className="text-emerald-600">Updated</span>
+                            </>
+                        ) : (
+                            <>
+                                <RefreshCw className="w-3.5 h-3.5" />
+                                Refresh
+                            </>
+                        )}
+                    </button>
+                    <button
+                        onClick={onNewTrip}
+                        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
+                    >
+                        <Plus className="w-3.5 h-3.5" />
+                        New Trip
+                    </button>
+                </div>
+
+                {/* In-progress trips: untrack link */}
+                {(effectiveStatus === 'en_route' || effectiveStatus === 'at_airport' || effectiveStatus === 'at_gate') && (
+                    <button
+                        onClick={() => setUntrackOpen(true)}
+                        className="text-xs text-muted-foreground hover:text-foreground transition-colors underline"
+                    >
+                        Trip in progress — untrack to make changes
+                    </button>
+                )}
             </div>
+
+            <UntrackConfirmModal
+                open={untrackOpen}
+                onOpenChange={setUntrackOpen}
+                onConfirm={handleUntrack}
+                loading={untracking}
+            />
         </motion.div>
     );
 }

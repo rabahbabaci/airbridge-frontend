@@ -28,6 +28,7 @@ export default function ResultsView({
     onSignIn,
     isTracked, onTrack,
     securityLabel, homeAddress,
+    editMode, editError, isUpdating, onUpdateTrip,
 }) {
     const [copied, setCopied] = useState(false);
     const { isPro } = useAuth();
@@ -107,6 +108,17 @@ export default function ResultsView({
                 </div>
             )}
 
+            {/* Edit mode error banner */}
+            {editError && (
+                <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-4">
+                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
+                        className="rounded-2xl px-5 py-4 flex items-start gap-3 bg-destructive/10 border border-destructive/20">
+                        <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
+                        <p className="text-destructive text-sm font-medium">{editError}</p>
+                    </motion.div>
+                </div>
+            )}
+
             {/* Journey Visualization */}
             <JourneyVisualization
                 locked={true}
@@ -115,10 +127,13 @@ export default function ResultsView({
                 transport={transport}
                 onReady={onReady}
                 securityLabel={securityLabel}
-                isTracked={isTracked}
-                onTrack={onTrack}
+                isTracked={editMode ? false : isTracked}
+                onTrack={editMode ? undefined : onTrack}
                 isAuthenticated={isAuthenticated}
                 homeAddress={homeAddress}
+                editMode={editMode}
+                isUpdating={isUpdating}
+                onUpdateTrip={onUpdateTrip}
             />
 
             {/* Action cards — rideshare / navigation deep links (post-auth feature) */}

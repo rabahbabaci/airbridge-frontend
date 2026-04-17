@@ -72,20 +72,24 @@ function ActiveTripCard({ trip }) {
         : null;
 
     const handleClick = () => {
-        if (isDraft) return; // Draft edit flow wired in Task 4 (F7.2)
-        navigate(createPageUrl('Engine'), { state: { viewTrip: trip } });
+        if (isDraft) {
+            navigate(createPageUrl('Engine'), { state: { editTrip: trip } });
+            return;
+        }
+        // Planning-phase active trip → edit mode; in-progress → read-only view
+        if (trip.status === 'active') {
+            navigate(createPageUrl('Engine'), { state: { editTrip: trip } });
+        } else {
+            navigate(createPageUrl('Engine'), { state: { viewTrip: trip } });
+        }
     };
 
-    const CardTag = isDraft ? 'div' : 'button';
+    const CardTag = 'button';
 
     return (
         <CardTag
-            {...(!isDraft && { onClick: handleClick })}
-            className={`w-full text-left rounded-2xl p-5 ${
-                isDraft
-                    ? 'border border-border bg-card'
-                    : 'border border-border bg-card shadow-sm cursor-pointer transition-all'
-            }`}
+            onClick={handleClick}
+            className="w-full text-left rounded-2xl p-5 border border-border bg-card shadow-sm cursor-pointer transition-all"
         >
             <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="flex items-center gap-2 min-w-0">
@@ -119,7 +123,7 @@ function ActiveTripCard({ trip }) {
             )}
 
             {isDraft && (
-                <p className="mt-2 text-xs text-muted-foreground">Not yet tracked</p>
+                <p className="mt-2 text-xs text-muted-foreground">Tap to edit</p>
             )}
         </CardTag>
     );

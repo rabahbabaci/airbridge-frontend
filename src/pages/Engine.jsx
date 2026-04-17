@@ -1,5 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Plane, Settings, Menu, X } from 'lucide-react';
@@ -37,6 +37,8 @@ function todayStr() {
 export default function Engine() {
     const { token, login, logout, updateTripCount, isAuthenticated, display_name, trip_count, isPro } = useAuth();
     const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+    const location = useLocation();
+    const navigate = useNavigate();
 
     const [step, setStep] = useState(1);
     const [dir, setDir] = useState(1);
@@ -103,6 +105,12 @@ export default function Engine() {
     const [paywallOpen, setPaywallOpen] = useState(false);
     const paywallShownForResultsRef = useRef(false);
 
+    // Edit mode — entered from Trips page when editing a draft or planning-phase active trip
+    const [editMode, setEditMode] = useState(false);
+    const [editTripId, setEditTripId] = useState(null);
+    const [editError, setEditError] = useState(null);
+    const [isUpdating, setIsUpdating] = useState(false);
+
     // Latest token, kept in a ref so the push notification listener
     // (registered once on mount) can always read the current value.
     const tokenRef = useRef(token);
@@ -165,8 +173,51 @@ export default function Engine() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // ── Edit mode hydration from Trips page navigation ──────────────────────
+    const editTripRef = useRef(location.state?.editTrip);
+    useEffect(() => {
+        const trip = editTripRef.current;
+        if (!trip) return;
+
+        // Hydrate Step 1 fields
+        if (trip.flight_number) setFlightNumber(trip.flight_number);
+        if (trip.departure_date) setDepartureDate(trip.departure_date);
+
+        // Hydrate Step 3 fields from trip data
+        if (trip.home_address) setStartingAddress(trip.home_address);
+        if (trip.preferences_json) {
+            try {
+                const prefs = typeof trip.preferences_json === 'string'
+                    ? JSON.parse(trip.preferences_json)
+                    : trip.preferences_json;
+                if (prefs.transport_mode) setTransport(prefs.transport_mode);
+                if (prefs.bag_count != null) setBagCount(prefs.bag_count);
+                if (prefs.traveling_with_children != null) setWithChildren(prefs.traveling_with_children);
+                if (prefs.has_boarding_pass != null) setHasBoardingPass(prefs.has_boarding_pass);
+                if (prefs.gate_time_minutes != null) setGateTime(prefs.gate_time_minutes);
+                if (prefs.security_access) {
+                    setHasPrecheck(prefs.security_access === 'precheck' || prefs.security_access === 'clear_precheck');
+                    setHasClear(prefs.security_access === 'clear' || prefs.security_access === 'clear_precheck');
+                    setHasPriorityLane(prefs.security_access === 'priority_lane');
+                }
+            } catch (e) {
+                console.error('Failed to parse edit trip preferences:', e);
+            }
+        }
+
+        setEditMode(true);
+        setEditTripId(trip.trip_id);
+        setCurrentTripId(trip.trip_id);
+        setCheckingActiveTrip(false);
+        setStep(1);
+        setDir(1);
+    }, []);
+
     // Check for active trip on mount, then hydrate preferences from trip or profile
     useEffect(() => {
+        // Skip active trip check when in edit mode — wizard is hydrated from editTrip
+        if (editTripRef.current) return;
+
         if (!token) {
             setCheckingActiveTrip(false);
             return;
@@ -416,17 +467,28 @@ export default function Engine() {
         if (f.departed || f.canceled || f.is_boarding) return;
         track('flight_selected', { flight_number: f.flight_number, origin: f.origin_code, destination: f.destination_code });
         setSelectedFlight(f);
-        // Always clear trip state so a fresh trip + recommendation is created for the new flight
-        setCurrentTripId(null);
-        setRecommendation(null);
-        setLocked(false);
-        setJourneyReady(false);
+        // In edit mode, keep the existing trip ID — we're updating, not creating
+        if (!editMode) {
+            setCurrentTripId(null);
+            setRecommendation(null);
+            setLocked(false);
+            setJourneyReady(false);
+        }
     };
 
     const handleContinueToSetup = () => { if (selectedFlight) goTo(3); };
 
     const handleLockIn = async () => {
         if (isSubmitting) return;
+
+        // Edit mode safety: currentTripId should never be null here with Fix A,
+        // but guard against unknown state paths that could create a duplicate trip.
+        if (editMode && !currentTripId) {
+            console.error('[Engine] editMode=true but currentTripId is null — unexpected state path, aborting to prevent duplicate trip creation');
+            setApiError('Could not update trip. Returning to your trips.');
+            navigate(createPageUrl('Trips'), { replace: true });
+            return;
+        }
 
         // Draft already exists — just recompute with current preferences
         if (currentTripId) {
@@ -592,6 +654,7 @@ export default function Engine() {
 
     const handleTrackTrip = async () => {
         if (!currentTripId) return;
+        if (editMode) return; // Edit mode must never promote/track — only PUT updates
         if (!isAuthenticated) {
             track('auth_modal_opened', { trigger: 'track_trip' });
             pendingTrackAfterAuth.current = true;
@@ -667,6 +730,41 @@ export default function Engine() {
             }
         } else {
             await handleLockIn();
+        }
+    };
+
+    // ── Edit mode: Update Trip via PUT /v1/trips/{id} ─────────────────────
+    const handleUpdateTrip = async () => {
+        if (!editTripId || isUpdating) return;
+        setIsUpdating(true);
+        setEditError(null);
+        try {
+            const res = await fetch(`${API_BASE}/v1/trips/${editTripId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', ...authHeaders },
+                body: JSON.stringify({
+                    flight_number: flightNumber.trim() || undefined,
+                    departure_date: departureDate || undefined,
+                    home_address: startingAddress.trim() || undefined,
+                    transport_mode: transport || undefined,
+                    security_access: computeSecurityAccess() || undefined,
+                    buffer_preference: gateTime,
+                }),
+            });
+            if (res.ok) {
+                track('trip_updated', { trip_id: editTripId });
+                navigate(createPageUrl('Trips'), { replace: true });
+            } else if (res.status === 409) {
+                const err = await res.json().catch(() => ({}));
+                setEditError(err.detail || 'This trip can no longer be edited because it is in progress.');
+            } else {
+                setEditError('Failed to update trip. Please try again.');
+            }
+        } catch (err) {
+            console.error('PUT trip failed:', err);
+            setEditError('Network error — could not reach the server.');
+        } finally {
+            setIsUpdating(false);
         }
     };
 
@@ -911,6 +1009,10 @@ export default function Engine() {
                             hasClear ? 'CLEAR' : 'Standard TSA'
                         }
                         homeAddress={startingAddress}
+                        editMode={editMode}
+                        editError={editError}
+                        isUpdating={isUpdating}
+                        onUpdateTrip={handleUpdateTrip}
                     />
                 )}
 
