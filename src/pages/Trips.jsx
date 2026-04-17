@@ -10,10 +10,15 @@ import PaywallModal from '@/components/PaywallModal';
 const HISTORY_PAGE_SIZE = 10;
 const FREE_TIER_HISTORY_LIMIT = 5;
 
+function parseLocalDate(dateStr) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d);
+}
+
 function formatDate(dateStr) {
     if (!dateStr) return '';
     try {
-        const d = new Date(dateStr);
+        const d = parseLocalDate(dateStr);
         if (isNaN(d.getTime())) return dateStr;
         return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
     } catch {
@@ -24,7 +29,7 @@ function formatDate(dateStr) {
 function formatShortDate(dateStr) {
     if (!dateStr) return '';
     try {
-        const d = new Date(dateStr);
+        const d = parseLocalDate(dateStr);
         if (isNaN(d.getTime())) return dateStr;
         return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
     } catch {
@@ -88,7 +93,11 @@ function ActiveTripCard({ trip }) {
     return (
         <CardTag
             onClick={handleClick}
-            className="w-full text-left rounded-2xl p-5 border border-border bg-card shadow-sm cursor-pointer transition-all"
+            className={`w-full text-left rounded-2xl p-5 cursor-pointer transition-all ${
+                isDraft
+                    ? 'border border-border/50 bg-secondary'
+                    : 'border border-border bg-card shadow-sm'
+            }`}
         >
             <div className="flex items-start justify-between gap-3 mb-2">
                 <div className="flex items-center gap-2 min-w-0">
@@ -122,7 +131,7 @@ function ActiveTripCard({ trip }) {
             )}
 
             {isDraft && (
-                <p className="mt-2 text-xs text-muted-foreground">Tap to edit</p>
+                <p className="mt-2 text-xs text-muted-foreground">Continue draft →</p>
             )}
             {trip.status === 'active' && (
                 <p className="mt-2 text-xs text-muted-foreground">Tap to view trip</p>
