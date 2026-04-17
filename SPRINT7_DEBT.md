@@ -57,6 +57,14 @@ Items discovered during integration testing. Logged here for future resolution.
 
 ---
 
+### Accuracy badge on completed trips unverified end-to-end
+
+**Found during:** Task 5 (F7.3) integration testing
+**Impact:** History tab renders `accuracy_delta_minutes` as a badge (e.g., "±3min") on completed trips with feedback. This hasn't been verified end-to-end because completed trips were seeded via direct Supabase edits, which don't generate feedback data. The badge rendering code exists (HistoryTripRow) but the full flow — trip completes naturally → user submits feedback → accuracy computed → badge renders — is untested.
+**Scope:** Verify during C7.5 with a real completed trip flow that includes feedback submission.
+
+---
+
 ## F7.5 design questions
 
 ### Trip card action affordance: buttons vs footer text vs chevron
