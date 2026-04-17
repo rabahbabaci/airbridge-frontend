@@ -213,10 +213,83 @@ export default function Engine() {
         setDir(1);
     }, []);
 
+    // ── View mode hydration from Trips page or app-open routing ─────────────
+    const viewTripRef = useRef(location.state?.viewTrip);
+    useEffect(() => {
+        const trip = viewTripRef.current;
+        if (!trip || editTripRef.current) return;
+
+        // Render immediately from passed trip data
+        setActiveTripData({
+            trip_id: trip.trip_id,
+            flight_number: trip.flight_number,
+            departure_date: trip.departure_date,
+            home_address: trip.home_address,
+            status: trip.status,
+            selected_departure_utc: trip.selected_departure_utc,
+            preferences_json: trip.preferences_json,
+        });
+        setCurrentTripId(trip.trip_id);
+        setIsTracked(true);
+        setViewMode('active_trip');
+        setCheckingActiveTrip(false);
+
+        // Parse transport from preferences for ActionCards
+        if (trip.preferences_json) {
+            try {
+                const prefs = typeof trip.preferences_json === 'string'
+                    ? JSON.parse(trip.preferences_json)
+                    : trip.preferences_json;
+                if (prefs.transport_mode) setTransport(prefs.transport_mode);
+            } catch { /* use default */ }
+        }
+
+        // Background: fetch recommendation and flight data
+        if (token) {
+            (async () => {
+                // Fetch recommendation
+                try {
+                    const recRes = await fetch(`${API_BASE}/v1/recommendations`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                        body: JSON.stringify({ trip_id: trip.trip_id }),
+                    });
+                    if (recRes.ok) {
+                        const rec = await recRes.json();
+                        setActiveTripRec(rec);
+                        setRecommendation(rec);
+                    }
+                } catch {
+                    console.error('Failed to fetch recommendation for viewTrip');
+                }
+
+                // Fetch flight details
+                if (trip.flight_number && trip.departure_date) {
+                    try {
+                        const flightRes = await fetch(
+                            `${API_BASE}/v1/flights/${encodeURIComponent(trip.flight_number)}/${trip.departure_date}`,
+                            { headers: { Authorization: `Bearer ${token}` } }
+                        );
+                        if (flightRes.ok) {
+                            const flightData = await flightRes.json();
+                            const flights = mapFlights(flightData.flights || []);
+                            const matchedFlight = flights.find(f =>
+                                f.departure_time_utc === trip.selected_departure_utc
+                            ) || flights[0];
+                            if (matchedFlight) setSelectedFlight(matchedFlight);
+                        }
+                    } catch {
+                        console.error('Failed to fetch flight data for viewTrip');
+                    }
+                }
+            })();
+        }
+    }, [token]);
+
     // Check for active trip on mount, then hydrate preferences from trip or profile
     useEffect(() => {
-        // Skip active trip check when in edit mode — wizard is hydrated from editTrip
-        if (editTripRef.current) return;
+        // Skip active trip check when in edit or view mode
+        if (editTripRef.current || viewTripRef.current) return;
 
         if (!token) {
             setCheckingActiveTrip(false);
@@ -671,7 +744,32 @@ export default function Engine() {
                 setIsTracked(true);
                 if (data.trip_count != null) updateTripCount(data.trip_count);
                 track('trip_tracked', { trip_id: currentTripId });
-                // Switch to active trip view
+
+                // Show push priming on native after tracking
+                if (isNative() && shouldShowPushPriming(data.trip_count)) {
+                    setPushPrimingOpen(true);
+                }
+
+                // Adaptive routing: fetch active-list to decide where to land
+                try {
+                    const listRes = await fetch(`${API_BASE}/v1/trips/active-list`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                    });
+                    if (listRes.ok) {
+                        const listData = await listRes.json();
+                        const activeTrips = (listData.trips || []).filter(
+                            t => ['active', 'en_route', 'at_airport', 'at_gate'].includes(t.status)
+                        );
+                        if (activeTrips.length >= 2) {
+                            navigate(createPageUrl('Trips'), { replace: true });
+                            return;
+                        }
+                    }
+                } catch {
+                    // Fall through to single-trip view
+                }
+
+                // Single trip (or fetch failed): show Active Trip Screen
                 setActiveTripData({
                     trip_id: currentTripId,
                     flight_number: flightNumber,
@@ -683,11 +781,6 @@ export default function Engine() {
                 });
                 setActiveTripRec(recommendation);
                 setViewMode('active_trip');
-
-                // Show push priming on native after tracking
-                if (isNative() && shouldShowPushPriming(data.trip_count)) {
-                    setPushPrimingOpen(true);
-                }
             }
         } catch (err) {
             console.error('Failed to track trip:', err);
@@ -1036,7 +1129,32 @@ export default function Engine() {
                                 setIsTracked(true);
                                 if (trackData.trip_count != null) updateTripCount(trackData.trip_count);
                                 track('trip_tracked', { trip_id: currentTripId, trigger: 'post_auth' });
-                                // Switch to active trip view
+
+                                // Show push priming on native after first tracked trip
+                                if (isNative() && shouldShowPushPriming(trackData.trip_count)) {
+                                    setPushPrimingOpen(true);
+                                }
+
+                                // Adaptive routing: fetch active-list to decide where to land
+                                try {
+                                    const listRes = await fetch(`${API_BASE}/v1/trips/active-list`, {
+                                        headers: { Authorization: `Bearer ${data.token}` },
+                                    });
+                                    if (listRes.ok) {
+                                        const listData = await listRes.json();
+                                        const activeTrips = (listData.trips || []).filter(
+                                            t => ['active', 'en_route', 'at_airport', 'at_gate'].includes(t.status)
+                                        );
+                                        if (activeTrips.length >= 2) {
+                                            navigate(createPageUrl('Trips'), { replace: true });
+                                            return;
+                                        }
+                                    }
+                                } catch {
+                                    // Fall through to single-trip view
+                                }
+
+                                // Single trip (or fetch failed): show Active Trip Screen
                                 setActiveTripData({
                                     trip_id: currentTripId,
                                     flight_number: flightNumber,
@@ -1048,11 +1166,6 @@ export default function Engine() {
                                 });
                                 setActiveTripRec(recommendation);
                                 setViewMode('active_trip');
-
-                                // Show push priming on native after first tracked trip
-                                if (isNative() && shouldShowPushPriming(trackData.trip_count)) {
-                                    setPushPrimingOpen(true);
-                                }
                             }
                         } catch (err) {
                             console.error('Failed to auto-track after auth:', err);

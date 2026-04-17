@@ -47,6 +47,26 @@ Items discovered during integration testing. Logged here for future resolution.
 
 ---
 
+## Task 5 — deferred coverage
+
+### 2+-within-24h branch untested end-to-end
+
+**Found during:** Task 5 (F7.3) integration testing
+**Impact:** Test 5.4 verified the 1-within-24h branch (WN 4090 was beyond 24h, correctly filtered out). The 2+-within-24h branch (routes to `/Trips`) is untested end-to-end. To verify: seed two trips with `departure_date` both equal to tomorrow (or both `projected_timeline.departure_utc` within the next 24h), hard-refresh `/`, expect redirect to `/Trips` Active tab showing both.
+**Scope:** Defer to C7.5 checkpoint or test during F7.5 when seeding multiple same-day trips is cheap.
+
+---
+
+## F7.5 design questions
+
+### Trip card action affordance: buttons vs footer text vs chevron
+
+**Found during:** Task 5 (F7.3) UX review
+**Impact:** Trip cards tap to different destinations per state (drafts → edit wizard, tracked → Active Trip Screen, complete → summary). Current approach: footer text telegraphs destination ("Tap to edit", "Tap to view trip", "Live — tap for details"). No explicit buttons or chevrons. Works but may not be discoverable enough.
+**Consider:** Explicit single-action button per card state, or iOS-style chevron affordance, based on user testing feedback. Current footer-text approach is a pre-redesign clarity fix; F7.5 with the Concourse design system is the right place to make the full card design decision.
+
+---
+
 ## Post-launch optimizations
 
 ### Edit flow: cache flight data to skip redundant lookup in Step 2

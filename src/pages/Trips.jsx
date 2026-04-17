@@ -71,17 +71,16 @@ function ActiveTripCard({ trip }) {
         ? `${trip.origin_iata} → ${trip.destination_iata}`
         : null;
 
+    const isInProgress = trip.status === 'en_route' || trip.status === 'at_airport' || trip.status === 'at_gate';
+    const isComplete = trip.status === 'complete';
+
     const handleClick = () => {
         if (isDraft) {
             navigate(createPageUrl('Engine'), { state: { editTrip: trip } });
             return;
         }
-        // Planning-phase active trip → edit mode; in-progress → read-only view
-        if (trip.status === 'active') {
-            navigate(createPageUrl('Engine'), { state: { editTrip: trip } });
-        } else {
-            navigate(createPageUrl('Engine'), { state: { viewTrip: trip } });
-        }
+        // All tracked trips (active, en_route, at_airport, at_gate) → Active Trip Screen
+        navigate(createPageUrl('Engine'), { state: { viewTrip: trip } });
     };
 
     const CardTag = 'button';
@@ -124,6 +123,15 @@ function ActiveTripCard({ trip }) {
 
             {isDraft && (
                 <p className="mt-2 text-xs text-muted-foreground">Tap to edit</p>
+            )}
+            {trip.status === 'active' && (
+                <p className="mt-2 text-xs text-muted-foreground">Tap to view trip</p>
+            )}
+            {isInProgress && (
+                <p className="mt-2 text-xs text-muted-foreground">Live — tap for details</p>
+            )}
+            {isComplete && (
+                <p className="mt-2 text-xs text-muted-foreground">Tap to view summary</p>
             )}
         </CardTag>
     );
@@ -256,12 +264,33 @@ export default function Trips() {
         }
     }, [token]);
 
+    // Eager history count — fetch total on mount so tab visibility is correct
+    // even when active-list has only 1 trip but history has completed trips.
+    const [historyTotal, setHistoryTotal] = useState(null);
+    useEffect(() => {
+        if (!token) return;
+        (async () => {
+            try {
+                const res = await fetch(
+                    `${API_BASE}/v1/trips/history?limit=1&offset=0`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+                if (res.ok) {
+                    const data = await res.json();
+                    setHistoryTotal(data.total ?? 0);
+                }
+            } catch {
+                // Non-blocking — tabs just won't show for edge case
+            }
+        })();
+    }, [token]);
+
     // Load active trips on mount
     useEffect(() => {
         if (token) fetchActiveTrips();
     }, [token, fetchActiveTrips]);
 
-    // Lazy-load history when History tab is first selected
+    // Lazy-load full history when History tab is first selected
     useEffect(() => {
         if (activeTab === 'history' && !historyFetchedRef.current && token) {
             historyFetchedRef.current = true;
@@ -298,15 +327,15 @@ export default function Trips() {
 
     if (!isAuthenticated) return null;
 
-    // Section 2.5: 0 trips = empty, 1 trip = direct detail, 2+ = tabs
+    // Tab visibility: show tabs when active-list >= 2 OR history has at least 1 entry.
+    // This ensures users with 1 active + completed trips can reach History tab.
     const totalActiveTrips = activeTrips.length;
     const hasLoaded = !activeLoading;
+    const hasHistory = historyTotal != null && historyTotal >= 1;
 
-    // If exactly 1 non-completed trip and no history to show, go direct to trip detail
-    // (full active-trip-takes-over routing deferred to Task 5)
-    const showTabs = hasLoaded && !activeError && totalActiveTrips >= 2;
-    const showSingleTrip = hasLoaded && !activeError && totalActiveTrips === 1;
-    const showEmpty = hasLoaded && !activeError && totalActiveTrips === 0;
+    const showTabs = hasLoaded && !activeError && (totalActiveTrips >= 2 || hasHistory);
+    const showSingleTrip = hasLoaded && !activeError && totalActiveTrips === 1 && !hasHistory;
+    const showEmpty = hasLoaded && !activeError && totalActiveTrips === 0 && !hasHistory;
 
     // History tab data
     const visibleHistory = isPro ? historyTrips : historyTrips.slice(0, FREE_TIER_HISTORY_LIMIT);
@@ -447,6 +476,22 @@ export default function Trips() {
                                         >
                                             Try again
                                         </button>
+                                    </div>
+                                )}
+                                {activeTrips.length === 0 && !activeError && (
+                                    <div className="bg-card border border-border rounded-2xl p-8 text-center">
+                                        <div className="w-12 h-12 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-3">
+                                            <Plane className="w-5 h-5 text-muted-foreground" />
+                                        </div>
+                                        <p className="text-sm font-semibold text-foreground mb-1">No active trips</p>
+                                        <p className="text-xs text-muted-foreground mb-4">Your tracked trips will appear here.</p>
+                                        <Link
+                                            to={createPageUrl('Engine')}
+                                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
+                                        >
+                                            <Plus className="w-4 h-4" />
+                                            New Trip
+                                        </Link>
                                     </div>
                                 )}
                                 {activeTrips.map(trip => (
