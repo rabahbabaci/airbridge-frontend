@@ -65,6 +65,20 @@ Items discovered during integration testing. Logged here for future resolution.
 
 ---
 
+## Task 6 / edit flow lessons
+
+### Test the UX loop end-to-end, not just the API contracts
+
+**Found during:** Task 6 edit flow debugging
+**Lesson:** The "Track this trip" flow worked in isolation (PUT fires with correct values, DB updates) but the preview on Results was a lie — recompute used stale DB state, not the user's edited values. Always verify: does the user see what they entered reflected in the preview before they commit? Apply this principle to F7.5 screen testing.
+
+### Draft vs tracked edit persistence semantics
+
+**Found during:** Task 6 edit flow debugging
+**Lesson:** Draft creation persists on recompute CTA (Step 3 "Find your leave-by time"). Draft/tracked edit persists only on commit CTA ("Track this trip" / "Update Trip"). Not an inconsistency — different intents, different persistence points. Don't re-litigate.
+
+---
+
 ## F7.5 design questions
 
 ### Trip card action affordance: buttons vs footer text vs chevron
