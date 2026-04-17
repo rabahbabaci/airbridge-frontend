@@ -289,7 +289,11 @@ export default function Engine() {
     // Check for active trip on mount, then hydrate preferences from trip or profile
     useEffect(() => {
         // Skip active trip check when in edit, view, or explicit new-trip mode
-        if (editTripRef.current || viewTripRef.current || location.state?.newTrip) return;
+        if (editTripRef.current || viewTripRef.current) return;
+        if (location.state?.newTrip) {
+            setCheckingActiveTrip(false);
+            return;
+        }
 
         if (!token) {
             setCheckingActiveTrip(false);

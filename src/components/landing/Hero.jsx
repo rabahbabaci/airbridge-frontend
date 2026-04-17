@@ -236,7 +236,7 @@ export default function Hero() {
                             className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start mb-10 sm:mb-14"
                         >
                             <motion.button
-                                onClick={() => navigate(createPageUrl('Engine'))}
+                                onClick={() => navigate(createPageUrl('Engine'), { state: { newTrip: true } })}
                                 className="flex items-center justify-center gap-2 px-8 py-4 rounded-full text-primary-foreground font-bold text-base transition-all hover:scale-105 active:scale-100 bg-primary shadow-lg"
                                 animate={{ boxShadow: ['0 10px 40px hsl(var(--primary) / 0.3)', '0 10px 60px hsl(var(--primary) / 0.45)', '0 10px 40px hsl(var(--primary) / 0.3)'] }}
                                 transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut' }}
