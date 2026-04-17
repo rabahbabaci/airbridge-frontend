@@ -108,6 +108,7 @@ export default function Engine() {
     // Edit mode — entered from Trips page when editing a draft or planning-phase active trip
     const [editMode, setEditMode] = useState(false);
     const [editTripId, setEditTripId] = useState(null);
+    const [editTripStatus, setEditTripStatus] = useState(null);
     const [editError, setEditError] = useState(null);
     const [isUpdating, setIsUpdating] = useState(false);
 
@@ -207,6 +208,7 @@ export default function Engine() {
 
         setEditMode(true);
         setEditTripId(trip.trip_id);
+        setEditTripStatus(trip.status);
         setCurrentTripId(trip.trip_id);
         setCheckingActiveTrip(false);
         setStep(1);
@@ -831,6 +833,10 @@ export default function Engine() {
     };
 
     // ── Edit mode: Update Trip via PUT /v1/trips/{id} ─────────────────────
+    // For drafts (created/draft): PUT to save edits, then POST track to promote.
+    // For active trips: PUT only (already tracked).
+    const editIsDraft = editTripStatus === 'draft' || editTripStatus === 'created';
+
     const handleUpdateTrip = async () => {
         if (!editTripId || isUpdating) return;
         setIsUpdating(true);
@@ -848,15 +854,78 @@ export default function Engine() {
                     buffer_preference: gateTime,
                 }),
             });
-            if (res.ok) {
-                track('trip_updated', { trip_id: editTripId });
-                navigate(createPageUrl('Trips'), { replace: true });
-            } else if (res.status === 409) {
-                const err = await res.json().catch(() => ({}));
-                setEditError(err.detail || 'This trip can no longer be edited because it is in progress.');
-            } else {
-                setEditError('Failed to update trip. Please try again.');
+            if (!res.ok) {
+                if (res.status === 409) {
+                    const err = await res.json().catch(() => ({}));
+                    setEditError(err.detail || 'This trip can no longer be edited because it is in progress.');
+                } else {
+                    setEditError('Failed to update trip. Please try again.');
+                }
+                return;
             }
+            track('trip_updated', { trip_id: editTripId });
+
+            // Draft edit: promote to tracked after saving
+            if (editIsDraft) {
+                try {
+                    const trackRes = await fetch(`${API_BASE}/v1/trips/${editTripId}/track`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', ...authHeaders },
+                    });
+                    if (trackRes.ok) {
+                        const trackData = await trackRes.json();
+                        if (trackData.trip_count != null) updateTripCount(trackData.trip_count);
+                        track('trip_tracked', { trip_id: editTripId, trigger: 'draft_edit' });
+
+                        if (isNative() && shouldShowPushPriming(trackData.trip_count)) {
+                            setPushPrimingOpen(true);
+                        }
+
+                        // Adaptive routing
+                        try {
+                            const listRes = await fetch(`${API_BASE}/v1/trips/active-list`, {
+                                headers: { Authorization: `Bearer ${token}` },
+                            });
+                            if (listRes.ok) {
+                                const listData = await listRes.json();
+                                const activeTrips = (listData.trips || []).filter(
+                                    t => ['active', 'en_route', 'at_airport', 'at_gate'].includes(t.status)
+                                );
+                                if (activeTrips.length >= 2) {
+                                    navigate(createPageUrl('Trips'), { replace: true });
+                                    return;
+                                }
+                            }
+                        } catch {
+                            // Fall through to single-trip view
+                        }
+
+                        // Single trip: show Active Trip Screen
+                        setEditMode(false);
+                        setIsTracked(true);
+                        setActiveTripData({
+                            trip_id: editTripId,
+                            flight_number: flightNumber,
+                            departure_date: departureDate,
+                            home_address: startingAddress,
+                            status: 'active',
+                            selected_departure_utc: selectedFlight?.departure_time_utc,
+                            preferences_json: JSON.stringify(buildPreferences()),
+                        });
+                        setActiveTripRec(recommendation);
+                        setViewMode('active_trip');
+                        return;
+                    }
+                    // Track call failed — PUT succeeded, trip saved but not tracked
+                    setEditError('Your changes were saved, but we couldn\u2019t track the trip. Tap again to retry.');
+                } catch {
+                    setEditError('Your changes were saved, but we couldn\u2019t track the trip. Tap again to retry.');
+                }
+                return;
+            }
+
+            // Active trip edit: just navigate back
+            navigate(createPageUrl('Trips'), { replace: true });
         } catch (err) {
             console.error('PUT trip failed:', err);
             setEditError('Network error — could not reach the server.');
@@ -1107,6 +1176,7 @@ export default function Engine() {
                         }
                         homeAddress={startingAddress}
                         editMode={editMode}
+                        editIsDraft={editIsDraft}
                         editError={editError}
                         isUpdating={isUpdating}
                         onUpdateTrip={handleUpdateTrip}

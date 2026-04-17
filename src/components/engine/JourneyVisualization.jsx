@@ -132,7 +132,7 @@ export default function JourneyVisualization({
     locked, recommendation, selectedFlight, transport, onReady,
     securityLabel, homeAddress,
     isTracked, onTrack, isAuthenticated,
-    editMode, isUpdating, onUpdateTrip,
+    editMode, editIsDraft, isUpdating, onUpdateTrip,
 }) {
     const [leaveInfo, setLeaveInfo] = useState({ label: 'Leave by', urgency: 'calm' });
     const [boardingLabel, setBoardingLabel] = useState('');
@@ -317,7 +317,7 @@ export default function JourneyVisualization({
                             <button onClick={onUpdateTrip} disabled={isUpdating}
                                 className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-white text-primary text-xs font-bold shadow-md hover:shadow-lg hover:scale-105 transition-all disabled:opacity-60">
                                 <CheckCircle2 className="w-3 h-3" />
-                                {isUpdating ? 'Updating…' : 'Update Trip'}
+                                {isUpdating ? (editIsDraft ? 'Tracking…' : 'Updating…') : (editIsDraft ? 'Track this trip' : 'Update Trip')}
                             </button>
                         ) : onTrack && (isTracked ? (
                             <span className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-400/90 text-white text-xs font-bold">

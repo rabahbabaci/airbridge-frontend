@@ -28,7 +28,7 @@ export default function ResultsView({
     onSignIn,
     isTracked, onTrack,
     securityLabel, homeAddress,
-    editMode, editError, isUpdating, onUpdateTrip,
+    editMode, editIsDraft, editError, isUpdating, onUpdateTrip,
 }) {
     const [copied, setCopied] = useState(false);
     const { isPro } = useAuth();
@@ -132,6 +132,7 @@ export default function ResultsView({
                 isAuthenticated={isAuthenticated}
                 homeAddress={homeAddress}
                 editMode={editMode}
+                editIsDraft={editIsDraft}
                 isUpdating={isUpdating}
                 onUpdateTrip={onUpdateTrip}
             />
