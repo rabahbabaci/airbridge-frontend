@@ -2,7 +2,6 @@ import React, { useState } from 'react';
 import { motion } from 'framer-motion';
 import { AlertCircle, ArrowLeft, Smartphone, Share2, Check, Sparkles } from 'lucide-react';
 import { formatLocalTime, shortCity } from '@/utils/format';
-import { track } from '@/utils/analytics';
 import { useAuth } from '@/lib/AuthContext';
 
 import JourneyVisualization from './JourneyVisualization';
@@ -44,12 +43,10 @@ export default function ResultsView({
         if (navigator.share) {
             try {
                 await navigator.share({ text: message });
-                track('share_tapped', { method: 'native_share' });
             } catch {}
         } else {
             try {
                 await navigator.clipboard.writeText(message);
-                track('share_tapped', { method: 'clipboard' });
                 setCopied(true);
                 setTimeout(() => setCopied(false), 2000);
             } catch {}

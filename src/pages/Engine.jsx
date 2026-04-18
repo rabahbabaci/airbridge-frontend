@@ -17,7 +17,6 @@ import { useAuth } from '@/lib/AuthContext';
 import { mapFlights } from '@/utils/mapFlight';
 
 import { API_BASE } from '@/config';
-import { track } from '@/utils/analytics';
 import { isNative } from '@/utils/platform';
 import { setupPushListeners, removePushListeners } from '@/utils/pushNotifications';
 import { postEvent } from '@/utils/events';
@@ -500,7 +499,6 @@ export default function Engine() {
     // ── Handlers ────────────────────────────────────────────────────────────
     const handleFindFlight = async () => {
         if (!flightNumber.trim() || !departureDate) return;
-        track('flight_entry_submitted', { flight_number: flightNumber.trim(), departure_date: departureDate, input_mode: 'flight_number' });
 
         // Skip re-fetch if inputs haven't changed and we have results
         if (
@@ -544,7 +542,6 @@ export default function Engine() {
 
     const handleFlightClick = (f) => {
         if (f.departed || f.canceled || f.is_boarding) return;
-        track('flight_selected', { flight_number: f.flight_number, origin: f.origin_code, destination: f.destination_code });
         setSelectedFlight(f);
         // In edit mode, keep the existing trip ID — we're updating, not creating
         if (!editMode) {
@@ -664,7 +661,6 @@ export default function Engine() {
             }
             const rec = await recRes.json();
             setRecommendation(rec);
-            track('recommendation_viewed', { leave_by_time: rec.leave_home_at, total_minutes: rec.segments?.reduce((s, seg) => s + (seg.duration_minutes || 0), 0), transport_mode: transport });
             setJourneyReady(true);
             setTimeout(() => setViewMode('results'), 500);
         } catch (err) {
@@ -718,7 +714,6 @@ export default function Engine() {
     };
 
     const handleRouteFlightsFound = (flights, meta) => {
-        track('route_search_submitted', { origin: meta?.origin, destination: meta?.destination, date: meta?.date, time_window: meta?.timeWindow });
         if (meta?.date) setDepartureDate(meta.date);
         setFlightOptions(flights);
         setSearching(false);
@@ -733,7 +728,6 @@ export default function Engine() {
     };
 
     const handleReset = () => {
-        track('start_over_clicked');
         resetTripState();
     };
 
@@ -748,7 +742,6 @@ export default function Engine() {
         if (!currentTripId) return;
         if (editMode) return; // Edit mode must never promote/track — only PUT updates
         if (!isAuthenticated) {
-            track('auth_modal_opened', { trigger: 'track_trip' });
             pendingTrackAfterAuth.current = true;
             setAuthOpen(true);
             return;
@@ -762,7 +755,6 @@ export default function Engine() {
                 const data = await res.json();
                 setIsTracked(true);
                 if (data.trip_count != null) updateTripCount(data.trip_count);
-                track('trip_tracked', { trip_id: currentTripId });
 
                 // Show push priming on native after tracking
                 if (isNative() && shouldShowPushPriming(data.trip_count)) {
@@ -876,7 +868,6 @@ export default function Engine() {
                 }
                 return;
             }
-            track('trip_updated', { trip_id: editTripId });
 
             // Draft edit: promote to tracked after saving
             if (editIsDraft) {
@@ -888,7 +879,6 @@ export default function Engine() {
                     if (trackRes.ok) {
                         const trackData = await trackRes.json();
                         if (trackData.trip_count != null) updateTripCount(trackData.trip_count);
-                        track('trip_tracked', { trip_id: editTripId, trigger: 'draft_edit' });
 
                         if (isNative() && shouldShowPushPriming(trackData.trip_count)) {
                             setPushPrimingOpen(true);
@@ -998,7 +988,7 @@ export default function Engine() {
                                 <button onClick={logout} className="text-xs text-muted-foreground hover:text-foreground transition-colors ml-1">Sign out</button>
                             </div>
                         ) : (
-                            <button onClick={() => { track('auth_modal_opened', { trigger: 'navbar' }); setAuthOpen(true); }} className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden md:block">Sign In</button>
+                            <button onClick={() => setAuthOpen(true)} className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden md:block">Sign In</button>
                         )}
                         <button className="md:hidden p-2 -mr-2" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
                             {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
@@ -1034,7 +1024,7 @@ export default function Engine() {
                                     {isAuthenticated ? (
                                         <button onClick={() => { setMobileMenuOpen(false); logout(); }} className="text-sm text-muted-foreground hover:text-foreground">Sign out</button>
                                     ) : (
-                                        <button onClick={() => { setMobileMenuOpen(false); track('auth_modal_opened', { trigger: 'mobile_menu' }); setAuthOpen(true); }} className="text-sm text-muted-foreground hover:text-foreground">Sign In</button>
+                                        <button onClick={() => { setMobileMenuOpen(false); setAuthOpen(true); }} className="text-sm text-muted-foreground hover:text-foreground">Sign In</button>
                                     )}
                                 </div>
                             </div>
@@ -1178,7 +1168,7 @@ export default function Engine() {
                         onEditSetup={handleEditSetup}
                         onReset={handleReset}
                         onReady={() => setJourneyReady(true)}
-                        onSignIn={() => { track('auth_modal_opened', { trigger: 'save_trip' }); setAuthOpen(true); }}
+                        onSignIn={() => setAuthOpen(true)}
                         isTracked={isTracked}
                         onTrack={handleTrackTrip}
                         securityLabel={
@@ -1200,7 +1190,6 @@ export default function Engine() {
             )}
 
             <AuthModal open={authOpen} onOpenChange={(open) => { setAuthOpen(open); if (!open) pendingTrackAfterAuth.current = false; }} onSuccess={(data) => {
-                track('auth_completed', { provider: data.auth_provider || 'phone' });
                 login(data);
                 // Auto-track only if auth was triggered by the Track button
                 if (pendingTrackAfterAuth.current && currentTripId && !isTracked) {
@@ -1215,7 +1204,6 @@ export default function Engine() {
                                 const trackData = await res.json();
                                 setIsTracked(true);
                                 if (trackData.trip_count != null) updateTripCount(trackData.trip_count);
-                                track('trip_tracked', { trip_id: currentTripId, trigger: 'post_auth' });
 
                                 // Show push priming on native after first tracked trip
                                 if (isNative() && shouldShowPushPriming(trackData.trip_count)) {

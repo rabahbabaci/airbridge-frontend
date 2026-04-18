@@ -4,10 +4,8 @@ import { API_BASE } from '@/config';
  * Fire-and-forget POST to /v1/events for backend interaction signals.
  *
  * Sprint 6 ships three signal types: 'rideshare_tap', 'nav_tap',
- * 'timetogo_tap'. We dual-fire alongside PostHog's track() so the backend
- * has its own ground-truth view of behavior independent of analytics.
- *
- * Failures are swallowed — these are best-effort, never user-blocking.
+ * 'timetogo_tap'. Failures are swallowed — these are best-effort,
+ * never user-blocking.
  *
  * Backend contract (verified against production):
  *   POST /v1/events  body: { event_name, trip_id }  → { status, event_id }

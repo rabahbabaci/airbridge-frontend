@@ -30,8 +30,8 @@ React 18, React Router v6, Vite 6, Tailwind CSS 3 + shadcn/ui, Framer Motion, da
 - `src/components/landing/` — Landing page sections (Header, Hero, HowItWorks, etc.)
 - `src/components/ui/` — shadcn/ui components (do not hand-edit)
 - `src/lib/` — AuthContext.jsx (exposes `isPro()` helper), utils.js (cn helper), PageNotFound
-- `src/utils/` — platform.js, pushNotifications.js, analytics.js, events.js (postEvent → /v1/events), format.js, mapFlight.js, nativeAuth.js
-- `src/config.js` — API_BASE, GOOGLE_CLIENT_ID, GOOGLE_MAPS_API_KEY, POSTHOG_API_KEY
+- `src/utils/` — platform.js, pushNotifications.js, events.js (postEvent → /v1/events), format.js, mapFlight.js, nativeAuth.js
+- `src/config.js` — API_BASE, GOOGLE_CLIENT_ID, GOOGLE_MAPS_API_KEY
 - `ios/App/App/Plugins/` — Custom Swift plugins (AppleSignInPlugin, GoogleSignInPlugin)
 
 ## Native (Capacitor 8)
@@ -101,7 +101,7 @@ ActiveTripView polls `GET /v1/trips/active` and adapts UI to `trip_status`:
 - `at_gate` → "Boarding at [time]," minimal UI
 - `complete` → FeedbackPrompt (or "Trip complete" if dismissed)
 
-Interaction signals (POST /v1/events, dual-fired alongside PostHog):
+Interaction signals (POST /v1/events):
 - `rideshare_tap`, `nav_tap` from ActionCards
 - `timetogo_tap` from push notification action listener
 

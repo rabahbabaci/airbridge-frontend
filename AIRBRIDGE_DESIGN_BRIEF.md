@@ -853,7 +853,6 @@ Same as v1.0:
 - File organization within `src/`
 - Test strategy
 - CSS methodology
-- PostHog event naming
 - Git commit message style
 - Error boundary strategy
 - Loading state implementation details

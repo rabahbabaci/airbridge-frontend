@@ -33,7 +33,6 @@ Currently in beta for Bay Area airports: **SFO**, **OAK**, and **SJC**.
 | Styling      | Tailwind CSS 3 + shadcn/ui (Radix)     |
 | Animations   | Framer Motion                           |
 | Auth         | Google OAuth                            |
-| Analytics    | PostHog                                 |
 | API          | Native fetch — typed contracts in TS    |
 | State        | React Context + hooks                   |
 
@@ -80,7 +79,6 @@ The app connects to the production API by default. To override, create a `.env.l
 VITE_API_URL=http://localhost:8000
 VITE_GOOGLE_CLIENT_ID=your_google_client_id
 VITE_GOOGLE_MAPS_API_KEY=your_google_maps_key
-VITE_POSTHOG_API_KEY=your_posthog_key
 ```
 
 ### Scripts

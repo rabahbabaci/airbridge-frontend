@@ -7,7 +7,6 @@ import { formatCountdownText, formatLocalTime } from '@/utils/format';
 import { useAuth } from '@/lib/AuthContext';
 import { API_BASE } from '@/config';
 import { createPageUrl } from '@/utils';
-import { track } from '@/utils/analytics';
 import JourneyVisualization from './JourneyVisualization';
 import ActionCards from './ActionCards';
 import UntrackConfirmModal from './UntrackConfirmModal';
@@ -97,7 +96,6 @@ export default function ActiveTripView({
             if (res.ok) {
                 const data = await res.json();
                 if (data.trip_count != null) updateTripCount(data.trip_count);
-                track('trip_untracked', { trip_id: trip.trip_id });
                 navigate(createPageUrl('Trips'), { replace: true });
             } else {
                 const err = await res.json().catch(() => ({}));
