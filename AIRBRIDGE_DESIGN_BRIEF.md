@@ -1,7 +1,7 @@
 # AirBridge Mobile Design Brief
 
-**Version:** 2.0
-**Date:** April 14, 2026
+**Version:** 2.1
+**Date:** April 17, 2026
 **Author:** Strategic planning chat (design synthesis + team feedback integration)
 **Consumed by:** Sprint 7 implementation (Claude Code) + the AirBridge team
 **Supersedes:** v1.0 of this brief (April 8, 2026), Valerie's three ideation passes, the team's HTML prototype, and the team feedback PDF. All inputs were considered and synthesized; this brief is authoritative where they conflict.
@@ -9,6 +9,21 @@
 - `REVISED_SPRINT_PLAN.md` — authoritative for scope and sequencing
 - `CLAUDE.md` — authoritative for implementation patterns and workflow
 - This brief — authoritative for design decisions
+
+---
+
+## v2.1 Changelog (read this first)
+
+**Scope cut — email notifications removed entirely from v1.**
+
+Morning-of email briefing (previously listed as a Free+Pro notification channel in Settings and in the Pro gating table) is cut. Rationale: push notifications cover the actionable plan-change cases with lower latency and higher user attention; email briefing was the weakest link in the notification stack; removing it eliminates a provider dependency (SendGrid/Resend) with ongoing cost and DNS/verification overhead. See `REVISED_SPRINT_PLAN.md` "Cut from v1" section for full reasoning.
+
+**What this changes in the brief:**
+- Section 4.14 Settings → Notifications section: "Morning email briefing" row removed.
+- Section 6 Pro gating table: "Morning-of email briefing" row removed.
+- No other sections affected. Push and SMS notification flows unchanged.
+
+**Implementation note:** Claude Code building Settings (Task 7.5 screen work) must use the v2.1 Settings notification list, not the v2.0 list. If a Claude Code prompt cites Section 4.14 and pulls the v2.0 copy by mistake, the brief authoritative answer is v2.1 — surface to Rab.
 
 ---
 
@@ -709,11 +724,10 @@ The "from security checkpoint to gate" clarification is critical — team feedba
   - Traveling with children — toggle
   - Preferred rideshare — "Uber" / "Lyft"
   - Preferred nav app — "Apple Maps" / "Google Maps" / "Waze"
-- **Notifications section** (push notifications shown, NO Live Activity section):
+- **Notifications section** (push notifications shown, NO Live Activity section, NO email — cut from v1):
   - Leave-by reminders — "Alerted when it's time to leave, and if traffic changes your departure time"
   - Flight status updates — "Instant alerts for delays, cancellations, and gate changes"
   - TSA wait spikes — "Notified if security lines grow beyond your buffer"
-  - Morning email briefing — "6 hours before departure"
   - SMS escalation (Pro) — "Text if you miss the Time to go push" (Pro-gated, lock icon if free)
 - **About section:**
   - Send Feedback (mail composer)
@@ -768,7 +782,6 @@ The Pro feature gating table is now:
 | Core recommendation | ✓ | ✓ |
 | Leave-by shift push notifications | ✓ | ✓ |
 | Flight delay/cancellation push | ✓ | ✓ |
-| Morning-of email briefing | ✓ | ✓ |
 | "Time to go!" push | ✓ | ✓ |
 | **Gate change push alerts** | ✗ | ✓ |
 | **SMS "Time to go!" escalation** | ✗ | ✓ |
