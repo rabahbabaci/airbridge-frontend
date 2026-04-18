@@ -125,7 +125,7 @@ Sprint 7 in progress. Sprint 6 shipped (Stripe subscriptions, feedback, trip his
 
 ## Design Source of Truth
 
-`AIRBRIDGE_DESIGN_BRIEF.md` at repo root is authoritative for all UI work (v2.0). Every UI-touching task reads the relevant section(s) before writing code. Cite sections by number (e.g., "Section 4.4 Setup", "Section 3.1 Color palette"). Do not re-derive decisions the brief settles. If the brief is unclear or contradicts a prompt mid-implementation, surface to user — do not guess.
+`AIRBRIDGE_DESIGN_BRIEF.md` at repo root is authoritative for all UI work. Every UI-touching task reads the relevant section(s) before writing code. Cite sections by number (e.g., "Section 4.4 Setup", "Section 3.1 Color palette"). Do not re-derive decisions the brief settles. If the brief is unclear or contradicts a prompt mid-implementation, surface to user — do not guess.
 
 Reference materials in `docs/design-ideations/`: 14 PNGs — home screen (v1–v3), my trip screen (v1–v3, two sets), settings screen (v1–v3, partial second set). These are visual exploration, not authoritative — the brief wins where they disagree.
 
