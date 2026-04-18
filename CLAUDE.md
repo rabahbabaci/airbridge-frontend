@@ -24,10 +24,10 @@ React 18, React Router v6, Vite 6, Tailwind CSS 3 + shadcn/ui, Framer Motion, da
 
 ## Key Directories
 
-- `src/pages/` — Home.jsx, Engine.jsx, Settings.jsx, Trips.jsx (routed via `src/pages.config.js`)
+- `src/pages/` — Search.jsx (/ route per brief §4.2), Engine.jsx, Settings.jsx, Trips.jsx, PrivacyPolicy.jsx, DesignSystem.jsx (routed via `src/pages.config.js` + direct routes in App.jsx)
 - `src/components/engine/` — Engine sub-components: StepEntry, StepSelectFlight, StepDepartureSetup, ResultsView, ActiveTripView, JourneyVisualization, AuthModal, PushPrimingModal, ActionCards, LoadingView, RouteSearchForm, AddressAutocomplete, AirportAutocomplete, SocialAuthCard, OTPModal
+- `src/components/design-system/` — Concourse design system primitives (Button, Card, ListRow, StatusPill, SegmentedControl, Input, TopBar, TabBar, Sheet)
 - `src/components/` — Top-level shared components: PaywallModal.jsx, FeedbackPrompt.jsx
-- `src/components/landing/` — Landing page sections (Header, Hero, HowItWorks, etc.)
 - `src/components/ui/` — shadcn/ui components (do not hand-edit)
 - `src/lib/` — AuthContext.jsx (exposes `isPro()` helper), utils.js (cn helper), PageNotFound
 - `src/utils/` — platform.js, pushNotifications.js, events.js (postEvent → /v1/events), format.js, mapFlight.js, nativeAuth.js
