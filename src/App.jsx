@@ -9,6 +9,7 @@ import FeedbackPrompt from '@/components/FeedbackPrompt';
 import { API_BASE } from '@/config';
 import { createPageUrl } from '@/utils';
 import PrivacyPolicy from '@/pages/PrivacyPolicy';
+import DesignSystem from '@/pages/DesignSystem';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -128,6 +129,7 @@ const AuthenticatedApp = () => {
           />
         ))}
         <Route path="/privacy" element={<PrivacyPolicy />} />
+        <Route path="/design-system" element={<DesignSystem />} />
         <Route path="*" element={<PageNotFound />} />
       </Routes>
       <FeedbackPrompt />
