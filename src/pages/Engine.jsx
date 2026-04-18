@@ -287,10 +287,50 @@ export default function Engine() {
         }
     }, [token]);
 
+    // ── Prefill from /Search handoff ──────────────────────────────────────
+    // Search performs the flight lookup itself and navigates here with
+    // pre-fetched flight results. We pick them up and advance directly
+    // to step 2 (flight selection) so the user doesn't re-enter anything.
+    const fromSearchRef = useRef(location.state?.fromSearch);
+    useEffect(() => {
+        const fs = fromSearchRef.current;
+        if (!fs || editTripRef.current || viewTripRef.current) return;
+
+        if (fs.mode === 'route') {
+            setInputMode('route_search');
+            setRouteOrigin(fs.routeOrigin || '');
+            setRouteDestination(fs.routeDestination || '');
+            if (fs.departureDate) setDepartureDate(fs.departureDate);
+            setLastSearchParams({
+                mode: 'route',
+                origin: fs.routeOrigin,
+                destination: fs.routeDestination,
+                date: fs.departureDate,
+                timeWindow: 'any',
+            });
+        } else {
+            setInputMode('flight_number');
+            setFlightNumber(fs.flightNumber || '');
+            if (fs.departureDate) setDepartureDate(fs.departureDate);
+            setLastSearchParams({
+                mode: 'flight_number',
+                flightNumber: fs.flightNumber,
+                departureDate: fs.departureDate,
+            });
+        }
+
+        if (fs.flights?.length) {
+            setFlightOptions(fs.flights);
+            setCheckingActiveTrip(false);
+            goTo(2);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     // Check for active trip on mount, then hydrate preferences from trip or profile
     useEffect(() => {
         // Skip active trip check when in edit, view, or explicit new-trip mode
-        if (editTripRef.current || viewTripRef.current) return;
+        if (editTripRef.current || viewTripRef.current || fromSearchRef.current) return;
         if (location.state?.newTrip) {
             setCheckingActiveTrip(false);
             return;
