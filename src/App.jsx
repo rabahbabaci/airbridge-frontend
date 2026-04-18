@@ -8,6 +8,7 @@ import UserNotRegisteredError from '@/components/UserNotRegisteredError';
 import FeedbackPrompt from '@/components/FeedbackPrompt';
 import { API_BASE } from '@/config';
 import { createPageUrl } from '@/utils';
+import PrivacyPolicy from '@/pages/PrivacyPolicy';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -126,6 +127,7 @@ const AuthenticatedApp = () => {
             }
           />
         ))}
+        <Route path="/privacy" element={<PrivacyPolicy />} />
         <Route path="*" element={<PageNotFound />} />
       </Routes>
       <FeedbackPrompt />
