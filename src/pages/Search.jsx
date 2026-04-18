@@ -17,6 +17,7 @@ import TabBar from '@/components/design-system/TabBar';
 import Card from '@/components/design-system/Card';
 import Button from '@/components/design-system/Button';
 import StatusPill from '@/components/design-system/StatusPill';
+import AuthModal from '@/components/engine/AuthModal';
 import { cn } from '@/lib/utils';
 
 /* ── Constants ──────────────────────────────────────────────────────────── */
@@ -183,6 +184,18 @@ function DatePills({ value, onChange }) {
                 : 'bg-c-ground-sunken text-c-text-secondary hover:text-c-text-primary'
         );
 
+    const openNativePicker = () => {
+        const el = datePickerRef.current;
+        if (!el) return;
+        // showPicker is the reliable way on iOS Safari + modern Chrome/Edge.
+        // Fallback: focus + click for older browsers (Firefox).
+        if (typeof el.showPicker === 'function') {
+            try { el.showPicker(); return; } catch { /* fall through */ }
+        }
+        el.focus();
+        el.click();
+    };
+
     return (
         <div className="flex items-center gap-c-2">
             <button type="button" className={pillClass(isToday)} onClick={() => onChange(today)}>
@@ -191,20 +204,35 @@ function DatePills({ value, onChange }) {
             <button type="button" className={pillClass(isTomorrow)} onClick={() => onChange(tomorrow)}>
                 Tomorrow
             </button>
-            <label
-                className={cn(pillClass(isCustom), 'inline-flex items-center justify-center cursor-pointer relative')}
+            <button
+                type="button"
+                className={cn(pillClass(isCustom), 'inline-flex items-center justify-center relative')}
+                onClick={openNativePicker}
+                aria-label="Pick a date"
             >
                 {isCustom ? formatFriendlyDate(value) : 'Pick a date'}
+                {/* Hidden but focusable — visibility: hidden (not display: none)
+                   keeps the element in the accessibility tree so showPicker() and
+                   click() succeed on iOS Safari and older browsers. */}
                 <input
                     ref={datePickerRef}
                     type="date"
                     min={today}
                     value={isCustom ? value : ''}
                     onChange={(e) => { if (e.target.value) onChange(e.target.value); }}
-                    className="absolute inset-0 opacity-0 cursor-pointer"
-                    aria-label="Pick a date"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                    style={{
+                        position: 'absolute',
+                        width: 1,
+                        height: 1,
+                        opacity: 0,
+                        pointerEvents: 'none',
+                        left: '50%',
+                        bottom: 0,
+                    }}
                 />
-            </label>
+            </button>
         </div>
     );
 }
@@ -212,7 +240,7 @@ function DatePills({ value, onChange }) {
 /* ── Search screen ───────────────────────────────────────────────────────── */
 export default function Search() {
     const navigate = useNavigate();
-    const { display_name, isAuthenticated, token } = useAuth();
+    const { display_name, isAuthenticated, token, login } = useAuth();
 
     const [mode, setMode] = useState('route'); // 'route' | 'flight_number'
     const [origin, setOrigin] = useState('');
@@ -222,6 +250,7 @@ export default function Search() {
     const [tabValue, setTabValue] = useState('search');
     const [searching, setSearching] = useState(false);
     const [searchError, setSearchError] = useState(null);
+    const [authOpen, setAuthOpen] = useState(false);
 
     const flightNumberValid =
         FLIGHT_NUMBER_REGEX.test(flightNumber.trim().toUpperCase().replace(/\s+/g, ' '));
@@ -270,7 +299,10 @@ export default function Search() {
         }
     };
 
-    const onAvatarTap = () => navigate(createPageUrl('Settings'));
+    const handleAvatarTap = () => {
+        if (isAuthenticated) navigate(createPageUrl('Settings'));
+        else setAuthOpen(true);
+    };
     const avatarInitials = initials(display_name) || '👤';
 
     const tabs = [
@@ -314,14 +346,25 @@ export default function Search() {
                     </div>
                 }
                 rightSlot={
-                    <button
-                        type="button"
-                        onClick={onAvatarTap}
-                        aria-label="Settings"
-                        className="w-9 h-9 rounded-c-pill bg-c-brand-primary text-c-text-inverse c-type-footnote font-bold flex items-center justify-center hover:bg-c-brand-primary-hover transition-colors"
-                    >
-                        {isAuthenticated ? avatarInitials : <Gear size={18} weight="bold" />}
-                    </button>
+                    isAuthenticated ? (
+                        <button
+                            type="button"
+                            onClick={handleAvatarTap}
+                            aria-label="Settings"
+                            className="w-9 h-9 rounded-c-pill bg-c-brand-primary text-c-text-inverse c-type-footnote font-bold flex items-center justify-center hover:bg-c-brand-primary-hover transition-colors"
+                        >
+                            {avatarInitials}
+                        </button>
+                    ) : (
+                        <button
+                            type="button"
+                            onClick={handleAvatarTap}
+                            aria-label="Sign in"
+                            className="h-9 px-c-4 rounded-c-pill bg-c-brand-primary text-c-text-inverse c-type-footnote font-semibold hover:bg-c-brand-primary-hover transition-colors"
+                        >
+                            Sign in
+                        </button>
+                    )
                 }
             />
 
@@ -411,6 +454,15 @@ export default function Search() {
             </main>
 
             <TabBar value={tabValue} onChange={handleTabChange} tabs={tabs} />
+
+            <AuthModal
+                open={authOpen}
+                onOpenChange={setAuthOpen}
+                onSuccess={(data) => {
+                    login(data);
+                    setAuthOpen(false);
+                }}
+            />
         </div>
     );
 }
