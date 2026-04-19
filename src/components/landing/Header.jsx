@@ -91,7 +91,7 @@ export default function Header() {
                         )}
 
                         <button
-                            onClick={() => navigate(createPageUrl('Engine'), { state: { newTrip: true } })}
+                            onClick={() => navigate('/search')}
                             className="text-sm bg-c-brand-primary hover:bg-c-brand-primary-hover text-c-text-inverse font-semibold px-5 py-1.5 rounded-full transition-all"
                         >
                             Get Started
@@ -146,7 +146,7 @@ export default function Header() {
                                     className="w-full bg-c-brand-primary hover:bg-c-brand-primary-hover text-c-text-inverse"
                                     onClick={() => {
                                         setMobileMenuOpen(false);
-                                        navigate(createPageUrl('Engine'), { state: { newTrip: true } });
+                                        navigate('/search');
                                     }}
                                 >
                                     Get Started

@@ -1,8 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Plane, Car, Shield, CheckCircle, Clock, MapPin } from 'lucide-react';
+import { ArrowRight, Plane, Car, Shield, CheckCircle, Clock, MapPin, Smartphone } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { createPageUrl } from '@/utils';
 
 // Animated phone mockup — crisp rendering
 function PhoneMockup() {
@@ -236,7 +235,7 @@ export default function Hero() {
                             className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start mb-10 sm:mb-14"
                         >
                             <motion.button
-                                onClick={() => navigate(createPageUrl('Engine'), { state: { newTrip: true } })}
+                                onClick={() => navigate('/search')}
                                 className="flex items-center justify-center gap-2 px-8 py-4 rounded-full text-c-text-inverse font-bold text-base transition-all hover:scale-105 active:scale-100 bg-c-brand-primary shadow-lg"
                                 animate={{ boxShadow: ['0 10px 40px var(--c-brand-primary-surface)', '0 10px 60px var(--c-brand-primary-surface)', '0 10px 40px var(--c-brand-primary-surface)'] }}
                                 transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut' }}
@@ -245,6 +244,17 @@ export default function Hero() {
                                 See My Departure Time
                                 <ArrowRight className="w-5 h-5" />
                             </motion.button>
+                        </motion.div>
+
+                        {/* Download the app — desktop visitors hear about the real product */}
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: 0.5, delay: 0.45 }}
+                            className="inline-flex items-center gap-2 mb-8 text-xs text-c-text-secondary"
+                        >
+                            <Smartphone className="w-3.5 h-3.5 text-c-brand-primary" />
+                            <span>Best experience in the iOS app — coming soon to TestFlight.</span>
                         </motion.div>
 
                         {/* Trust micro-copy */}

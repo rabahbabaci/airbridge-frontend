@@ -10,6 +10,8 @@ import { API_BASE } from '@/config';
 import { createPageUrl } from '@/utils';
 import PrivacyPolicy from '@/pages/PrivacyPolicy';
 import DesignSystem from '@/pages/DesignSystem';
+import Home from '@/pages/Home';
+import useShouldShowLanding from '@/hooks/useShouldShowLanding';
 
 const { Pages, Layout, mainPage } = pagesConfig;
 const mainPageKey = mainPage ?? Object.keys(Pages)[0];
@@ -83,6 +85,21 @@ function TripAwareHome({ children }) {
   return children;
 }
 
+// `/` serves two audiences: desktop/tablet web visitors get the marketing
+// Landing page; mobile web and native Capacitor users get the Search app
+// shell directly. The hook locks the decision on mount — see its comment.
+function RootRoute() {
+  const showLanding = useShouldShowLanding();
+  if (showLanding) return <Home />;
+  return (
+    <TripAwareHome>
+      <LayoutWrapper currentPageName={mainPageKey}>
+        <MainPage />
+      </LayoutWrapper>
+    </TripAwareHome>
+  );
+}
+
 const AuthenticatedApp = () => {
   const { isLoadingAuth, isLoadingPublicSettings, authError, navigateToLogin } = useAuth();
 
@@ -110,7 +127,10 @@ const AuthenticatedApp = () => {
   return (
     <>
       <Routes>
-        <Route path="/" element={
+        <Route path="/" element={<RootRoute />} />
+        {/* /search is the explicit app entrypoint — bypasses the viewport-
+            based Landing/Search swap at `/`. Landing CTAs target it. */}
+        <Route path="/search" element={
           <TripAwareHome>
             <LayoutWrapper currentPageName={mainPageKey}>
               <MainPage />
