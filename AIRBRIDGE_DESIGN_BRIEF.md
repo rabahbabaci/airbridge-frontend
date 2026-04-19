@@ -1,6 +1,6 @@
 # AirBridge Mobile Design Brief
 
-**Version:** 2.2
+**Version:** 2.3
 **Date:** April 18, 2026
 **Author:** Strategic planning chat (design synthesis + team feedback integration)
 **Consumed by:** Sprint 7 implementation (Claude Code) + the AirBridge team
@@ -9,6 +9,20 @@
 - `REVISED_SPRINT_PLAN.md` — authoritative for scope and sequencing
 - `CLAUDE.md` — authoritative for implementation patterns and workflow
 - This brief — authoritative for design decisions
+
+---
+
+## v2.3 Changelog (read this first)
+
+**Behavior change — Flight Selection always renders.**
+
+Section 4.3 previously specified auto-skipping Flight Selection when exactly one flight matches. That's removed. The selection screen always renders regardless of match count, so the user confirms their chosen flight before the preference-collection step.
+
+**Rationale:** Codeshare ambiguity, wrong flight-number typos, and flight-number reuse can make "one match" not always mean "the flight the user wanted." A confirmation tap adds negligible friction and increases confidence. A single-flight list is brief but valuable.
+
+**What changes in the brief:**
+- Section 4.3: removed the "auto-skip selection for exactly one match" behavior.
+- No other sections affected.
 
 ---
 
@@ -454,7 +468,9 @@ Each screen has a purpose, layout, states, and content rules. The screens have b
 
 ## 4.3 Flight selection / disambiguation
 
-**Purpose:** When a search yields multiple matches, let the user pick. Auto-skip when only one match.
+**Purpose:** Let the user confirm which flight they intend before the preference-collection step.
+
+The selection screen always renders, even for a single match, so the user can confirm they picked the right flight before committing to preference collection. The screen is brief but valuable — it catches codeshare ambiguity, wrong-flight-number typos, and cases where the user searched fresh but wanted a different return-trip flight. A confirmation tap on a single-flight list adds negligible friction and increases user confidence significantly.
 
 **Layout:**
 - Top bar: "<" back, "Select your flight" title
