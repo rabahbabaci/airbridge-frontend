@@ -2,13 +2,12 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
     Car, SteeringWheel, Train, Shield, Rocket, MapPin, NavigationArrow,
-    WarningCircle, Timer, SuitcaseRolling, Baby, QrCode,
+    WarningCircle, Timer, SuitcaseRolling, Baby, QrCode, Minus, Plus,
 } from '@phosphor-icons/react';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import TopBar from '@/components/design-system/TopBar';
 import Button from '@/components/design-system/Button';
-import SegmentedControl from '@/components/design-system/SegmentedControl';
 import { loadGoogleMaps, reverseGeocode, getCurrentPosition } from '@/utils/geocode';
 import { formatLocalTime } from '@/utils/format';
 
@@ -85,13 +84,28 @@ function securityIdFrom(hasPrecheck, hasClear) {
     return 'none';
 }
 
-/* ── Gate buffer (brief v2.4 §4.4) ──────────────────────────────────── */
-const GATE_BUFFER_PRESETS = [
-    { value: 15, label: 'Tight · 15 min' },
-    { value: 30, label: 'Comfortable · 30 min' },
-    { value: 60, label: 'Relaxed · 60 min' },
-];
-const DEFAULT_GATE_BUFFER = 30;
+/* ── Gate buffer (brief v2.5 §4.4) ──────────────────────────────────── */
+const GATE_BUFFER_MIN = 15;
+const GATE_BUFFER_MAX = 120;
+const GATE_BUFFER_STEP = 5;
+const GATE_BUFFER_DEFAULT = 30;
+
+// Legacy v2.4 preset labels → v2.5 minute values (for sessionStorage
+// hydration across the version bump).
+const LEGACY_GATE_BUFFER_MAP = { tight: 15, comfortable: 30, relaxed: 60 };
+
+function normalizeGateBuffer(raw) {
+    if (typeof raw === 'string' && raw in LEGACY_GATE_BUFFER_MAP) return LEGACY_GATE_BUFFER_MAP[raw];
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+        // Clamp + snap to the 5-minute grid
+        const clamped = Math.max(GATE_BUFFER_MIN, Math.min(GATE_BUFFER_MAX, raw));
+        return Math.round(clamped / GATE_BUFFER_STEP) * GATE_BUFFER_STEP;
+    }
+    return GATE_BUFFER_DEFAULT;
+}
+
+const BAG_COUNT_MIN = 0;
+const BAG_COUNT_MAX = 10;
 
 export default function StepDepartureSetup({
     selectedFlight, flightNumber,
@@ -119,13 +133,13 @@ export default function StepDepartureSetup({
         error: null,
     });
 
-    // Snap incoming gateTime to the closest preset on mount so the
-    // segmented control never shows an unselected state.
+    // Normalize the parent's incoming gateTime once on mount: clamp to
+    // [15, 120], snap to the 5-min grid, and substitute the default if
+    // the upstream prop is undefined/junk. Keeps the slider in a valid
+    // position regardless of whatever Engine/profile hydration handed us.
     useEffect(() => {
-        const presetValues = GATE_BUFFER_PRESETS.map((p) => p.value);
-        if (!presetValues.includes(gateTime)) {
-            setGateTime(DEFAULT_GATE_BUFFER);
-        }
+        const normalized = normalizeGateBuffer(gateTime);
+        if (normalized !== gateTime) setGateTime(normalized);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -145,7 +159,12 @@ export default function StepDepartureSetup({
             setHasPrecheck(saved.security === 'precheck' || saved.security === 'clear_precheck');
             setHasClear(saved.security === 'clear' || saved.security === 'clear_precheck');
         }
-        if (typeof saved.bags === 'boolean') {
+        // v2.5: bags is an integer count now. Legacy v2.4 sessions may
+        // have persisted a boolean — map true→1, false→0.
+        if (typeof saved.bags === 'number') {
+            const clamped = Math.max(BAG_COUNT_MIN, Math.min(BAG_COUNT_MAX, Math.trunc(saved.bags)));
+            setBagCount(clamped);
+        } else if (typeof saved.bags === 'boolean') {
             setBagCount(saved.bags ? 1 : 0);
         }
         if (typeof saved.children === 'boolean') {
@@ -154,8 +173,11 @@ export default function StepDepartureSetup({
         if (typeof saved.hasBoardingPass === 'boolean') {
             setHasBoardingPass(saved.hasBoardingPass);
         }
-        if (typeof saved.gateBuffer === 'number' && GATE_BUFFER_PRESETS.some((p) => p.value === saved.gateBuffer)) {
-            setGateTime(saved.gateBuffer);
+        // v2.5: gateBuffer is minutes (15-120 step 5). Legacy v2.4
+        // sessions may have persisted a preset label — map via
+        // LEGACY_GATE_BUFFER_MAP inside normalizeGateBuffer().
+        if (saved.gateBuffer !== undefined) {
+            setGateTime(normalizeGateBuffer(saved.gateBuffer));
         }
         if (saved.geolocationDenied) {
             setGeolocation((g) => ({ ...g, denied: true }));
@@ -171,9 +193,9 @@ export default function StepDepartureSetup({
         setHasClear(id === 'clear' || id === 'clear_precheck');
     };
 
-    // Bags toggle mirrors bagCount>0 (rule 18: always a toggle).
-    const bags = bagCount > 0;
-    const setBags = (on) => setBagCount(on ? 1 : 0);
+    // Bags stepper — parent owns bagCount. Clamp on set.
+    const incBags = () => setBagCount(Math.min(BAG_COUNT_MAX, bagCount + 1));
+    const decBags = () => setBagCount(Math.max(BAG_COUNT_MIN, bagCount - 1));
 
     useEffect(() => {
         if (!hydratedOnceRef.current) return;
@@ -181,13 +203,13 @@ export default function StepDepartureSetup({
             address: startingAddress,
             transport,
             security,
-            bags,
+            bags: bagCount,
             children: withChildren,
             hasBoardingPass,
             gateBuffer: gateTime,
             geolocationDenied: geolocation.denied,
         });
-    }, [startingAddress, transport, security, bags, withChildren, hasBoardingPass, gateTime, geolocation.denied]);
+    }, [startingAddress, transport, security, bagCount, withChildren, hasBoardingPass, gateTime, geolocation.denied]);
 
     const hasAddress = startingAddress.trim().length > 0;
     const isCancelled = !!selectedFlight?.canceled;
@@ -232,7 +254,7 @@ export default function StepDepartureSetup({
     };
 
     return (
-        <div className="w-full max-w-2xl mx-auto -mx-4">
+        <div className="w-full max-w-[800px] mx-auto -mx-4">
             <TopBar title="Departure setup" onBack={onBack} />
 
             {flightSubtitle && (
@@ -367,10 +389,11 @@ export default function StepDepartureSetup({
                             </div>
                         </section>
 
-                        {/* ── Section 3: Security (4 options) ──────────── */}
+                        {/* ── Section 3: Security — stacked on mobile,
+                                4-col row on ≥768px per brief v2.5 ──────────── */}
                         <section>
                             <SectionHeading icon={Shield}>Security access</SectionHeading>
-                            <div className="space-y-c-3">
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-c-3">
                                 {SECURITY_OPTIONS.map((opt) => (
                                     <SecurityOption
                                         key={opt.id}
@@ -384,28 +407,26 @@ export default function StepDepartureSetup({
                             </div>
                         </section>
 
-                        {/* ── Section 4: Gate buffer ───────────────────── */}
+                        {/* ── Section 4: Gate buffer slider (v2.5) ─────── */}
                         <section>
                             <SectionHeading icon={Timer}>How early at your gate?</SectionHeading>
-                            <SegmentedControl
-                                segments={GATE_BUFFER_PRESETS.map((p) => ({ value: String(p.value), label: p.label }))}
-                                value={String(gateTime)}
-                                onChange={(v) => setGateTime(Number(v))}
-                                className="w-full"
-                            />
+                            <GateBufferSlider value={gateTime} onChange={setGateTime} />
                             <p className="c-type-footnote text-c-text-secondary mt-c-2">
                                 Extra time at your gate before boarding begins.
                             </p>
                         </section>
 
-                        {/* ── Section 5: Bags ──────────────────────────── */}
+                        {/* ── Section 5: Bags stepper (v2.5) ───────────── */}
                         <section>
-                            <ToggleRow
+                            <StepperRow
                                 icon={SuitcaseRolling}
-                                title="Checking bags?"
-                                subtitle="Joining the check-in line · Wait time varies"
-                                checked={bags}
-                                onCheckedChange={setBags}
+                                title="Checked bags"
+                                subtitle="Each bag adds bag-drop time."
+                                value={bagCount}
+                                onDecrement={decBags}
+                                onIncrement={incBags}
+                                min={BAG_COUNT_MIN}
+                                max={BAG_COUNT_MAX}
                             />
                         </section>
 
@@ -460,7 +481,12 @@ function SectionHeading({ icon: Icon, children }) {
     );
 }
 
-/* ── Security option card ─────────────────────────────────────────────── */
+/* ── Security option card ───────────────────────────────────────────────
+   Reflows between two shapes:
+   - <md: horizontal list-row (icon-left, text-middle, badge-right)
+   - ≥md: 4-col grid tile — icon top-left, label + subtitle stacked,
+          savings badge pinned at card bottom (mt-auto so empty-badge
+          tiles like "None" keep the same min-height). */
 function SecurityOption({ active, onClick, title, subtitle, badge }) {
     return (
         <button
@@ -468,7 +494,8 @@ function SecurityOption({ active, onClick, title, subtitle, badge }) {
             onClick={onClick}
             aria-pressed={active}
             className={cn(
-                'w-full flex items-center gap-c-3 p-c-4 rounded-c-md border transition-colors text-left',
+                'w-full flex items-center gap-c-3 md:flex-col md:items-start md:gap-c-2 p-c-4 rounded-c-md border transition-colors text-left',
+                'md:min-h-[148px]',
                 'focus:outline-none focus-visible:ring-2 focus-visible:ring-c-brand-primary focus-visible:ring-offset-2',
                 active
                     ? 'bg-c-brand-primary-surface border-c-brand-primary'
@@ -478,17 +505,17 @@ function SecurityOption({ active, onClick, title, subtitle, badge }) {
             <Shield
                 size={22}
                 weight={active ? 'fill' : 'regular'}
-                className={active ? 'text-c-brand-primary' : 'text-c-text-secondary'}
+                className={cn('shrink-0', active ? 'text-c-brand-primary' : 'text-c-text-secondary')}
             />
-            <div className="flex-1 min-w-0">
+            <div className="flex-1 md:flex-none md:w-full min-w-0">
                 <p className={cn(
                     'c-type-body font-semibold',
                     active ? 'text-c-brand-primary' : 'text-c-text-primary'
                 )}>{title}</p>
-                <p className="c-type-footnote text-c-text-secondary truncate">{subtitle}</p>
+                <p className="c-type-footnote text-c-text-secondary">{subtitle}</p>
             </div>
             {badge && (
-                <span className="shrink-0 inline-flex items-center px-c-2 py-c-1 rounded-c-pill bg-c-confidence-surface text-c-confidence c-type-footnote font-semibold">
+                <span className="shrink-0 md:mt-auto inline-flex items-center px-c-2 py-c-1 rounded-c-pill bg-c-confidence-surface text-c-confidence c-type-footnote font-semibold">
                     {badge}
                 </span>
             )}
@@ -509,6 +536,109 @@ function ToggleRow({ icon: Icon, title, subtitle, checked, onCheckedChange }) {
             </div>
             <Switch checked={checked} onCheckedChange={onCheckedChange} />
         </label>
+    );
+}
+
+/* ── Stepper row (bags, v2.5 — rule 18 revoked) ───────────────────────── */
+function StepperRow({ icon: Icon, title, subtitle, value, onIncrement, onDecrement, min, max }) {
+    const atMin = value <= min;
+    const atMax = value >= max;
+    const stepBtn = (disabled) => cn(
+        'w-10 h-10 rounded-c-pill flex items-center justify-center border transition-colors',
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-c-brand-primary focus-visible:ring-offset-2',
+        disabled
+            ? 'bg-c-ground-sunken border-c-border-hairline text-c-text-tertiary cursor-not-allowed'
+            : 'bg-c-ground-elevated border-c-border-hairline text-c-text-primary hover:border-c-border-strong'
+    );
+    return (
+        <div className="flex items-center gap-c-3 p-c-4 rounded-c-md bg-c-ground-elevated border border-c-border-hairline">
+            {Icon && <Icon size={20} weight="regular" className="text-c-text-secondary shrink-0" />}
+            <div className="flex-1 min-w-0">
+                <p className="c-type-body font-semibold text-c-text-primary">{title}</p>
+                <p className="c-type-footnote text-c-text-secondary mt-c-1">{subtitle}</p>
+            </div>
+            <div className="flex items-center gap-c-2 shrink-0">
+                <button
+                    type="button"
+                    onClick={onDecrement}
+                    disabled={atMin}
+                    aria-label="Decrease"
+                    className={stepBtn(atMin)}
+                >
+                    <Minus size={16} weight="bold" />
+                </button>
+                <span
+                    aria-live="polite"
+                    className="w-8 text-center c-type-title text-c-text-primary tabular-nums"
+                >
+                    {value}
+                </span>
+                <button
+                    type="button"
+                    onClick={onIncrement}
+                    disabled={atMax}
+                    aria-label="Increase"
+                    className={stepBtn(atMax)}
+                >
+                    <Plus size={16} weight="bold" />
+                </button>
+            </div>
+        </div>
+    );
+}
+
+/* ── Gate-buffer slider (bags, v2.5) ──────────────────────────────────── */
+/* Native <input type="range"> styled with CSS. Chose native over a
+   custom pointer-handler because it gives keyboard nav, iOS/Android
+   haptics, and accessibility for free. Track fill is a linear-gradient
+   computed from the current value; thumb is themed via vendor prefixes. */
+function GateBufferSlider({ value, onChange }) {
+    const pct = ((value - GATE_BUFFER_MIN) / (GATE_BUFFER_MAX - GATE_BUFFER_MIN)) * 100;
+    return (
+        <div>
+            <div className="flex items-baseline justify-between mb-c-3">
+                <span className="c-type-title text-c-text-primary tabular-nums">{value} min</span>
+                <div className="flex items-center gap-c-3 c-type-footnote text-c-text-tertiary">
+                    <span>{GATE_BUFFER_MIN}m</span>
+                    <span aria-hidden="true">—</span>
+                    <span>{GATE_BUFFER_MAX}m</span>
+                </div>
+            </div>
+            <input
+                type="range"
+                min={GATE_BUFFER_MIN}
+                max={GATE_BUFFER_MAX}
+                step={GATE_BUFFER_STEP}
+                value={value}
+                onChange={(e) => onChange(Number(e.target.value))}
+                aria-label="Gate arrival buffer in minutes"
+                style={{
+                    background: `linear-gradient(to right, var(--c-brand-primary) 0% ${pct}%, var(--c-border-hairline) ${pct}% 100%)`,
+                }}
+                className={cn(
+                    'w-full h-1.5 rounded-c-pill appearance-none cursor-pointer',
+                    'focus:outline-none focus-visible:ring-2 focus-visible:ring-c-brand-primary focus-visible:ring-offset-2',
+                    // WebKit thumb
+                    '[&::-webkit-slider-thumb]:appearance-none',
+                    '[&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5',
+                    '[&::-webkit-slider-thumb]:rounded-full',
+                    '[&::-webkit-slider-thumb]:bg-c-brand-primary',
+                    '[&::-webkit-slider-thumb]:border-2',
+                    '[&::-webkit-slider-thumb]:border-c-ground-elevated',
+                    '[&::-webkit-slider-thumb]:shadow-c-md',
+                    '[&::-webkit-slider-thumb]:cursor-grab',
+                    'active:[&::-webkit-slider-thumb]:cursor-grabbing',
+                    // Firefox thumb
+                    '[&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5',
+                    '[&::-moz-range-thumb]:rounded-full',
+                    '[&::-moz-range-thumb]:bg-c-brand-primary',
+                    '[&::-moz-range-thumb]:border-2',
+                    '[&::-moz-range-thumb]:border-c-ground-elevated',
+                    '[&::-moz-range-thumb]:shadow-c-md',
+                    '[&::-moz-range-thumb]:cursor-grab'
+                )}
+            />
+        </div>
     );
 }
 
