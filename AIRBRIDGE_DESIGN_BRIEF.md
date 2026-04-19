@@ -1,7 +1,7 @@
 # AirBridge Mobile Design Brief
 
-**Version:** 2.1
-**Date:** April 17, 2026
+**Version:** 2.2
+**Date:** April 18, 2026
 **Author:** Strategic planning chat (design synthesis + team feedback integration)
 **Consumed by:** Sprint 7 implementation (Claude Code) + the AirBridge team
 **Supersedes:** v1.0 of this brief (April 8, 2026), Valerie's three ideation passes, the team's HTML prototype, and the team feedback PDF. All inputs were considered and synthesized; this brief is authoritative where they conflict.
@@ -9,6 +9,18 @@
 - `REVISED_SPRINT_PLAN.md` — authoritative for scope and sequencing
 - `CLAUDE.md` — authoritative for implementation patterns and workflow
 - This brief — authoritative for design decisions
+
+---
+
+## v2.2 Changelog (read this first)
+
+**Addition — sign-in affordance is state-driven.**
+
+Section 4.2 Search screen now specifies how the top-right avatar slot behaves for unauthenticated vs authenticated users. Rationale: brief §4.1's Duolingo-model (anonymous first, delayed registration) works well for new users but left returning users without an obvious sign-in path. The avatar slot now adapts: authenticated users see their initials in an indigo circle; unauthenticated users see a "Sign in" pill in the same indigo surface. Single entry point, state-driven shape.
+
+**What this changes in the brief:**
+- Section 4.2 Search screen → top-right affordance row expanded to specify both authenticated and unauthenticated states.
+- No other sections affected.
 
 ---
 
@@ -400,7 +412,9 @@ Each screen has a purpose, layout, states, and content rules. The screens have b
 **Purpose:** The primary screen of the app. Form-forward, low friction, get to a calculated leave-by time in two taps.
 
 **Layout:**
-- Top bar: AirBridge logomark + wordmark left, avatar circle right (24px, initials)
+- Top bar: AirBridge logomark + wordmark left, state-driven affordance right (36×36):
+    - *Authenticated:* Avatar circle with user's initials in indigo background, rounded pill shape. Tap → Settings.
+    - *Unauthenticated:* "Sign in" pill in same indigo surface (taller 36-tall pill, text label, footnote type). Tap → opens AuthModal. On successful auth, shape flips to the authenticated avatar circle.
 - Below top bar: small "🇺🇸 US domestic flights only" pill in `--ground-sunken` background
 - Content region with 24px horizontal padding
 - 32px gap
