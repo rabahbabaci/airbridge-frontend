@@ -322,7 +322,7 @@ export default function Engine() {
         if (fs.flights?.length) {
             setFlightOptions(fs.flights);
             setCheckingActiveTrip(false);
-            goTo(2);
+            advanceToFlightSelection(fs.flights);
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -517,6 +517,25 @@ export default function Engine() {
 
     const goTo = (next) => { setDir(next > step ? 1 : -1); setStep(next); };
 
+    // Brief §4.3: "skip the selection screen entirely and go straight to
+    // the results screen" when exactly one flight matches. We land on Setup
+    // (the next step) with the sole flight pre-selected, so the user never
+    // sees a one-item selection list. If the single match is unusable
+    // (departed, cancelled, or boarding) we still show the list so the
+    // user sees the status.
+    const advanceToFlightSelection = (flights) => {
+        if (flights?.length === 1) {
+            const only = flights[0];
+            const isUnusable = only.departed || only.canceled || only.is_boarding;
+            if (!isUnusable) {
+                handleFlightClick(only);
+                goTo(3);
+                return;
+            }
+        }
+        goTo(2);
+    };
+
     const computeSecurityAccess = () => {
         if (hasPriorityLane) return 'priority_lane';
         if (hasPrecheck && hasClear) return 'clear_precheck';
@@ -548,7 +567,7 @@ export default function Engine() {
             lastSearchParams.departureDate === departureDate &&
             flightOptions.length > 0
         ) {
-            goTo(2);
+            advanceToFlightSelection(flightOptions);
             return;
         }
 
@@ -572,6 +591,7 @@ export default function Engine() {
             const flights = mapFlights(data.flights);
             setFlightOptions(flights);
             setLastSearchParams({ mode: 'flight_number', flightNumber: flightNumber.trim(), departureDate });
+            advanceToFlightSelection(flights);
         } catch (err) {
             console.error('Flight lookup failed:', err);
             setFlightOptions([]);
@@ -764,7 +784,7 @@ export default function Engine() {
             date: meta?.date || departureDate,
             timeWindow: meta?.timeWindow || routeTimeWindow,
         });
-        goTo(2);
+        advanceToFlightSelection(flights);
     };
 
     const handleReset = () => {
@@ -1158,7 +1178,16 @@ export default function Engine() {
                                     departureDate={departureDate}
                                     onFlightClick={handleFlightClick}
                                     onContinue={handleContinueToSetup}
-                                    onBack={() => goTo(1)}
+                                    onBack={() => {
+                                        // If user arrived from /Search, return there via
+                                        // browser history so their form state is preserved
+                                        // by the back-forward cache where supported.
+                                        if (fromSearchRef.current) {
+                                            navigate(-1);
+                                        } else {
+                                            goTo(1);
+                                        }
+                                    }}
                                     onRetry={handleFindFlight}
                                 />
                             )}
