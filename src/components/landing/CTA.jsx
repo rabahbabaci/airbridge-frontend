@@ -37,7 +37,7 @@ export default function CTA() {
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
                             transition={{ delay: 0.1 }}
-                            className="text-c-text-inverse/60 mt-6 text-lg max-w-lg mx-auto"
+                            className="text-c-text-inverse/85 mt-6 text-lg max-w-lg mx-auto"
                         >
                             Know exactly when to leave. Every time.
                         </motion.p>
@@ -58,7 +58,7 @@ export default function CTA() {
                                 Get the iOS app
                                 <ArrowRight className="w-4 h-4" />
                             </button>
-                            <span className="inline-flex items-center px-3 py-1 rounded-full bg-c-text-inverse/10 text-c-text-inverse/70 text-xs font-medium">
+                            <span className="inline-flex items-center px-3 py-1 rounded-full bg-c-text-inverse/15 text-c-text-inverse/90 text-xs font-medium">
                                 Coming summer 2026
                             </span>
                         </motion.div>
