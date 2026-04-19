@@ -1,20 +1,22 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-    Car, Bus as BusIcon, Shield, Rocket, MapPin, NavigationArrow,
-    WarningCircle,
+    Car, SteeringWheel, Train, Shield, Rocket, MapPin, NavigationArrow,
+    WarningCircle, Timer, SuitcaseRolling, Baby, QrCode,
 } from '@phosphor-icons/react';
 import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import TopBar from '@/components/design-system/TopBar';
 import Button from '@/components/design-system/Button';
+import SegmentedControl from '@/components/design-system/SegmentedControl';
 import { loadGoogleMaps, reverseGeocode, getCurrentPosition } from '@/utils/geocode';
 import { formatLocalTime } from '@/utils/format';
 
 /* ── Persisted Setup state (sessionStorage) ─────────────────────────────
-   Mirrors Task 7.3's airbridge_search_state: written on every input
-   change, hydrated on mount, cleared only when the trip is submitted
-   (parent calls clearSetupState() after successful Recalculate/Track).
+   Mirrors Task 7.3's airbridge_search_state. Shape updated in brief v2.4:
+   rideshareProvider is gone (provider selection moves to Results/Active
+   Trip); gateBuffer + hasBoardingPass are back; security is a 4-valued
+   enum now (none | precheck | clear | clear_precheck).
 */
 const SETUP_STATE_KEY = 'airbridge_setup_state';
 
@@ -36,36 +38,60 @@ export function clearSetupState() {
     try { sessionStorage.removeItem(SETUP_STATE_KEY); } catch { /* ignore */ }
 }
 
-/* ── Transport card definitions ─────────────────────────────────────────
-   The brief §4.4 shows four cards: Uber, Lyft, Public transit, Drive.
-   Uber/Lyft both persist as transport='rideshare' backend-side; the
-   provider chip is UI-only and captured in sessionStorage for
-   continuity. Public transit maps to 'train' (Bay Area BART/rail tilt);
-   flagged as a judgment call in the report.
+/* ── Transport cards (brief v2.4 §4.4) ──────────────────────────────────
+   Three options, distinct icons. Rideshare consolidates Uber/Lyft;
+   provider pick moves to Results/Active Trip where it matters for the
+   deep link. Public transit still maps backend-side to 'train' (Bay
+   Area BART/rail tilt).
 */
 const TRANSPORT_CARDS = [
-    { id: 'uber',    icon: Car,     label: 'Uber',           subtitle: 'Rideshare' },
-    { id: 'lyft',    icon: Car,     label: 'Lyft',           subtitle: 'Rideshare' },
-    { id: 'transit', icon: BusIcon, label: 'Public transit', subtitle: 'Bus, BART, rail' },
-    { id: 'drive',   icon: Car,     label: 'Drive',          subtitle: '+~10 min parking' },
+    { id: 'rideshare', icon: Car,           label: 'Rideshare',      subtitle: 'Uber, Lyft, etc.' },
+    { id: 'drive',     icon: SteeringWheel, label: 'Drive',          subtitle: '+~10 min parking' },
+    { id: 'transit',   icon: Train,         label: 'Public transit', subtitle: 'Bus, BART, rail' },
 ];
 
-function cardIdFor(transport, rideshareProvider) {
-    if (transport === 'rideshare') return rideshareProvider === 'lyft' ? 'lyft' : 'uber';
+function cardIdFor(transport) {
+    if (transport === 'rideshare') return 'rideshare';
     if (transport === 'driving') return 'drive';
     if (transport === 'train' || transport === 'bus') return 'transit';
     return null;
 }
 
-function applyCardSelection(cardId) {
+function transportFor(cardId) {
     switch (cardId) {
-        case 'uber':    return { transport: 'rideshare', rideshareProvider: 'uber' };
-        case 'lyft':    return { transport: 'rideshare', rideshareProvider: 'lyft' };
-        case 'transit': return { transport: 'train',     rideshareProvider: null };
-        case 'drive':   return { transport: 'driving',   rideshareProvider: null };
-        default:        return null;
+        case 'rideshare': return 'rideshare';
+        case 'drive':     return 'driving';
+        case 'transit':   return 'train';
+        default:          return null;
     }
 }
+
+/* ── Security — 4 options per brief v2.4 (rule 17 updated) ──────────── */
+const SECURITY_OPTIONS = [
+    { id: 'none',          title: 'None',             subtitle: 'Standard security lane' },
+    { id: 'precheck',      title: 'TSA PreCheck',     subtitle: 'Dedicated fast lane',      badge: 'Saves ~15 min' },
+    { id: 'clear',         title: 'CLEAR',            subtitle: 'Biometric fast lane',      badge: 'Saves ~15 min' },
+    { id: 'clear_precheck',title: 'PreCheck + CLEAR', subtitle: 'Fastest combined lane',    badge: 'Saves ~20 min' },
+];
+
+// Map UI value ↔ parent's 3-boolean security state. Aligns with
+// Engine.computeSecurityAccess() which already emits the same strings
+// to the backend (hasPriorityLane is always forced false — brief v2.4
+// still excludes it).
+function securityIdFrom(hasPrecheck, hasClear) {
+    if (hasPrecheck && hasClear) return 'clear_precheck';
+    if (hasPrecheck) return 'precheck';
+    if (hasClear) return 'clear';
+    return 'none';
+}
+
+/* ── Gate buffer (brief v2.4 §4.4) ──────────────────────────────────── */
+const GATE_BUFFER_PRESETS = [
+    { value: 15, label: 'Tight · 15 min' },
+    { value: 30, label: 'Comfortable · 30 min' },
+    { value: 60, label: 'Relaxed · 60 min' },
+];
+const DEFAULT_GATE_BUFFER = 30;
 
 export default function StepDepartureSetup({
     selectedFlight, flightNumber,
@@ -74,25 +100,34 @@ export default function StepDepartureSetup({
     addressContainerRef, addressInputRef,
     transport, setTransport,
     hasPrecheck, setHasPrecheck,
-    setHasClear, setHasPriorityLane, // write-only: forced off to stay PreCheck/None (rule 17)
+    hasClear, setHasClear,
+    setHasPriorityLane, // write-only — brief v2.4 still excludes Priority Lane
     bagCount, setBagCount,
     withChildren, setWithChildren,
+    hasBoardingPass, setHasBoardingPass,
+    gateTime, setGateTime,
     currentTripId, isSubmitting,
     apiError, setApiError,
     onRecalculate, onBack,
 }) {
     const navigate = useNavigate();
 
-    // Hydrate once from sessionStorage. A non-null hydration ref also
-    // suppresses the persist effect from firing on the hydration-driven
-    // state change (otherwise we'd stomp whatever the parent just fed us).
     const hydratedOnceRef = useRef(false);
-    const [rideshareProvider, setRideshareProvider] = useState('uber');
     const [geolocation, setGeolocation] = useState({
         loading: false,
         denied: false,
         error: null,
     });
+
+    // Snap incoming gateTime to the closest preset on mount so the
+    // segmented control never shows an unselected state.
+    useEffect(() => {
+        const presetValues = GATE_BUFFER_PRESETS.map((p) => p.value);
+        if (!presetValues.includes(gateTime)) {
+            setGateTime(DEFAULT_GATE_BUFFER);
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
     useEffect(() => {
         if (hydratedOnceRef.current) return;
@@ -105,13 +140,10 @@ export default function StepDepartureSetup({
         if (saved.transport && saved.transport !== transport) {
             setTransport(saved.transport);
         }
-        if (saved.rideshareProvider === 'uber' || saved.rideshareProvider === 'lyft') {
-            setRideshareProvider(saved.rideshareProvider);
-        }
-        if (saved.security === 'precheck') {
-            setHasPrecheck(true); setHasClear(false); setHasPriorityLane(false);
-        } else if (saved.security === 'none') {
-            setHasPrecheck(false); setHasClear(false); setHasPriorityLane(false);
+        if (['none', 'precheck', 'clear', 'clear_precheck'].includes(saved.security)) {
+            setHasPriorityLane(false);
+            setHasPrecheck(saved.security === 'precheck' || saved.security === 'clear_precheck');
+            setHasClear(saved.security === 'clear' || saved.security === 'clear_precheck');
         }
         if (typeof saved.bags === 'boolean') {
             setBagCount(saved.bags ? 1 : 0);
@@ -119,48 +151,48 @@ export default function StepDepartureSetup({
         if (typeof saved.children === 'boolean') {
             setWithChildren(saved.children);
         }
+        if (typeof saved.hasBoardingPass === 'boolean') {
+            setHasBoardingPass(saved.hasBoardingPass);
+        }
+        if (typeof saved.gateBuffer === 'number' && GATE_BUFFER_PRESETS.some((p) => p.value === saved.gateBuffer)) {
+            setGateTime(saved.gateBuffer);
+        }
         if (saved.geolocationDenied) {
             setGeolocation((g) => ({ ...g, denied: true }));
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // Security: derive the UI choice from the parent's 3-boolean state
-    // (brief rule 17 restricts v1 to precheck | none — CLEAR / Priority
-    // get forced off on any security change).
-    const security = hasPrecheck ? 'precheck' : 'none';
-    const setSecurity = (value) => {
-        setHasClear(false);
+    // Security UI value derived from the parent's (hasPrecheck, hasClear) pair.
+    const security = securityIdFrom(hasPrecheck, hasClear);
+    const setSecurity = (id) => {
         setHasPriorityLane(false);
-        setHasPrecheck(value === 'precheck');
+        setHasPrecheck(id === 'precheck' || id === 'clear_precheck');
+        setHasClear(id === 'clear' || id === 'clear_precheck');
     };
 
-    // Bags: toggle mirrors bagCount>0 (rule 18: always a toggle, never a
-    // stepper). Any non-zero count reads as "on"; flipping on writes
-    // bagCount=1 so the existing buildPreferences() payload stays happy.
+    // Bags toggle mirrors bagCount>0 (rule 18: always a toggle).
     const bags = bagCount > 0;
     const setBags = (on) => setBagCount(on ? 1 : 0);
 
-    // Persist on any form-state change, but skip the initial render so we
-    // don't stomp the hydrated values before the parent's setters commit.
     useEffect(() => {
         if (!hydratedOnceRef.current) return;
         saveSetupState({
             address: startingAddress,
             transport,
-            rideshareProvider,
             security,
             bags,
             children: withChildren,
+            hasBoardingPass,
+            gateBuffer: gateTime,
             geolocationDenied: geolocation.denied,
         });
-    }, [startingAddress, transport, rideshareProvider, security, bags, withChildren, geolocation.denied]);
+    }, [startingAddress, transport, security, bags, withChildren, hasBoardingPass, gateTime, geolocation.denied]);
 
     const hasAddress = startingAddress.trim().length > 0;
     const isCancelled = !!selectedFlight?.canceled;
     const canSubmit = !isSubmitting && hasAddress && !isCancelled;
 
-    // Flight identifier subtitle: "UA 300 · SFO → LAX · 8:49 AM"
     const flightSubtitle = useMemo(() => {
         if (!selectedFlight) return flightNumber?.toUpperCase() || '';
         const num = (flightNumber || selectedFlight.flight_number || '').toUpperCase();
@@ -172,23 +204,17 @@ export default function StepDepartureSetup({
             .join(' · ');
     }, [selectedFlight, flightNumber]);
 
-    const selectedCardId = cardIdFor(transport, rideshareProvider);
+    const selectedCardId = cardIdFor(transport);
 
     const handleCardTap = (cardId) => {
-        const next = applyCardSelection(cardId);
-        if (!next) return;
-        setTransport(next.transport);
-        if (next.rideshareProvider !== null) {
-            setRideshareProvider(next.rideshareProvider);
-        }
+        const next = transportFor(cardId);
+        if (next) setTransport(next);
     };
 
     const handleUseCurrentLocation = async () => {
         if (geolocation.loading) return;
         setGeolocation({ loading: true, denied: false, error: null });
         try {
-            // Pre-warm the Maps SDK so the reverse-geocode right after
-            // position resolves without a visible extra delay.
             loadGoogleMaps().catch(() => {});
             const pos = await getCurrentPosition();
             const address = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
@@ -196,7 +222,6 @@ export default function StepDepartureSetup({
             setAddressError(null);
             setGeolocation({ loading: false, denied: false, error: null });
         } catch (err) {
-            // GeolocationPositionError.code 1 = PERMISSION_DENIED
             const denied = err?.code === 1 || /denied|permission/i.test(err?.message || '');
             setGeolocation({
                 loading: false,
@@ -207,13 +232,9 @@ export default function StepDepartureSetup({
     };
 
     return (
-        <div className="w-full max-w-xl mx-auto -mx-4">
+        <div className="w-full max-w-2xl mx-auto -mx-4">
             <TopBar title="Departure setup" onBack={onBack} />
 
-            {/* Flight subtitle strip — the DS TopBar intentionally doesn't
-                stack a subtitle inside its 56px shell (brief §2.4 keeps
-                the bar single-line), so the "UA 300 · SFO → LAX · 8:49
-                AM" line sits directly below, visually tied to it. */}
             {flightSubtitle && (
                 <div className="border-b border-c-border-hairline bg-c-ground px-c-4 py-c-2">
                     <p className="c-type-footnote text-c-text-secondary text-center">{flightSubtitle}</p>
@@ -222,7 +243,6 @@ export default function StepDepartureSetup({
 
             <div className="px-c-6 pb-c-12 pt-c-6 space-y-c-8">
 
-                {/* Cancelled flight banner — blocks the entire form */}
                 {isCancelled && (
                     <div className="rounded-c-lg bg-c-urgency-surface border border-c-urgency/30 p-c-5">
                         <div className="flex items-start gap-c-3">
@@ -266,9 +286,7 @@ export default function StepDepartureSetup({
                     <>
                         {/* ── Section 1: Address ───────────────────────── */}
                         <section>
-                            <h2 className="c-type-headline text-c-text-primary mb-c-3">
-                                <span aria-hidden="true">📍 </span>Where are you leaving from?
-                            </h2>
+                            <SectionHeading icon={MapPin}>Where are you leaving from?</SectionHeading>
                             <PlacesInput
                                 ref={addressInputRef}
                                 containerRef={addressContainerRef}
@@ -306,12 +324,10 @@ export default function StepDepartureSetup({
                             )}
                         </section>
 
-                        {/* ── Section 2: Transport ─────────────────────── */}
+                        {/* ── Section 2: Transport (3-card row) ────────── */}
                         <section>
-                            <h2 className="c-type-headline text-c-text-primary mb-c-3">
-                                <span aria-hidden="true">🚗 </span>How are you getting there?
-                            </h2>
-                            <div className="grid grid-cols-2 gap-c-3">
+                            <SectionHeading icon={Car}>How are you getting there?</SectionHeading>
+                            <div className="grid grid-cols-3 gap-c-3">
                                 {TRANSPORT_CARDS.map((card) => {
                                     const active = selectedCardId === card.id;
                                     const Icon = card.icon;
@@ -322,7 +338,7 @@ export default function StepDepartureSetup({
                                             onClick={() => handleCardTap(card.id)}
                                             aria-pressed={active}
                                             className={cn(
-                                                'flex flex-col items-start gap-c-2 p-c-4 rounded-c-md border transition-colors text-left min-h-[88px]',
+                                                'flex flex-col items-start gap-c-2 p-c-4 rounded-c-md border transition-colors text-left min-h-[104px]',
                                                 'focus:outline-none focus-visible:ring-2 focus-visible:ring-c-brand-primary focus-visible:ring-offset-2',
                                                 active
                                                     ? 'bg-c-brand-primary-surface border-c-brand-primary'
@@ -330,7 +346,7 @@ export default function StepDepartureSetup({
                                             )}
                                         >
                                             <Icon
-                                                size={22}
+                                                size={24}
                                                 weight={active ? 'fill' : 'regular'}
                                                 className={active ? 'text-c-brand-primary' : 'text-c-text-secondary'}
                                             />
@@ -341,7 +357,7 @@ export default function StepDepartureSetup({
                                                 )}>
                                                     {card.label}
                                                 </p>
-                                                <p className="c-type-footnote text-c-text-secondary truncate">
+                                                <p className="c-type-footnote text-c-text-secondary">
                                                     {card.subtitle}
                                                 </p>
                                             </div>
@@ -351,31 +367,41 @@ export default function StepDepartureSetup({
                             </div>
                         </section>
 
-                        {/* ── Section 3: Security ──────────────────────── */}
+                        {/* ── Section 3: Security (4 options) ──────────── */}
                         <section>
-                            <h2 className="c-type-headline text-c-text-primary mb-c-3">
-                                <span aria-hidden="true">🛡 </span>Security access
-                            </h2>
+                            <SectionHeading icon={Shield}>Security access</SectionHeading>
                             <div className="space-y-c-3">
-                                <SecurityOption
-                                    active={security === 'precheck'}
-                                    onClick={() => setSecurity('precheck')}
-                                    title="TSA PreCheck"
-                                    subtitle="Dedicated fast lane"
-                                    badge="Saves ~15 min"
-                                />
-                                <SecurityOption
-                                    active={security === 'none'}
-                                    onClick={() => setSecurity('none')}
-                                    title="None"
-                                    subtitle="Standard security lane"
-                                />
+                                {SECURITY_OPTIONS.map((opt) => (
+                                    <SecurityOption
+                                        key={opt.id}
+                                        active={security === opt.id}
+                                        onClick={() => setSecurity(opt.id)}
+                                        title={opt.title}
+                                        subtitle={opt.subtitle}
+                                        badge={opt.badge}
+                                    />
+                                ))}
                             </div>
                         </section>
 
-                        {/* ── Section 4: Bags toggle ───────────────────── */}
+                        {/* ── Section 4: Gate buffer ───────────────────── */}
+                        <section>
+                            <SectionHeading icon={Timer}>How early at your gate?</SectionHeading>
+                            <SegmentedControl
+                                segments={GATE_BUFFER_PRESETS.map((p) => ({ value: String(p.value), label: p.label }))}
+                                value={String(gateTime)}
+                                onChange={(v) => setGateTime(Number(v))}
+                                className="w-full"
+                            />
+                            <p className="c-type-footnote text-c-text-secondary mt-c-2">
+                                Extra time at your gate before boarding begins.
+                            </p>
+                        </section>
+
+                        {/* ── Section 5: Bags ──────────────────────────── */}
                         <section>
                             <ToggleRow
+                                icon={SuitcaseRolling}
                                 title="Checking bags?"
                                 subtitle="Joining the check-in line · Wait time varies"
                                 checked={bags}
@@ -383,13 +409,25 @@ export default function StepDepartureSetup({
                             />
                         </section>
 
-                        {/* ── Section 5: Children toggle ───────────────── */}
+                        {/* ── Section 6: Children ──────────────────────── */}
                         <section>
                             <ToggleRow
+                                icon={Baby}
                                 title="Traveling with children"
                                 subtitle="Adjusts walking pace at airport"
                                 checked={withChildren}
                                 onCheckedChange={setWithChildren}
+                            />
+                        </section>
+
+                        {/* ── Section 7: Boarding pass ─────────────────── */}
+                        <section>
+                            <ToggleRow
+                                icon={QrCode}
+                                title="Mobile boarding pass ready?"
+                                subtitle="Skip the check-in line if you already have one"
+                                checked={hasBoardingPass}
+                                onCheckedChange={setHasBoardingPass}
                             />
                         </section>
 
@@ -409,6 +447,16 @@ export default function StepDepartureSetup({
                 )}
             </div>
         </div>
+    );
+}
+
+/* ── Section heading with Phosphor glyph (replaces emoji) ─────────────── */
+function SectionHeading({ icon: Icon, children }) {
+    return (
+        <h2 className="c-type-headline text-c-text-primary mb-c-3 flex items-center gap-c-2">
+            <Icon size={18} weight="regular" className="text-c-text-secondary shrink-0" />
+            <span>{children}</span>
+        </h2>
     );
 }
 
@@ -448,10 +496,13 @@ function SecurityOption({ active, onClick, title, subtitle, badge }) {
     );
 }
 
-/* ── Generic labelled toggle row ──────────────────────────────────────── */
-function ToggleRow({ title, subtitle, checked, onCheckedChange }) {
+/* ── Generic labelled toggle row (now with optional Phosphor icon) ────── */
+function ToggleRow({ icon: Icon, title, subtitle, checked, onCheckedChange }) {
     return (
-        <label className="flex items-center gap-c-4 p-c-4 rounded-c-md bg-c-ground-elevated border border-c-border-hairline cursor-pointer">
+        <label className="flex items-center gap-c-3 p-c-4 rounded-c-md bg-c-ground-elevated border border-c-border-hairline cursor-pointer">
+            {Icon && (
+                <Icon size={20} weight="regular" className="text-c-text-secondary shrink-0" />
+            )}
             <div className="flex-1 min-w-0">
                 <p className="c-type-body font-semibold text-c-text-primary">{title}</p>
                 <p className="c-type-footnote text-c-text-secondary mt-c-1">{subtitle}</p>
@@ -462,9 +513,6 @@ function ToggleRow({ title, subtitle, checked, onCheckedChange }) {
 }
 
 /* ── DS-styled Google Places autocomplete ─────────────────────────────── */
-/* Sunken input shell + floating result list. The Places session/token +
-   prediction logic is the same shape as AddressAutocomplete.jsx; only
-   the surface is themed to Concourse tokens per brief §4.4. */
 const PlacesInput = React.forwardRef(function PlacesInput(
     { value, onChange, placeholder, hasError, containerRef },
     ref
@@ -481,7 +529,6 @@ const PlacesInput = React.forwardRef(function PlacesInput(
     const debounceRef = useRef(null);
 
     React.useImperativeHandle(ref, () => inputRef.current, []);
-    // Let the parent keep its existing scrollIntoView target.
     React.useImperativeHandle(containerRef, () => wrapperRef.current, []);
 
     useEffect(() => {
