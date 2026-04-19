@@ -19,6 +19,7 @@ import { isNative } from '@/utils/platform';
 import { setupPushListeners, removePushListeners } from '@/utils/pushNotifications';
 import { postEvent } from '@/utils/events';
 import { clearSearchState } from '@/pages/Search';
+import { clearSetupState } from '@/components/engine/StepDepartureSetup';
 
 // ── Animations ──────────────────────────────────────────────────────────────
 const pageTransition = {
@@ -586,6 +587,11 @@ export default function Engine() {
                 const rec = await recRes.json();
                 setRecommendation(rec);
                 setJourneyReady(true);
+                // Setup submit succeeded (recompute on an existing draft/trip).
+                // Clear the Setup form's sessionStorage, and defensively the
+                // Search state too — Task 7.3 only clears search on track.
+                clearSetupState();
+                clearSearchState();
                 if (isTracked) {
                     setActiveTripData({
                         trip_id: currentTripId,
@@ -655,6 +661,10 @@ export default function Engine() {
             const rec = await recRes.json();
             setRecommendation(rec);
             setJourneyReady(true);
+            // Fresh trip created successfully — clear Setup form's
+            // sessionStorage, plus Search state as a belt-and-braces.
+            clearSetupState();
+            clearSearchState();
             setTimeout(() => setViewMode('results'), 500);
         } catch (err) {
             console.error('Recommendation failed:', err);
