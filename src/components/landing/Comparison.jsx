@@ -6,9 +6,8 @@ const features = [
     { name: "Traffic Awareness", google: "basic", airline: false, airbridge: true },
     { name: "Airport Context", google: false, airline: "partial", airbridge: true },
     { name: "TSA Wait Times", google: false, airline: false, airbridge: true },
-    { name: "Predictive Departure Timing", google: false, airline: false, airbridge: true },
+    { name: "Predictive leave-by timing", google: false, airline: false, airbridge: true },
     { name: "Real-Time Alerts", google: "basic", airline: "basic", airbridge: true },
-    { name: "Missed Flight Protection", google: false, airline: false, airbridge: true }
 ];
 
 const FeatureStatus = ({ value }) => {

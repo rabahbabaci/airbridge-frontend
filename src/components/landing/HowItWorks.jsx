@@ -7,7 +7,7 @@ const steps = [
         icon: Search,
         number: '01',
         title: 'Enter Your Flight',
-        desc: 'Type your flight number and date. We look up your departure time, terminal, and airport automatically.',
+        desc: 'Type your flight number and date. We look up your scheduled flight time, terminal, and airport automatically.',
     },
     {
         icon: Car,
@@ -19,7 +19,7 @@ const steps = [
         icon: SlidersHorizontal,
         number: '03',
         title: 'Set Your Comfort Level',
-        desc: 'Stress-Free, Just Right, or Cut It Close — your departure time adapts to the confidence buffer you choose.',
+        desc: 'Tight, Comfortable, or Relaxed — your leave time adapts to the buffer you choose.',
     },
     {
         icon: Luggage,
@@ -31,7 +31,7 @@ const steps = [
         icon: Shield,
         number: '05',
         title: 'Live TSA Wait Times',
-        desc: 'PreCheck, CLEAR, or standard lane — modeled with live wait data and historical patterns by airport and time of day.',
+        desc: 'PreCheck or standard lane — modeled with live wait data and historical patterns by airport and time of day.',
     },
     {
         icon: CheckCircle2,
@@ -60,7 +60,7 @@ export default function HowItWorks() {
                         How It Works
                     </h2>
                     <p className="text-c-text-secondary text-lg max-w-xl mx-auto leading-relaxed">
-                        Six variables, one precise answer. Here's exactly how we calculate your perfect departure time.
+                        Six variables, one precise answer. Here's exactly how we calculate your leave time.
                     </p>
                 </motion.div>
 
@@ -111,7 +111,7 @@ export default function HowItWorks() {
                 >
                     <div className="inline-flex items-center gap-3 bg-c-brand-primary text-c-text-inverse px-8 py-4 rounded-2xl shadow-lg">
                         <Plane className="w-5 h-5" />
-                        <span className="font-semibold">One precise door-to-gate departure time. Every time.</span>
+                        <span className="font-semibold">One precise door-to-gate leave time. Every time.</span>
                     </div>
                 </motion.div>
             </div>

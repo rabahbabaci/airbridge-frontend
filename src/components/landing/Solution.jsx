@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Radio, Cpu, Bell, Shield } from 'lucide-react';
+import { Radio, Cpu, Bell } from 'lucide-react';
 
 const features = [
     {
@@ -17,11 +17,6 @@ const features = [
         icon: Bell,
         title: "Real-Time Alerts",
         description: "Get notified instantly when conditions change and your leave time adjusts."
-    },
-    {
-        icon: Shield,
-        title: "Automatic Missed-Flight Protection",
-        description: "If you follow our timing and miss your flight, we compensate you automatically."
     }
 ];
 
@@ -36,9 +31,9 @@ export default function Solution() {
                     className="text-center mb-6"
                 >
                     <h2 className="text-4xl lg:text-5xl font-bold text-c-text-primary">
-                        Smart Departure.{' '}
+                        Smart timing.{' '}
                         <span className="text-c-brand-primary">
-                            Guaranteed.
+                            Every time.
                         </span>
                     </h2>
                 </motion.div>
@@ -54,7 +49,7 @@ export default function Solution() {
                     and predictive AI modeling to calculate your exact leave time.
                 </motion.p>
 
-                <div className="grid sm:grid-cols-2 lg:grid-cols-4 gap-6">
+                <div className="grid sm:grid-cols-2 lg:grid-cols-3 gap-6 max-w-5xl mx-auto">
                     {features.map((feature, index) => (
                         <motion.div
                             key={feature.title}

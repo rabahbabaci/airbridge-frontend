@@ -54,7 +54,7 @@ function PhoneMockup() {
                             <p className="text-xl font-black text-c-text-primary mt-0.5">
                                 SFO <span className="text-c-text-secondary font-medium text-base">→</span> JFK
                             </p>
-                            <p className="text-[10px] text-c-text-secondary">Departs 2:30 PM · Terminal 3</p>
+                            <p className="text-[10px] text-c-text-secondary">Takes off 2:30 PM · Terminal 3</p>
                         </div>
 
                         {/* Transport & TSA row */}
@@ -127,7 +127,7 @@ function PhoneMockup() {
                             >
                                 {leaveTime}
                             </motion.p>
-                            <p className="text-[10px] text-c-text-inverse/60 mt-1">📍 Home · Stress-Free · 1h03m door-to-gate</p>
+                            <p className="text-[10px] text-c-text-inverse/60 mt-1">📍 Home · Relaxed · 1h03m door-to-gate</p>
                         </motion.div>
                     </div>
                 </div>
@@ -138,12 +138,6 @@ function PhoneMockup() {
 
 export default function Hero() {
     const navigate = useNavigate();
-
-    const stats = [
-        { value: '97%', label: 'Max Confidence' },
-        { value: '5 sec', label: 'To Your Answer' },
-        { value: '6 vars', label: 'In Every Prediction' },
-    ];
 
     // Floating travel icons config
     const floatingIcons = [
@@ -183,17 +177,6 @@ export default function Hero() {
 
                     {/* LEFT */}
                     <div className="text-center lg:text-left">
-                        {/* Beta pill */}
-                        <motion.div
-                            initial={{ opacity: 0, y: 16 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            transition={{ duration: 0.5 }}
-                            className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full mb-8 bg-c-ground-elevated border border-c-border-hairline"
-                        >
-                            <span className="w-1.5 h-1.5 rounded-full bg-c-confidence" />
-                            <span className="text-xs font-medium text-c-text-primary">Now accepting beta users</span>
-                        </motion.div>
-
                         {/* Headline */}
                         <motion.div
                             initial={{ opacity: 0, y: 20 }}
@@ -223,7 +206,7 @@ export default function Hero() {
                             transition={{ duration: 0.5, delay: 0.25 }}
                             className="text-c-text-secondary text-base sm:text-lg leading-relaxed max-w-md mx-auto lg:mx-0 mb-10"
                         >
-                            Door-to-gate departure timing. No guesswork.<br className="hidden sm:block" />
+                            Door-to-gate timing. No guesswork.<br className="hidden sm:block" />
                             Powered by real-time airport intelligence.
                         </motion.p>
 
@@ -241,20 +224,20 @@ export default function Hero() {
                                 transition={{ repeat: Infinity, duration: 2.5, ease: 'easeInOut' }}
                             >
                                 <Plane className="w-5 h-5" />
-                                See My Departure Time
+                                When Should I Leave?
                                 <ArrowRight className="w-5 h-5" />
                             </motion.button>
                         </motion.div>
 
-                        {/* Download the app — desktop visitors hear about the real product */}
+                        {/* iOS app pill */}
                         <motion.div
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ duration: 0.5, delay: 0.45 }}
-                            className="inline-flex items-center gap-2 mb-8 text-xs text-c-text-secondary"
+                            className="inline-flex items-center gap-2 mb-8 px-3 py-1 rounded-full bg-c-ground-elevated border border-c-border-hairline text-xs font-medium text-c-text-secondary"
                         >
                             <Smartphone className="w-3.5 h-3.5 text-c-brand-primary" />
-                            <span>Best experience in the iOS app — coming soon to TestFlight.</span>
+                            <span>Coming to iOS, summer 2026</span>
                         </motion.div>
 
                         {/* Trust micro-copy */}
@@ -266,11 +249,11 @@ export default function Hero() {
                         >
                             <span className="flex items-center gap-1.5 text-xs text-c-text-secondary">
                                 <CheckCircle className="w-3.5 h-3.5 text-c-confidence" />
-                                Free during beta
+                                Free to try
                             </span>
                             <span className="flex items-center gap-1.5 text-xs text-c-text-secondary">
                                 <CheckCircle className="w-3.5 h-3.5 text-c-confidence" />
-                                No credit card required
+                                US domestic flights
                             </span>
                         </motion.div>
                     </div>
@@ -280,21 +263,6 @@ export default function Hero() {
                         <PhoneMockup />
                     </div>
                 </div>
-
-                {/* Scroll indicator — hidden on mobile */}
-                <motion.div
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    transition={{ delay: 1.2 }}
-                    className="hidden md:flex absolute bottom-[-28px] left-1/2 -translate-x-1/2 flex-col items-center gap-2"
-                >
-                    <p className="text-[10px] text-c-text-secondary uppercase tracking-widest font-semibold">Scroll</p>
-                    <motion.div
-                        animate={{ scaleY: [1, 0.4, 1], opacity: [0.4, 1, 0.4] }}
-                        transition={{ repeat: Infinity, duration: 1.5 }}
-                        className="w-px h-8 bg-c-text-tertiary"
-                    />
-                </motion.div>
             </div>
         </section>
     );
