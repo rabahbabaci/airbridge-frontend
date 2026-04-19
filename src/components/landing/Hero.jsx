@@ -112,8 +112,8 @@ function PhoneMockup() {
                             className="rounded-2xl px-4 py-3.5 bg-c-brand-primary"
                         >
                             <div className="flex items-center justify-between mb-1">
-                                <p className="text-[9px] text-c-text-inverse/85 font-semibold uppercase tracking-wider">Leave Home By</p>
-                                <span className="text-[9px] bg-c-text-inverse/15 text-c-text-inverse px-1.5 py-0.5 rounded-full font-medium">97% Confident</span>
+                                <p className="text-[9px] text-white/85 font-semibold uppercase tracking-wider">Leave Home By</p>
+                                <span className="text-[9px] bg-white/15 text-c-text-inverse px-1.5 py-0.5 rounded-full font-medium">97% Confident</span>
                             </div>
                             <motion.p
                                 key={leaveTime}
@@ -123,7 +123,7 @@ function PhoneMockup() {
                             >
                                 {leaveTime}
                             </motion.p>
-                            <p className="text-[10px] text-c-text-inverse/75 mt-1">📍 Home · Relaxed · 1h03m door-to-gate</p>
+                            <p className="text-[10px] text-white/75 mt-1">📍 Home · Relaxed · 1h03m door-to-gate</p>
                         </motion.div>
                     </div>
                 </div>
