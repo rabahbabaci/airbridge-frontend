@@ -1,8 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link, useLocation, useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plane, Settings, Menu, X } from 'lucide-react';
 
 import StepEntry from '@/components/engine/StepEntry';
 import StepSelectFlight from '@/components/engine/StepSelectFlight';
@@ -69,9 +68,6 @@ export default function Engine() {
     const [bagCount, setBagCount] = useState(0);
     const [withChildren, setWithChildren] = useState(false);
     const [gateTime, setGateTime] = useState(15);
-
-    // Mobile menu
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     // OTP modal
     const [authOpen, setAuthOpen] = useState(false);
@@ -517,22 +513,10 @@ export default function Engine() {
 
     const goTo = (next) => { setDir(next > step ? 1 : -1); setStep(next); };
 
-    // Brief §4.3: "skip the selection screen entirely and go straight to
-    // the results screen" when exactly one flight matches. We land on Setup
-    // (the next step) with the sole flight pre-selected, so the user never
-    // sees a one-item selection list. If the single match is unusable
-    // (departed, cancelled, or boarding) we still show the list so the
-    // user sees the status.
+    // Brief §4.3 (v2.3): selection screen always renders, even for a
+    // single match — user confirms their flight before the preference step.
+    // eslint-disable-next-line no-unused-vars
     const advanceToFlightSelection = (flights) => {
-        if (flights?.length === 1) {
-            const only = flights[0];
-            const isUnusable = only.departed || only.canceled || only.is_boarding;
-            if (!isUnusable) {
-                handleFlightClick(only);
-                goTo(3);
-                return;
-            }
-        }
         goTo(2);
     };
 
@@ -1000,102 +984,15 @@ export default function Engine() {
     const canSearch = flightNumber.trim().length > 0 && departureDate.length > 0;
 
     // ── Render ──────────────────────────────────────────────────────────────
+    // /Engine intentionally renders without the legacy app header. Each
+    // sub-view owns its own top bar (StepSelectFlight uses the DS TopBar;
+    // Setup/Results/ActiveTrip will follow in their own redesigns).
     return (
-        <div className="min-h-screen bg-secondary/50 font-sans antialiased">
-
-            {/* ── HEADER ── */}
-            <header className="bg-card border-b border-border sticky top-0 z-50">
-                <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
-                    <div className="flex items-center gap-4 sm:gap-6">
-                        <Link to={createPageUrl('Home')} className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                                <Plane className="w-4 h-4 text-primary-foreground" />
-                            </div>
-                            <span className="font-bold text-lg text-foreground">AirBridge</span>
-                        </Link>
-                        <nav className="hidden md:flex items-center gap-1 text-sm">
-                            <Link to={createPageUrl('Home')} className="text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg transition-colors">Home</Link>
-                            <span className="text-foreground font-semibold px-3 py-1.5 bg-secondary rounded-lg">Departure Engine</span>
-                        </nav>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <AnimatePresence mode="wait">
-                            {locked && recommendation ? (
-                                <motion.div key="live" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                    <span className="text-xs text-emerald-700 font-medium">Live</span>
-                                </motion.div>
-                            ) : (
-                                <motion.div key="active" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent border border-primary/20">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                                    <span className="text-xs text-primary font-medium">Engine Active</span>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-                        {isAuthenticated ? (
-                            <div className="hidden md:flex items-center gap-2">
-                                <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-primary-foreground">
-                                    {(display_name || '').charAt(0).toUpperCase() || 'U'}
-                                </div>
-                                <span className="text-sm font-medium text-foreground">
-                                    {display_name ? display_name.split(' ')[0] : 'Account'}
-                                </span>
-                                <Link to={createPageUrl('Settings')} className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-all ml-1" title="Settings">
-                                    <Settings className="w-4 h-4" />
-                                </Link>
-                                <button onClick={logout} className="text-xs text-muted-foreground hover:text-foreground transition-colors ml-1">Sign out</button>
-                            </div>
-                        ) : (
-                            <button onClick={() => setAuthOpen(true)} className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden md:block">Sign In</button>
-                        )}
-                        <button className="md:hidden p-2 -mr-2" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-                            {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
-                        </button>
-                    </div>
-                </div>
-
-                {/* Mobile menu */}
-                <AnimatePresence>
-                    {mobileMenuOpen && (
-                        <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="md:hidden border-t border-border bg-card"
-                        >
-                            <div className="px-6 py-4 space-y-4">
-                                {isAuthenticated && (
-                                    <div className="flex items-center gap-2 pb-3 border-b border-border">
-                                        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-primary-foreground">
-                                            {(display_name || '').charAt(0).toUpperCase() || 'U'}
-                                        </div>
-                                        <span className="text-sm font-medium text-foreground">{display_name ? display_name.split(' ')[0] : 'Account'}</span>
-                                    </div>
-                                )}
-                                <Link to={createPageUrl('Home')} onClick={() => setMobileMenuOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground">Home</Link>
-                                {isAuthenticated && (
-                                    <Link to={createPageUrl('Settings')} onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-                                        <Settings className="w-4 h-4" />Settings
-                                    </Link>
-                                )}
-                                <div className="pt-3 border-t border-border">
-                                    {isAuthenticated ? (
-                                        <button onClick={() => { setMobileMenuOpen(false); logout(); }} className="text-sm text-muted-foreground hover:text-foreground">Sign out</button>
-                                    ) : (
-                                        <button onClick={() => { setMobileMenuOpen(false); setAuthOpen(true); }} className="text-sm text-muted-foreground hover:text-foreground">Sign In</button>
-                                    )}
-                                </div>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </header>
+        <div className="min-h-screen bg-c-ground font-sans antialiased">
 
             {/* ── MAIN CONTENT ── */}
             {checkingActiveTrip && (
-                <div className="min-h-[calc(100vh-57px)] flex items-center justify-center">
+                <div className="min-h-screen flex items-center justify-center">
                     <div className="w-6 h-6 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
                 </div>
             )}
