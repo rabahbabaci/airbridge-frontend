@@ -33,6 +33,50 @@ function toIsoDate(d) {
 function todayIso() { return toIsoDate(new Date()); }
 function tomorrowIso() { return toIsoDate(new Date(Date.now() + 24 * 60 * 60 * 1000)); }
 
+/* ── Persisted Search state (sessionStorage) ─────────────────────────────
+   Survives intra-flow back navigation (Search → Flight Selection → back)
+   and refresh. Cleared by Engine when the user completes a new trip.
+   Shape: { mode, from:{iata,name}|null, to:{iata,name}|null,
+            flightNumber, date:'today'|'tomorrow'|ISO }.
+   `mode` persists as 'route'|'flight'; internal state uses 'flight_number'. */
+const SEARCH_STATE_KEY = 'airbridge_search_state';
+
+function loadSearchState() {
+    try {
+        const raw = sessionStorage.getItem(SEARCH_STATE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch { return null; }
+}
+
+function saveSearchState(state) {
+    try { sessionStorage.setItem(SEARCH_STATE_KEY, JSON.stringify(state)); }
+    catch { /* quota / private-mode — ignore */ }
+}
+
+export function clearSearchState() {
+    try { sessionStorage.removeItem(SEARCH_STATE_KEY); } catch { /* ignore */ }
+}
+
+function resolveStoredDate(d) {
+    if (d === 'tomorrow') return tomorrowIso();
+    if (d === 'today' || !d) return todayIso();
+    return typeof d === 'string' ? d : todayIso();
+}
+
+function serializeDate(iso) {
+    if (iso === todayIso()) return 'today';
+    if (iso === tomorrowIso()) return 'tomorrow';
+    return iso;
+}
+
+function airportInfo(iata) {
+    if (!iata) return null;
+    const a = airports.find((x) => x.iata === iata);
+    return { iata, name: a?.name || '' };
+}
+
 function formatFriendlyDate(iso) {
     if (!iso) return '';
     if (iso === todayIso()) return 'Today';
@@ -242,15 +286,32 @@ export default function Search() {
     const navigate = useNavigate();
     const { display_name, isAuthenticated, token, login } = useAuth();
 
-    const [mode, setMode] = useState('route'); // 'route' | 'flight_number'
-    const [origin, setOrigin] = useState('');
-    const [destination, setDestination] = useState('');
-    const [flightNumber, setFlightNumber] = useState('');
-    const [departureDate, setDepartureDate] = useState(todayIso());
+    // Hydrate from sessionStorage (set by prior interactions in this flow).
+    // Falls back to defaults when the key is missing or JSON is corrupted.
+    const [mode, setMode] = useState(() => {
+        const h = loadSearchState();
+        return h?.mode === 'flight' ? 'flight_number' : 'route';
+    }); // 'route' | 'flight_number'
+    const [origin, setOrigin] = useState(() => loadSearchState()?.from?.iata || '');
+    const [destination, setDestination] = useState(() => loadSearchState()?.to?.iata || '');
+    const [flightNumber, setFlightNumber] = useState(() => loadSearchState()?.flightNumber || '');
+    const [departureDate, setDepartureDate] = useState(() => resolveStoredDate(loadSearchState()?.date));
     const [tabValue, setTabValue] = useState('search');
     const [searching, setSearching] = useState(false);
     const [searchError, setSearchError] = useState(null);
     const [authOpen, setAuthOpen] = useState(false);
+
+    // Persist form state on every change so Flight Selection → back restores
+    // the user's inputs. Cleared by Engine when a trip is tracked (Task 7.3).
+    useEffect(() => {
+        saveSearchState({
+            mode: mode === 'flight_number' ? 'flight' : 'route',
+            from: airportInfo(origin),
+            to: airportInfo(destination),
+            flightNumber,
+            date: serializeDate(departureDate),
+        });
+    }, [mode, origin, destination, flightNumber, departureDate]);
 
     const flightNumberValid =
         FLIGHT_NUMBER_REGEX.test(flightNumber.trim().toUpperCase().replace(/\s+/g, ' '));

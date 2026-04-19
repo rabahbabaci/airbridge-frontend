@@ -18,6 +18,7 @@ import { API_BASE } from '@/config';
 import { isNative } from '@/utils/platform';
 import { setupPushListeners, removePushListeners } from '@/utils/pushNotifications';
 import { postEvent } from '@/utils/events';
+import { clearSearchState } from '@/pages/Search';
 
 // ── Animations ──────────────────────────────────────────────────────────────
 const pageTransition = {
@@ -733,6 +734,7 @@ export default function Engine() {
             if (res.ok) {
                 const data = await res.json();
                 setIsTracked(true);
+                clearSearchState();
                 if (data.trip_count != null) updateTripCount(data.trip_count);
 
                 // Show push priming on native after tracking
@@ -857,6 +859,7 @@ export default function Engine() {
                     });
                     if (trackRes.ok) {
                         const trackData = await trackRes.json();
+                        clearSearchState();
                         if (trackData.trip_count != null) updateTripCount(trackData.trip_count);
 
                         if (isNative() && shouldShowPushPriming(trackData.trip_count)) {
@@ -1077,6 +1080,7 @@ export default function Engine() {
                             if (res.ok) {
                                 const trackData = await res.json();
                                 setIsTracked(true);
+                                clearSearchState();
                                 if (trackData.trip_count != null) updateTripCount(trackData.trip_count);
 
                                 // Show push priming on native after first tracked trip
