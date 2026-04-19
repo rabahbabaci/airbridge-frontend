@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
-import { ArrowRight, Plane, Car, Shield, CheckCircle, Clock, MapPin, Smartphone } from 'lucide-react';
+import { ArrowRight, Plane, Car, Shield, CheckCircle, Smartphone } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 // Animated phone mockup — crisp rendering
@@ -59,11 +59,7 @@ function PhoneMockup() {
 
                         {/* Transport & TSA row */}
                         <div className="flex gap-2">
-                            <motion.div
-                                animate={{ scale: [1, 1.02, 1] }}
-                                transition={{ repeat: Infinity, duration: 3, ease: 'easeInOut' }}
-                                className="flex-1 flex items-center gap-2 bg-c-confidence-surface rounded-xl px-3 py-2.5"
-                            >
+                            <div className="flex-1 flex items-center gap-2 bg-c-confidence-surface rounded-xl px-3 py-2.5">
                                 <div className="w-7 h-7 bg-c-confidence-surface rounded-full flex items-center justify-center shrink-0">
                                     <Car className="w-3.5 h-3.5 text-c-confidence" />
                                 </div>
@@ -71,7 +67,7 @@ function PhoneMockup() {
                                     <p className="text-[11px] font-bold text-c-text-primary">Ride · 42 min</p>
                                     <p className="text-[9px] text-c-text-secondary">Traffic clear</p>
                                 </div>
-                            </motion.div>
+                            </div>
                             <div className="flex-1 flex items-center gap-2 bg-c-brand-primary-surface rounded-xl px-3 py-2.5">
                                 <div className="w-7 h-7 bg-c-brand-primary-surface rounded-full flex items-center justify-center shrink-0">
                                     <Shield className="w-3.5 h-3.5 text-c-brand-primary" />
@@ -139,33 +135,8 @@ function PhoneMockup() {
 export default function Hero() {
     const navigate = useNavigate();
 
-    // Floating travel icons config
-    const floatingIcons = [
-        { Icon: Plane,   top: '10%',  left: '4%',   size: 32, delay: 0,    opacity: 0.08 },
-        { Icon: Clock,   top: '18%',  left: '87%',  size: 28, delay: 0.8,  opacity: 0.07 },
-        { Icon: Car,     top: '68%',  left: '5%',   size: 26, delay: 1.2,  opacity: 0.07 },
-        { Icon: Shield,  top: '72%',  left: '89%',  size: 28, delay: 0.4,  opacity: 0.07 },
-        { Icon: MapPin,  top: '42%',  left: '2%',   size: 24, delay: 1.6,  opacity: 0.06 },
-        { Icon: Plane,   top: '50%',  left: '92%',  size: 26, delay: 2.0,  opacity: 0.07 },
-    ];
-
     return (
         <section className="relative min-h-screen flex items-center bg-c-brand-primary-surface overflow-hidden">
-
-            {/* Floating travel icons — subtle, hidden on mobile for cleanliness */}
-            <div className="hidden md:block">
-                {floatingIcons.map(({ Icon, top, left, size, delay, opacity }, i) => (
-                    <motion.div key={i}
-                        className="absolute pointer-events-none"
-                        style={{ top, left, opacity }}
-                        animate={{ y: [0, -10, 0], rotate: [0, 6, -6, 0] }}
-                        transition={{ repeat: Infinity, duration: 5 + i * 0.7, delay, ease: 'easeInOut' }}
-                    >
-                        <Icon style={{ width: size, height: size }} className="text-c-brand-primary" />
-                    </motion.div>
-                ))}
-            </div>
-
             {/* Soft glow */}
             <div className="absolute top-0 right-0 w-[600px] h-[600px] rounded-full opacity-15 pointer-events-none"
                 style={{ background: 'radial-gradient(circle, var(--c-brand-primary-surface), transparent)', filter: 'blur(90px)' }} />
