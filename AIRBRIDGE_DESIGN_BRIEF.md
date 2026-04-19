@@ -1,6 +1,6 @@
 # AirBridge Mobile Design Brief
 
-**Version:** 2.4
+**Version:** 2.5
 **Date:** April 18, 2026
 **Author:** Strategic planning chat (design synthesis + team feedback integration)
 **Consumed by:** Sprint 7 implementation (Claude Code) + the AirBridge team
@@ -9,6 +9,26 @@
 - `REVISED_SPRINT_PLAN.md` — authoritative for scope and sequencing
 - `CLAUDE.md` — authoritative for implementation patterns and workflow
 - This brief — authoritative for design decisions
+
+---
+
+## v2.5 Changelog (read this first)
+
+**Three Setup screen refinements from a second UX review pass.**
+
+1. **Security access horizontal on desktop/tablet.** Was: stacked 4 options. Now: 4-in-a-row horizontal layout on desktop and tablet (≥768px); remains stacked on mobile. Reduces vertical form length on larger viewports.
+
+2. **Gate buffer is a continuous slider.** Was: 3 presets (Tight/Comfortable/Relaxed) as segmented control. Now: slider from 15 min to 120 min (2 hours), 5-minute increments, default 30 min. User has precise control over gate arrival buffer.
+
+3. **Bags is a stepper, not a toggle.** Was: binary toggle (rule 18). Now: stepper (0-10 bags). Collects actual bag count; backend may use this for granular timing. Replaces rule 18 entirely.
+
+Also: Setup form max-width on desktop increased to 800px.
+
+**What this changes in the brief:**
+- §4.4 Security access layout: horizontal on ≥768px, stacked on <768px
+- §4.4 Gate buffer: slider replaces preset segmented control
+- §4.4 Bags: stepper replaces toggle
+- §8.3 Rule 18: REVOKED. Bags is a stepper.
 
 ---
 
@@ -527,25 +547,20 @@ The selection screen always renders, even for a single match, so the user can co
   - Selected card: brand-tinted background, brand-colored border
 - **Section 3: Security access**
   - Field label: "🛡 Security access"
-  - Four stacked option cards:
-    - **None** — "Standard security lane" (default)
-    - **TSA PreCheck** — "Dedicated fast lane" + "Saves ~15 min" badge in confidence color
-    - **CLEAR** — "Biometric fast lane" + "Saves ~15 min" badge in confidence color
-    - **PreCheck + CLEAR** — "Fastest combined lane" + "Saves ~20 min" badge in confidence color
+  - Four option cards: **None** (default, "Standard security lane"), **TSA PreCheck** ("Dedicated fast lane" + "Saves ~15 min" confidence badge), **CLEAR** ("Biometric fast lane" + "Saves ~15 min" confidence badge), **PreCheck + CLEAR** ("Fastest combined lane" + "Saves ~20 min" confidence badge).
+  - Layout: horizontal 4-column row on viewports ≥768px (desktop/tablet); stacked vertically on mobile (<768px). Card visual treatment is identical across layouts; savings badge may reflow below the label in the horizontal variant.
   - Priority Lane / airline status deliberately excluded — too airline-specific and imprecise to model.
 - **Section 4: How early at your gate?**
   - Field label: "How early at your gate?"
-  - Segmented control with three presets:
-    - **Tight** — 15 min
-    - **Comfortable** — 30 min (selected by default)
-    - **Relaxed** — 60 min
-  - Subtext below control: "Extra time at your gate before boarding begins."
-- **Section 5: Bags** (simplified from v1.0)
-  - Single toggle row:
-    - Label: "Checking bags?"
-    - Subtext: "Joining the check-in line · Wait time varies"
-    - Toggle switch on right
-  - NOT a stepper. The number of bags doesn't materially change the time impact.
+  - Slider: 15 to 120 minutes, 5-minute increments, default 30.
+  - Current value shown prominently above or inline with the slider (e.g., "30 min" in a title-weight numeral).
+  - Subtext below: "Extra time at your gate before boarding begins."
+- **Section 5: Bags**
+  - Stepper control (NOT a toggle — rule 18 revoked in v2.5):
+    - Label: "Checked bags"
+    - Subtext: "Each bag adds bag-drop time."
+    - Range: 0–10. Default: 0.
+    - Visual: number centered with − and + buttons on either side. Buttons disable at respective boundaries.
 - **Section 6: Traveling with children?**
   - Single toggle row:
     - Label: "Traveling with children"
@@ -568,9 +583,8 @@ The selection screen always renders, even for a single match, so the user can co
 
 **What was cut from v1.0 Setup:**
 - ❌ Priority Lane / airline-status fast lanes — too airline-specific, hard to model
-- ❌ "# of bags" stepper — replaced with a single toggle (rule 18)
 
-(v2.4 restores CLEAR, PreCheck+CLEAR, the gate-buffer preset selector, and the boarding-pass toggle that v2.x temporarily cut. See v2.4 changelog.)
+(v2.4 restored CLEAR, PreCheck+CLEAR, gate-buffer, and the boarding-pass toggle that v2.x temporarily cut. v2.5 re-restored the bag-count stepper (rule 18 revoked) and switched gate-buffer from presets to a 15–120 min slider. See v2.4 + v2.5 changelogs.)
 
 ## 4.5 Results (planning mode)
 
@@ -904,7 +918,7 @@ Same as v1.0. The 14 non-negotiable rules. Plus this v2.0 addition:
 
 **Rule 17:** Security access has FOUR options for v1: None, TSA PreCheck, CLEAR, PreCheck + CLEAR. Priority Lane / airline-status fast lanes are excluded — too airline-specific to model. (Updated in v2.4; v2.0–v2.3 temporarily restricted to PreCheck / None.)
 
-**Rule 18:** Bags input is a single toggle ("Checking bags?"), never a stepper.
+**Rule 18:** REVOKED in v2.5. Bags input is a stepper, 0–10 range.
 
 **Rule 19:** "Calculate Departure" wording is forbidden. Use "Find your leave-by time" / "Your leave-by time" / "Track my trip."
 
