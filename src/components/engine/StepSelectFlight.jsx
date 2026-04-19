@@ -77,21 +77,12 @@ function FlightCard({ flight, onSelect }) {
 }
 
 export default function StepSelectFlight({
-    flightOptions, searching, searchError,
-    onFlightClick, onContinue, onBack, onRetry,
+    flightOptions, onSelect, onBack,
 }) {
     const [helpOpen, setHelpOpen] = useState(false);
 
-    const handleSelect = (flight) => {
-        onFlightClick(flight);
-        // Cancelled flights still route to Setup in v1 (no dedicated cancelled
-        // screen exists yet). Setup surfaces the status; see README follow-up.
-        onContinue();
-    };
-
-    const showEmpty = !searching && !searchError && flightOptions.length === 0;
-    const showError = !searching && searchError;
-    const showList = !searching && !searchError && flightOptions.length > 0;
+    const showEmpty = flightOptions.length === 0;
+    const showList = flightOptions.length > 0;
 
     return (
         <motion.div key="s2" {...pageTransition} className="w-full min-h-screen bg-c-ground">
@@ -102,37 +93,6 @@ export default function StepSelectFlight({
                 <p className="c-type-body text-c-text-secondary mt-c-1">Which one is yours?</p>
 
                 <div className="mt-c-6 space-y-c-4">
-                    {searching && (
-                        <div className="space-y-c-4" aria-live="polite" aria-busy="true">
-                            {[0, 1, 2].map((i) => (
-                                <motion.div
-                                    key={i}
-                                    animate={{ opacity: [0.4, 0.7, 0.4] }}
-                                    transition={{ repeat: Infinity, duration: 1.4, delay: i * 0.15 }}
-                                    className="h-24 rounded-c-lg bg-c-ground-elevated border border-c-border-hairline"
-                                />
-                            ))}
-                            <p className="c-type-footnote text-c-text-secondary text-center">
-                                Searching flights…
-                            </p>
-                        </div>
-                    )}
-
-                    {showError && (
-                        <div className="rounded-c-lg bg-c-urgency-surface border border-c-urgency/20 p-c-4">
-                            <p className="c-type-footnote text-c-urgency">{searchError}</p>
-                            {onRetry && (
-                                <button
-                                    type="button"
-                                    onClick={onRetry}
-                                    className="mt-c-2 c-type-footnote font-semibold text-c-urgency underline hover:opacity-80"
-                                >
-                                    Try again
-                                </button>
-                            )}
-                        </div>
-                    )}
-
                     {showEmpty && (
                         <div className="text-center py-c-8">
                             <h2 className="c-type-headline text-c-text-primary">No flights match</h2>
@@ -151,7 +111,7 @@ export default function StepSelectFlight({
                         <FlightCard
                             key={`${f.flight_number}|${f.departure_time_utc || ''}|${f.origin_code || ''}|${i}`}
                             flight={f}
-                            onSelect={handleSelect}
+                            onSelect={onSelect}
                         />
                     ))}
                 </div>

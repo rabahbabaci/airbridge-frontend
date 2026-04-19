@@ -3,7 +3,6 @@ import { useLocation, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import StepEntry from '@/components/engine/StepEntry';
 import StepSelectFlight from '@/components/engine/StepSelectFlight';
 import StepDepartureSetup from '@/components/engine/StepDepartureSetup';
 import LoadingView from '@/components/engine/LoadingView';
@@ -38,25 +37,18 @@ export default function Engine() {
     const location = useLocation();
     const navigate = useNavigate();
 
-    const [step, setStep] = useState(1);
+    // Step 2 is the new entry point for the in-Engine flow (Flight Selection).
+    // Step 1 (flight-number entry form) is retired — canonical entry is the
+    // Search screen at `/`, which hands off pre-fetched flights via state.
+    const [step, setStep] = useState(2);
     const [dir, setDir] = useState(1);
 
-    // Step 1 — trip-specific
-    const [inputMode, setInputMode] = useState('flight_number');
     const [departureDate, setDepartureDate] = useState(todayStr);
     const [flightNumber, setFlightNumber] = useState('');
-    const [calendarOpen, setCalendarOpen] = useState(false);
 
-    // Route search — lifted state
-    const [routeOrigin, setRouteOrigin] = useState('');
-    const [routeDestination, setRouteDestination] = useState('');
-    const [routeTimeWindow, setRouteTimeWindow] = useState('any');
-
-    // Step 2 — trip-specific
-    const [searching, setSearching] = useState(false);
+    // Flight selection (step 2)
     const [flightOptions, setFlightOptions] = useState([]);
     const [selectedFlight, setSelectedFlight] = useState(null);
-    const [searchError, setSearchError] = useState(null);
 
     // Step 3 — user preferences (kept across trips)
     const [startingAddress, setStartingAddress] = useState('');
@@ -121,8 +113,6 @@ export default function Engine() {
         setDepartureDate(todayStr());
         setSelectedFlight(null);
         setFlightOptions([]);
-        setSearchError(null);
-        setInputMode('flight_number');
         setCurrentTripId(null);
         setRecommendation(null);
         setLocked(false);
@@ -132,15 +122,11 @@ export default function Engine() {
         setAddressError(null);
         setBagCount(0);
         setDir(-1);
-        setStep(1);
+        setStep(2);
         setLastSearchParams(null);
         setActiveTripData(null);
         setActiveTripRec(null);
         setIsTracked(false);
-        // Route search fields are trip-specific too
-        setRouteOrigin('');
-        setRouteDestination('');
-        setRouteTimeWindow('any');
     };
 
     // Paywall trigger — show once per results view when the user is no
@@ -206,7 +192,10 @@ export default function Engine() {
         setEditTripStatus(trip.status);
         setCurrentTripId(trip.trip_id);
         setCheckingActiveTrip(false);
-        setStep(1);
+        // StepEntry was removed; edit mode lands directly on Setup (step 3).
+        // Flight-number / date edits are temporarily unavailable until the
+        // edit UX is re-built on top of Search.
+        setStep(3);
         setDir(1);
     }, []);
 
@@ -285,18 +274,15 @@ export default function Engine() {
 
     // ── Prefill from /Search handoff ──────────────────────────────────────
     // Search performs the flight lookup itself and navigates here with
-    // pre-fetched flight results. We pick them up and advance directly
-    // to step 2 (flight selection) so the user doesn't re-enter anything.
+    // pre-fetched flight results. We pick them up and land directly on
+    // step 2 (flight selection).
     const fromSearchRef = useRef(location.state?.fromSearch);
     useEffect(() => {
         const fs = fromSearchRef.current;
         if (!fs || editTripRef.current || viewTripRef.current) return;
 
+        if (fs.departureDate) setDepartureDate(fs.departureDate);
         if (fs.mode === 'route') {
-            setInputMode('route_search');
-            setRouteOrigin(fs.routeOrigin || '');
-            setRouteDestination(fs.routeDestination || '');
-            if (fs.departureDate) setDepartureDate(fs.departureDate);
             setLastSearchParams({
                 mode: 'route',
                 origin: fs.routeOrigin,
@@ -305,9 +291,7 @@ export default function Engine() {
                 timeWindow: 'any',
             });
         } else {
-            setInputMode('flight_number');
             setFlightNumber(fs.flightNumber || '');
-            if (fs.departureDate) setDepartureDate(fs.departureDate);
             setLastSearchParams({
                 mode: 'flight_number',
                 flightNumber: fs.flightNumber,
@@ -318,7 +302,7 @@ export default function Engine() {
         if (fs.flights?.length) {
             setFlightOptions(fs.flights);
             setCheckingActiveTrip(false);
-            advanceToFlightSelection(fs.flights);
+            // Already on step 2 by default; no goTo needed.
         }
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
@@ -489,6 +473,18 @@ export default function Engine() {
         })();
     }, [token]);
 
+    // ── Redirect /Engine → / when the user has no valid entry context ─────
+    // StepEntry (step 1) was retired; canonical entry is the Search screen.
+    // If a user hits /Engine directly (URL bar, back-forward, etc.) without
+    // any hand-off state and without an active trip to show, bounce them
+    // to Search rather than render an empty Flight Selection list.
+    useEffect(() => {
+        if (fromSearchRef.current || editTripRef.current || viewTripRef.current) return;
+        if (checkingActiveTrip) return; // wait for the active-trip check
+        if (viewMode === 'active_trip') return; // active trip loaded
+        navigate('/', { replace: true });
+    }, [checkingActiveTrip, viewMode, navigate]);
+
     // Set up push notification listeners (native only)
     useEffect(() => {
         if (!isNative()) return;
@@ -513,13 +509,6 @@ export default function Engine() {
 
     const goTo = (next) => { setDir(next > step ? 1 : -1); setStep(next); };
 
-    // Brief §4.3 (v2.3): selection screen always renders, even for a
-    // single match — user confirms their flight before the preference step.
-    // eslint-disable-next-line no-unused-vars
-    const advanceToFlightSelection = (flights) => {
-        goTo(2);
-    };
-
     const computeSecurityAccess = () => {
         if (hasPriorityLane) return 'priority_lane';
         if (hasPrecheck && hasClear) return 'clear_precheck';
@@ -540,63 +529,22 @@ export default function Engine() {
     });
 
     // ── Handlers ────────────────────────────────────────────────────────────
-    const handleFindFlight = async () => {
-        if (!flightNumber.trim() || !departureDate) return;
-
-        // Skip re-fetch if inputs haven't changed and we have results
-        if (
-            lastSearchParams &&
-            lastSearchParams.mode === 'flight_number' &&
-            lastSearchParams.flightNumber === flightNumber.trim() &&
-            lastSearchParams.departureDate === departureDate &&
-            flightOptions.length > 0
-        ) {
-            advanceToFlightSelection(flightOptions);
-            return;
-        }
-
-        setSearching(true);
-        setSelectedFlight(null);
-        setSearchError(null);
-        setFlightOptions([]);
-        goTo(2);
-        try {
-            const addrParam = startingAddress.trim() ? `?home_address=${encodeURIComponent(startingAddress.trim())}` : '';
-            const res = await fetch(`${API_BASE}/v1/flights/${encodeURIComponent(flightNumber.trim())}/${departureDate}${addrParam}`, {
-                headers: { ...authHeaders },
-            });
-            if (!res.ok) {
-                setFlightOptions([]);
-                setSearchError('Could not look up flights. Please check the flight number and try again.');
-                setSearching(false);
-                return;
-            }
-            const data = await res.json();
-            const flights = mapFlights(data.flights);
-            setFlightOptions(flights);
-            setLastSearchParams({ mode: 'flight_number', flightNumber: flightNumber.trim(), departureDate });
-            advanceToFlightSelection(flights);
-        } catch (err) {
-            console.error('Flight lookup failed:', err);
-            setFlightOptions([]);
-            setSearchError('Network error — could not reach the server. Please check your connection and try again.');
-        }
-        setSearching(false);
-    };
-
-    const handleFlightClick = (f) => {
-        if (f.departed || f.canceled || f.is_boarding) return;
-        setSelectedFlight(f);
-        // In edit mode, keep the existing trip ID — we're updating, not creating
+    // One-tap selection: set the flight and advance to Setup in a single
+    // render pass. Avoids the stale-closure pattern where a separate
+    // Continue handler read selectedFlight from state (null on the first
+    // tap because setSelectedFlight hadn't flushed yet).
+    // Cancelled / departed / boarding flights still advance — brief §4.3
+    // expects them to be tappable and Setup surfaces the status.
+    const handleFlightSelect = (flight) => {
+        setSelectedFlight(flight);
         if (!editMode) {
             setCurrentTripId(null);
             setRecommendation(null);
             setLocked(false);
             setJourneyReady(false);
         }
+        goTo(3);
     };
-
-    const handleContinueToSetup = () => { if (selectedFlight) goTo(3); };
 
     const handleLockIn = async () => {
         if (isSubmitting) return;
@@ -757,22 +705,9 @@ export default function Engine() {
         }
     };
 
-    const handleRouteFlightsFound = (flights, meta) => {
-        if (meta?.date) setDepartureDate(meta.date);
-        setFlightOptions(flights);
-        setSearching(false);
-        setLastSearchParams({
-            mode: 'route',
-            origin: meta?.origin || routeOrigin,
-            destination: meta?.destination || routeDestination,
-            date: meta?.date || departureDate,
-            timeWindow: meta?.timeWindow || routeTimeWindow,
-        });
-        advanceToFlightSelection(flights);
-    };
-
     const handleReset = () => {
         resetTripState();
+        navigate('/', { replace: true });
     };
 
     const handleEditSetup = () => {
@@ -981,8 +916,6 @@ export default function Engine() {
         }
     };
 
-    const canSearch = flightNumber.trim().length > 0 && departureDate.length > 0;
-
     // ── Render ──────────────────────────────────────────────────────────────
     // /Engine intentionally renders without the legacy app header. Each
     // sub-view owns its own top bar (StepSelectFlight uses the DS TopBar;
@@ -1013,6 +946,7 @@ export default function Engine() {
                             setActiveTripData(null);
                             setActiveTripRec(null);
                             resetTripState();
+                            navigate('/', { replace: true });
                         }}
                         onEdit={() => {
                             // State is already hydrated from active trip load
@@ -1047,45 +981,19 @@ export default function Engine() {
                     <motion.div key="setup" {...pageTransition} className="min-h-[calc(100vh-57px)] flex items-start justify-center py-8 md:py-12 px-4">
                         <AnimatePresence mode="wait" custom={dir}>
 
-                            {step === 1 && (
-                                <StepEntry
-                                    flightNumber={flightNumber} setFlightNumber={setFlightNumber}
-                                    departureDate={departureDate} setDepartureDate={setDepartureDate}
-                                    calendarOpen={calendarOpen} setCalendarOpen={setCalendarOpen}
-                                    inputMode={inputMode} setInputMode={setInputMode}
-                                    canSearch={canSearch}
-                                    onFindFlight={handleFindFlight}
-                                    onRouteFlightsFound={handleRouteFlightsFound}
-                                    authHeaders={authHeaders}
-                                    routeOrigin={routeOrigin} setRouteOrigin={setRouteOrigin}
-                                    routeDestination={routeDestination} setRouteDestination={setRouteDestination}
-                                    routeTimeWindow={routeTimeWindow} setRouteTimeWindow={setRouteTimeWindow}
-                                    lastSearchParams={lastSearchParams} flightOptions={flightOptions}
-                                />
-                            )}
-
                             {step === 2 && (
                                 <StepSelectFlight
                                     flightOptions={flightOptions}
-                                    selectedFlight={selectedFlight}
-                                    searching={searching}
-                                    searchError={searchError}
-                                    inputMode={inputMode}
-                                    flightNumber={flightNumber}
-                                    departureDate={departureDate}
-                                    onFlightClick={handleFlightClick}
-                                    onContinue={handleContinueToSetup}
+                                    onSelect={handleFlightSelect}
                                     onBack={() => {
-                                        // If user arrived from /Search, return there via
-                                        // browser history so their form state is preserved
-                                        // by the back-forward cache where supported.
+                                        // Back always returns to Search — StepEntry is
+                                        // retired, so there's no in-Engine step 1.
                                         if (fromSearchRef.current) {
                                             navigate(-1);
                                         } else {
-                                            goTo(1);
+                                            navigate('/', { replace: true });
                                         }
                                     }}
-                                    onRetry={handleFindFlight}
                                 />
                             )}
 
