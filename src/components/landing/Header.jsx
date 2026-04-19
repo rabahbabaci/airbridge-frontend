@@ -56,7 +56,7 @@ export default function Header() {
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: -8 }}
                             transition={swapTransition}
-                            className="hidden md:flex w-fit mx-auto mt-4 pointer-events-auto c-glass border border-[color:var(--c-glass-border)] rounded-c-pill shadow-c-glass items-center gap-1 pl-2 pr-2 py-1.5"
+                            className="hidden md:flex w-fit mx-auto mt-c-6 pointer-events-auto c-glass border border-[color:var(--c-glass-border)] rounded-c-pill shadow-c-glass items-center gap-c-2 px-c-3 py-c-2"
                         >
                             {/* Icon-only logo in pill state */}
                             <a
