@@ -39,10 +39,10 @@ export default function Trust() {
                     viewport={{ once: true }}
                     className="text-center mb-16"
                 >
-                    <span className="text-sm font-medium text-primary uppercase tracking-wider">Community</span>
-                    <h2 className="text-4xl lg:text-5xl font-bold text-foreground mt-3">
+                    <span className="text-sm font-medium text-c-brand-primary uppercase tracking-wider">Community</span>
+                    <h2 className="text-4xl lg:text-5xl font-bold text-c-text-primary mt-3">
                         Built for{' '}
-                        <span className="text-primary">
+                        <span className="text-c-brand-primary">
                             Stress-Free Travelers
                         </span>
                     </h2>
@@ -58,18 +58,18 @@ export default function Trust() {
                             viewport={{ once: true }}
                             transition={{ delay: index * 0.1 }}
                         >
-                            <div className="bg-card rounded-3xl p-8 h-full border border-border relative">
-                                <Quote className="absolute top-6 right-6 w-8 h-8 text-primary/10" />
-                                <p className="text-foreground/80 leading-relaxed mb-6 relative z-10">
+                            <div className="bg-c-ground-elevated rounded-3xl p-8 h-full border border-c-border-hairline relative">
+                                <Quote className="absolute top-6 right-6 w-8 h-8 text-c-brand-primary/10" />
+                                <p className="text-c-text-primary leading-relaxed mb-6 relative z-10">
                                     "{testimonial.quote}"
                                 </p>
                                 <div className="flex items-center gap-3">
-                                    <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center text-primary-foreground text-sm font-medium">
+                                    <div className="w-10 h-10 rounded-full bg-c-brand-primary flex items-center justify-center text-c-text-inverse text-sm font-medium">
                                         {testimonial.avatar}
                                     </div>
                                     <div>
-                                        <p className="font-semibold text-foreground text-sm">{testimonial.author}</p>
-                                        <p className="text-muted-foreground text-xs">{testimonial.role}</p>
+                                        <p className="font-semibold text-c-text-primary text-sm">{testimonial.author}</p>
+                                        <p className="text-c-text-secondary text-xs">{testimonial.role}</p>
                                     </div>
                                 </div>
                             </div>
@@ -86,12 +86,12 @@ export default function Trust() {
                 >
                     {badges.map((badge) => (
                         <div key={badge.label} className="flex items-center gap-3">
-                            <div className="w-12 h-12 rounded-xl bg-brand-muted flex items-center justify-center">
-                                <badge.icon className="w-5 h-5 text-primary" />
+                            <div className="w-12 h-12 rounded-xl bg-c-brand-primary-surface flex items-center justify-center">
+                                <badge.icon className="w-5 h-5 text-c-brand-primary" />
                             </div>
                             <div>
-                                <p className="font-semibold text-foreground text-sm">{badge.label}</p>
-                                <p className="text-muted-foreground text-xs">{badge.sublabel}</p>
+                                <p className="font-semibold text-c-text-primary text-sm">{badge.label}</p>
+                                <p className="text-c-text-secondary text-xs">{badge.sublabel}</p>
                             </div>
                         </div>
                     ))}

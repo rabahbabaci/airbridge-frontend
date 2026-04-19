@@ -33,19 +33,19 @@ export default function Header() {
             initial={{ y: -100 }}
             animate={{ y: 0 }}
             className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-                scrolled ? 'bg-white/90 backdrop-blur-xl shadow-sm' : 'bg-transparent'
+                scrolled ? 'bg-c-ground-elevated/90 backdrop-blur-xl shadow-sm' : 'bg-transparent'
             }`}
         >
             <div className="max-w-7xl mx-auto px-6 py-4">
                 <div className="flex items-center justify-between">
                     <a href="#" className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                            <Plane className="w-4 h-4 text-primary-foreground" />
+                        <div className="w-8 h-8 rounded-lg bg-c-brand-primary flex items-center justify-center">
+                            <Plane className="w-4 h-4 text-c-text-inverse" />
                         </div>
-                        <span className="font-bold text-lg text-foreground">AirBridge</span>
+                        <span className="font-bold text-lg text-c-text-primary">AirBridge</span>
                     </a>
 
-                    <nav className="hidden md:flex items-center gap-1 bg-secondary/80 backdrop-blur-sm rounded-full px-2 py-1.5">
+                    <nav className="hidden md:flex items-center gap-1 bg-c-ground-sunken/80 backdrop-blur-sm rounded-full px-2 py-1.5">
                         {navLinks.map((link) => (
                             <a
                                 key={link.name}
@@ -59,24 +59,24 @@ export default function Header() {
                                         navigate(link.href);
                                     }
                                 }}
-                                className="text-sm text-muted-foreground hover:text-foreground hover:bg-white transition-all font-medium px-4 py-1.5 rounded-full"
+                                className="text-sm text-c-text-secondary hover:text-c-text-primary hover:bg-c-ground-elevated transition-all font-medium px-4 py-1.5 rounded-full"
                             >
                                 {link.name}
                             </a>
                         ))}
 
-                        <div className="w-px h-4 bg-border mx-1" />
+                        <div className="w-px h-4 bg-c-border-hairline mx-1" />
 
                         {isAuthenticated ? (
                             <div className="flex items-center gap-2 px-3 py-1">
-                                <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center text-[10px] font-bold text-primary-foreground">
+                                <div className="w-6 h-6 rounded-full bg-c-brand-primary flex items-center justify-center text-[10px] font-bold text-c-text-inverse">
                                     {(display_name || '').charAt(0).toUpperCase() || 'U'}
                                 </div>
-                                <span className="text-sm font-medium text-foreground">{display_name ? display_name.split(' ')[0] : 'Account'}</span>
-                                <button onClick={() => navigate(createPageUrl('Settings'))} className="text-muted-foreground hover:text-foreground transition-colors ml-1" title="Settings">
+                                <span className="text-sm font-medium text-c-text-primary">{display_name ? display_name.split(' ')[0] : 'Account'}</span>
+                                <button onClick={() => navigate(createPageUrl('Settings'))} className="text-c-text-secondary hover:text-c-text-primary transition-colors ml-1" title="Settings">
                                     <Settings className="w-3.5 h-3.5" />
                                 </button>
-                                <button onClick={logout} className="text-xs text-muted-foreground hover:text-foreground transition-colors ml-1">
+                                <button onClick={logout} className="text-xs text-c-text-secondary hover:text-c-text-primary transition-colors ml-1">
                                     Sign out
                                 </button>
                             </div>
@@ -84,7 +84,7 @@ export default function Header() {
                             <a
                                 href="#"
                                 onClick={(e) => { e.preventDefault(); setAuthOpen(true); }}
-                                className="text-sm text-muted-foreground hover:text-foreground hover:bg-white transition-all font-medium px-4 py-1.5 rounded-full"
+                                className="text-sm text-c-text-secondary hover:text-c-text-primary hover:bg-c-ground-elevated transition-all font-medium px-4 py-1.5 rounded-full"
                             >
                                 Sign in
                             </a>
@@ -92,7 +92,7 @@ export default function Header() {
 
                         <button
                             onClick={() => navigate(createPageUrl('Engine'), { state: { newTrip: true } })}
-                            className="text-sm bg-primary hover:bg-brand-accent text-primary-foreground font-semibold px-5 py-1.5 rounded-full transition-all"
+                            className="text-sm bg-c-brand-primary hover:bg-c-brand-primary-hover text-c-text-inverse font-semibold px-5 py-1.5 rounded-full transition-all"
                         >
                             Get Started
                         </button>
@@ -113,14 +113,14 @@ export default function Header() {
                         initial={{ opacity: 0, height: 0 }}
                         animate={{ opacity: 1, height: 'auto' }}
                         exit={{ opacity: 0, height: 0 }}
-                        className="md:hidden bg-white border-t"
+                        className="md:hidden bg-c-ground-elevated border-t border-c-border-hairline"
                     >
                         <div className="px-6 py-4 space-y-4">
                             {navLinks.map((link) => (
                                 <a
                                     key={link.name}
                                     href={link.href}
-                                    className="block text-muted-foreground hover:text-foreground"
+                                    className="block text-c-text-secondary hover:text-c-text-primary"
                                     onClick={(e) => {
                                         e.preventDefault();
                                         setMobileMenuOpen(false);
@@ -134,16 +134,16 @@ export default function Header() {
                                 {isAuthenticated ? (
                                     <>
                                         <div className="flex items-center justify-between">
-                                            <span className="text-sm font-medium text-foreground">{display_name ? display_name.split(' ')[0] : 'Account'}</span>
+                                            <span className="text-sm font-medium text-c-text-primary">{display_name ? display_name.split(' ')[0] : 'Account'}</span>
                                             <Button variant="outline" size="sm" onClick={() => { setMobileMenuOpen(false); logout(); }}>Sign out</Button>
                                         </div>
-                                        <button onClick={() => { setMobileMenuOpen(false); navigate(createPageUrl('Settings')); }} className="block text-muted-foreground hover:text-foreground text-sm">Settings</button>
+                                        <button onClick={() => { setMobileMenuOpen(false); navigate(createPageUrl('Settings')); }} className="block text-c-text-secondary hover:text-c-text-primary text-sm">Settings</button>
                                     </>
                                 ) : (
                                     <Button variant="outline" className="w-full" onClick={() => { setMobileMenuOpen(false); setAuthOpen(true); }}>Sign In</Button>
                                 )}
                                 <Button
-                                    className="w-full bg-primary hover:bg-brand-accent text-primary-foreground"
+                                    className="w-full bg-c-brand-primary hover:bg-c-brand-primary-hover text-c-text-inverse"
                                     onClick={() => {
                                         setMobileMenuOpen(false);
                                         navigate(createPageUrl('Engine'), { state: { newTrip: true } });

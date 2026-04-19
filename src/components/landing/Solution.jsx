@@ -35,9 +35,9 @@ export default function Solution() {
                     viewport={{ once: true }}
                     className="text-center mb-6"
                 >
-                    <h2 className="text-4xl lg:text-5xl font-bold text-foreground">
+                    <h2 className="text-4xl lg:text-5xl font-bold text-c-text-primary">
                         Smart Departure.{' '}
-                        <span className="text-primary">
+                        <span className="text-c-brand-primary">
                             Guaranteed.
                         </span>
                     </h2>
@@ -48,7 +48,7 @@ export default function Solution() {
                     whileInView={{ opacity: 1, y: 0 }}
                     viewport={{ once: true }}
                     transition={{ delay: 0.1 }}
-                    className="text-center text-lg text-muted-foreground max-w-2xl mx-auto mb-16"
+                    className="text-center text-lg text-c-text-secondary max-w-2xl mx-auto mb-16"
                 >
                     AirBridge combines real-time traffic, TSA wait times, airport congestion patterns, 
                     and predictive AI modeling to calculate your exact leave time.
@@ -64,14 +64,14 @@ export default function Solution() {
                             transition={{ delay: index * 0.1 }}
                             className="group"
                         >
-                            <div className="relative bg-card rounded-3xl p-6 h-full border border-border hover:border-primary/20 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300">
-                                <div className="w-12 h-12 rounded-xl bg-primary flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
-                                    <feature.icon className="w-5 h-5 text-primary-foreground" />
+                            <div className="relative bg-c-ground-elevated rounded-3xl p-6 h-full border border-c-border-hairline hover:border-c-brand-primary/20 hover:shadow-lg hover:shadow-primary/5 transition-all duration-300">
+                                <div className="w-12 h-12 rounded-xl bg-c-brand-primary flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
+                                    <feature.icon className="w-5 h-5 text-c-text-inverse" />
                                 </div>
-                                <h3 className="text-lg font-semibold text-foreground mb-2">
+                                <h3 className="text-lg font-semibold text-c-text-primary mb-2">
                                     {feature.title}
                                 </h3>
-                                <p className="text-sm text-muted-foreground leading-relaxed">
+                                <p className="text-sm text-c-text-secondary leading-relaxed">
                                     {feature.description}
                                 </p>
                             </div>

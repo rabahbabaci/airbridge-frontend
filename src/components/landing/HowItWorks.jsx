@@ -43,7 +43,7 @@ const steps = [
 
 export default function HowItWorks() {
     return (
-        <section id="how-it-works" className="py-24 lg:py-32 bg-brand-muted">
+        <section id="how-it-works" className="py-24 lg:py-32 bg-c-brand-primary-surface">
             <div className="max-w-7xl mx-auto px-6">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -51,15 +51,15 @@ export default function HowItWorks() {
                     viewport={{ once: true }}
                     className="text-center mb-16"
                 >
-                    <span className="inline-flex items-center gap-2 text-sm font-semibold text-primary uppercase tracking-widest mb-4">
-                        <span className="w-6 h-px bg-primary/40 inline-block" />
+                    <span className="inline-flex items-center gap-2 text-sm font-semibold text-c-brand-primary uppercase tracking-widest mb-4">
+                        <span className="w-6 h-px bg-c-brand-primary/40 inline-block" />
                         Door-to-Gate, Step by Step
-                        <span className="w-6 h-px bg-primary/40 inline-block" />
+                        <span className="w-6 h-px bg-c-brand-primary/40 inline-block" />
                     </span>
-                    <h2 className="text-4xl lg:text-5xl font-black text-foreground mt-2 mb-4">
+                    <h2 className="text-4xl lg:text-5xl font-black text-c-text-primary mt-2 mb-4">
                         How It Works
                     </h2>
-                    <p className="text-muted-foreground text-lg max-w-xl mx-auto leading-relaxed">
+                    <p className="text-c-text-secondary text-lg max-w-xl mx-auto leading-relaxed">
                         Six variables, one precise answer. Here's exactly how we calculate your perfect departure time.
                     </p>
                 </motion.div>
@@ -72,25 +72,25 @@ export default function HowItWorks() {
                             whileInView={{ opacity: 1, y: 0 }}
                             viewport={{ once: true }}
                             transition={{ delay: index * 0.08, duration: 0.5 }}
-                            className="relative bg-card rounded-3xl border border-border shadow-sm hover:shadow-lg transition-all duration-300 p-6 group"
+                            className="relative bg-c-ground-elevated rounded-3xl border border-c-border-hairline shadow-sm hover:shadow-lg transition-all duration-300 p-6 group"
                         >
                             {/* Step number badge */}
-                            <div className="absolute -top-3.5 left-6 bg-primary text-primary-foreground text-xs font-bold px-3 py-1.5 rounded-full shadow-sm">
+                            <div className="absolute -top-3.5 left-6 bg-c-brand-primary text-c-text-inverse text-xs font-bold px-3 py-1.5 rounded-full shadow-sm">
                                 Step {step.number}
                             </div>
 
                             {/* Icon */}
-                            <div className="w-12 h-12 rounded-2xl bg-brand-muted flex items-center justify-center mb-5 mt-3 group-hover:scale-110 transition-transform duration-300">
-                                <step.icon className="w-5 h-5 text-primary" />
+                            <div className="w-12 h-12 rounded-2xl bg-c-brand-primary-surface flex items-center justify-center mb-5 mt-3 group-hover:scale-110 transition-transform duration-300">
+                                <step.icon className="w-5 h-5 text-c-brand-primary" />
                             </div>
 
-                            <h3 className="text-base font-bold text-foreground mb-2">{step.title}</h3>
-                            <p className="text-sm text-muted-foreground leading-relaxed">{step.desc}</p>
+                            <h3 className="text-base font-bold text-c-text-primary mb-2">{step.title}</h3>
+                            <p className="text-sm text-c-text-secondary leading-relaxed">{step.desc}</p>
 
                             {/* Connector arrow */}
                             {index < steps.length - 1 && (
                                 <div className="hidden lg:block absolute -right-3 top-1/2 -translate-y-1/2 z-10">
-                                    <div className="w-6 h-6 rounded-full bg-primary flex items-center justify-center shadow-sm">
+                                    <div className="w-6 h-6 rounded-full bg-c-brand-primary flex items-center justify-center shadow-sm">
                                         <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
                                             <path d="M3 2l4 3-4 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
                                         </svg>
@@ -109,7 +109,7 @@ export default function HowItWorks() {
                     transition={{ delay: 0.5 }}
                     className="mt-14 text-center"
                 >
-                    <div className="inline-flex items-center gap-3 bg-primary text-primary-foreground px-8 py-4 rounded-2xl shadow-lg shadow-primary/25">
+                    <div className="inline-flex items-center gap-3 bg-c-brand-primary text-c-text-inverse px-8 py-4 rounded-2xl shadow-lg">
                         <Plane className="w-5 h-5" />
                         <span className="font-semibold">One precise door-to-gate departure time. Every time.</span>
                     </div>
