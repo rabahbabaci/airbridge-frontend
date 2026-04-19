@@ -1,6 +1,6 @@
 # AirBridge Mobile Design Brief
 
-**Version:** 2.3
+**Version:** 2.4
 **Date:** April 18, 2026
 **Author:** Strategic planning chat (design synthesis + team feedback integration)
 **Consumed by:** Sprint 7 implementation (Claude Code) + the AirBridge team
@@ -9,6 +9,24 @@
 - `REVISED_SPRINT_PLAN.md` — authoritative for scope and sequencing
 - `CLAUDE.md` — authoritative for implementation patterns and workflow
 - This brief — authoritative for design decisions
+
+---
+
+## v2.4 Changelog (read this first)
+
+**Four Setup screen overrides based on real-UX-review feedback.**
+
+Section 4.4 refinements after building the screen and reviewing end-to-end:
+
+1. **Rideshare collapses to one card.** Was: Uber + Lyft as separate cards in a 2x2 grid. Now: single "Rideshare" card. Provider selection (Uber vs Lyft) moves to Results/Active Trip screen where it matters for deep-link routing.
+
+2. **Security access includes CLEAR options.** Was: v1 restricted to PreCheck / None. Now: None, TSA PreCheck, CLEAR, PreCheck + CLEAR (4 options). Priority Lane / airline status not included — too airline-specific and imprecise to model.
+
+3. **Gate buffer selection added back to Setup.** Was: cut in v2.x. Now: three presets — Tight (15 min) / Comfortable (30 min) / Relaxed (60 min) — as segmented control. Users have real preferences about gate arrival comfort.
+
+4. **Boarding pass toggle added back.** Single yes/no: "Do you have a mobile boarding pass?" Materially changes whether user goes through check-in line. Was: cut to reduce form burden. Now: restored.
+
+Transport grid is now a 2x2 with: Rideshare / Drive / Public transit / [gap reserved for future]. Or alternatively 3-card layout — implementer's call.
 
 ---
 
@@ -500,28 +518,43 @@ The selection screen always renders, even for a single match, so the user can co
   - Below input: small text button "📡 Use my current location" in `--brand-primary`
 - **Section 2: How are you getting there?**
   - Field label: "🚗 How are you getting there?"
-  - 2x2 card grid (NOT a segmented control):
-    - **Uber** — "Rideshare"
-    - **Lyft** — "Rideshare"
-    - **Public transit** — "Bus, BART, rail"
+  - Card grid (NOT a segmented control). Three transport options:
+    - **Rideshare** — "Uber, Lyft, etc." (provider selection surfaces in Results/Active Trip where it matters for deep-link routing)
     - **Drive** — "+~10 min parking" (selected by default)
+    - **Public transit** — "Bus, BART, rail"
+  - Implementer's call between a 3-card row and a 2x2 grid with a reserved 4th slot.
   - Each card has icon, name, subtext
   - Selected card: brand-tinted background, brand-colored border
 - **Section 3: Security access**
   - Field label: "🛡 Security access"
-  - Two stacked option cards (NOT five):
+  - Four stacked option cards:
+    - **None** — "Standard security lane" (default)
     - **TSA PreCheck** — "Dedicated fast lane" + "Saves ~15 min" badge in confidence color
-    - **None** — "Standard security lane" (renamed from "Standard")
-- **Section 4: Bags** (simplified from v1.0)
+    - **CLEAR** — "Biometric fast lane" + "Saves ~15 min" badge in confidence color
+    - **PreCheck + CLEAR** — "Fastest combined lane" + "Saves ~20 min" badge in confidence color
+  - Priority Lane / airline status deliberately excluded — too airline-specific and imprecise to model.
+- **Section 4: How early at your gate?**
+  - Field label: "How early at your gate?"
+  - Segmented control with three presets:
+    - **Tight** — 15 min
+    - **Comfortable** — 30 min (selected by default)
+    - **Relaxed** — 60 min
+  - Subtext below control: "Extra time at your gate before boarding begins."
+- **Section 5: Bags** (simplified from v1.0)
   - Single toggle row:
     - Label: "Checking bags?"
     - Subtext: "Joining the check-in line · Wait time varies"
     - Toggle switch on right
   - NOT a stepper. The number of bags doesn't materially change the time impact.
-- **Section 5: Traveling with children?**
+- **Section 6: Traveling with children?**
   - Single toggle row:
     - Label: "Traveling with children"
     - Subtext: "Adjusts walking pace at airport"
+- **Section 7: Boarding pass**
+  - Single toggle row:
+    - Label: "Mobile boarding pass ready?"
+    - Subtext: "Skip the check-in line if you already have one"
+    - Default: on
 - 24px gap
 - Primary CTA: "🚀 Start my trip" full-width
 - Bottom: safe area + tab bar clearance
@@ -534,10 +567,10 @@ The selection screen always renders, even for a single match, so the user can co
 - Cache resolved location in `sessionStorage` so we don't re-prompt within a session
 
 **What was cut from v1.0 Setup:**
-- ❌ CLEAR option
-- ❌ PreCheck+CLEAR combo
-- ❌ Priority Lane
-- ❌ "# of bags" stepper
+- ❌ Priority Lane / airline-status fast lanes — too airline-specific, hard to model
+- ❌ "# of bags" stepper — replaced with a single toggle (rule 18)
+
+(v2.4 restores CLEAR, PreCheck+CLEAR, the gate-buffer preset selector, and the boarding-pass toggle that v2.x temporarily cut. See v2.4 changelog.)
 
 ## 4.5 Results (planning mode)
 
@@ -869,7 +902,7 @@ Same as v1.0. The 14 non-negotiable rules. Plus this v2.0 addition:
 
 **Rule 16:** Geolocation uses `navigator.geolocation` or `@capacitor/geolocation`. No custom native code. Address text input is always primary; geolocation is opt-in via tap.
 
-**Rule 17:** Security access has TWO options for v1: PreCheck or None. Do not add CLEAR, PreCheck+CLEAR, or Priority Lane.
+**Rule 17:** Security access has FOUR options for v1: None, TSA PreCheck, CLEAR, PreCheck + CLEAR. Priority Lane / airline-status fast lanes are excluded — too airline-specific to model. (Updated in v2.4; v2.0–v2.3 temporarily restricted to PreCheck / None.)
 
 **Rule 18:** Bags input is a single toggle ("Checking bags?"), never a stepper.
 
