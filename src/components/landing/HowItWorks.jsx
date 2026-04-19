@@ -43,7 +43,7 @@ const steps = [
 
 export default function HowItWorks() {
     return (
-        <section id="how-it-works" className="py-24 lg:py-32 bg-c-brand-primary-surface">
+        <section id="how-it-works" className="py-24 lg:py-32 bg-c-ground">
             <div className="max-w-7xl mx-auto px-6">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
