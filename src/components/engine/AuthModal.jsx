@@ -216,27 +216,48 @@ export default function AuthModal({ open, onOpenChange, onSuccess }) {
         }
     }
 
+    // Secondary-button baseline reused across phone/code/"Not now" back links.
+    // focus-visible: ensures the ring shows for keyboard nav only, not mouse
+    // clicks (was "lingering outline" bug on Continue-with-phone-number).
+    const secondaryButton =
+        'flex items-center justify-center gap-2 w-full h-12 px-4 rounded-c-pill ' +
+        'bg-c-ground-elevated text-c-text-primary border border-c-border-hairline ' +
+        'text-sm font-medium hover:bg-c-ground-sunken transition-colors ' +
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-c-brand-primary focus-visible:ring-offset-2';
+
+    const textLink =
+        'w-full c-type-footnote text-c-text-tertiary hover:underline hover:text-c-text-secondary transition-colors ' +
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-c-brand-primary focus-visible:ring-offset-2 rounded-c-xs';
+
     return (
         <Dialog open={open} onOpenChange={onOpenChange}>
-            <DialogContent className="max-w-[380px] rounded-2xl p-8 border-border/50 shadow-2xl gap-0">
+            <DialogContent
+                className={
+                    'max-w-[380px] p-8 gap-0 bg-c-ground-elevated rounded-c-lg ' +
+                    'border border-c-border-hairline shadow-c-lg ' +
+                    // Scope the Close-button (direct-child <button> rendered by
+                    // the shadcn DialogContent) focus ring to brand-primary.
+                    '[&>button]:focus:ring-c-brand-primary [&>button]:focus:ring-offset-2'
+                }
+            >
                 <DialogTitle className="sr-only">Sign in to AirBridge</DialogTitle>
-                <DialogDescription className="sr-only">Sign in to save trips and get departure updates</DialogDescription>
+                <DialogDescription className="sr-only">Sign in to save trips and get live timing updates</DialogDescription>
 
                 {/* Main view — auth options */}
                 {view === 'main' && (
                     <div className="space-y-5 text-center">
                         <div>
-                            <div className="w-14 h-14 rounded-2xl bg-primary flex items-center justify-center mx-auto mb-4 shadow-lg shadow-primary/20">
-                                <Plane className="w-6 h-6 text-primary-foreground" />
+                            <div className="w-14 h-14 rounded-c-lg bg-c-brand-primary flex items-center justify-center mx-auto mb-4 shadow-c-md">
+                                <Plane className="w-6 h-6 text-c-text-inverse" />
                             </div>
-                            <h3 className="text-xl font-bold text-foreground">Sign in to AirBridge</h3>
-                            <p className="text-sm text-muted-foreground mt-1.5 mb-6">Track your trips and get live departure updates</p>
+                            <h3 className="c-type-title text-c-text-primary">Sign in to AirBridge</h3>
+                            <p className="c-type-body text-c-text-secondary mt-1.5 mb-6">Track your trips and get live timing updates</p>
                         </div>
 
                         {loading && (
                             <div className="flex items-center justify-center gap-2 py-3">
-                                <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                                <span className="text-sm text-muted-foreground">Signing in...</span>
+                                <Loader2 className="w-4 h-4 animate-spin text-c-text-secondary" />
+                                <span className="c-type-footnote text-c-text-secondary">Signing in...</span>
                             </div>
                         )}
 
@@ -244,11 +265,12 @@ export default function AuthModal({ open, onOpenChange, onSuccess }) {
                             <div className="space-y-4">
                                 {native ? (
                                     <>
-                                        {/* Apple Sign In — iOS only */}
+                                        {/* Apple Sign In — iOS only. Apple HIG requires
+                                            the black pill treatment; do not DS-override. */}
                                         {platform === 'ios' && (
                                             <button
                                                 onClick={handleAppleSignIn}
-                                                className="flex items-center justify-center gap-3 w-full py-3 px-4 rounded-xl bg-black text-white text-sm font-medium hover:bg-black/90 transition-colors"
+                                                className="flex items-center justify-center gap-3 w-full h-12 px-4 rounded-c-pill bg-black text-white text-sm font-medium hover:bg-black/90 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-c-brand-primary focus-visible:ring-offset-2"
                                             >
                                                 <svg className="w-5 h-5" viewBox="0 0 24 24" fill="currentColor">
                                                     <path d="M17.05 20.28c-.98.95-2.05.88-3.08.4-1.09-.5-2.08-.48-3.24 0-1.44.62-2.2.44-3.06-.4C2.79 15.25 3.51 7.59 9.05 7.31c1.35.07 2.29.74 3.08.8 1.18-.24 2.31-.93 3.57-.84 1.51.12 2.65.72 3.4 1.8-3.12 1.87-2.38 5.98.48 7.13-.57 1.5-1.31 2.99-2.54 4.09zM12.03 7.25c-.15-2.23 1.66-4.07 3.74-4.25.29 2.58-2.34 4.5-3.74 4.25z" />
@@ -257,11 +279,13 @@ export default function AuthModal({ open, onOpenChange, onSuccess }) {
                                             </button>
                                         )}
 
-                                        {/* Google Sign In — Android only */}
+                                        {/* Google Sign In — Android. Google brand
+                                            guidance keeps the multicolor G mark; don't
+                                            DS-override the button chrome. */}
                                         {platform === 'android' && (
                                             <button
                                                 onClick={handleNativeGoogleSignIn}
-                                                className="flex items-center justify-center gap-3 w-full py-3 px-4 rounded-xl bg-white text-gray-700 border border-gray-300 text-sm font-medium hover:bg-gray-50 transition-colors"
+                                                className="flex items-center justify-center gap-3 w-full h-12 px-4 rounded-c-pill bg-white text-gray-700 border border-gray-300 text-sm font-medium hover:bg-gray-50 transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-c-brand-primary focus-visible:ring-offset-2"
                                             >
                                                 <svg className="w-5 h-5" viewBox="0 0 24 24">
                                                     <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92a5.06 5.06 0 0 1-2.2 3.32v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.1z" fill="#4285F4" />
@@ -275,14 +299,15 @@ export default function AuthModal({ open, onOpenChange, onSuccess }) {
                                     </>
                                 ) : (
                                     <>
-                                        {/* Web Google Sign In (GIS) */}
+                                        {/* Web Google Sign In — GIS renders its own
+                                            brand-compliant button; don't DS-override. */}
                                         {GOOGLE_CLIENT_ID ? (
                                             <div className="flex justify-center" style={{ minHeight: 48 }}>
                                                 <div ref={googleBtnRef} className={googleReady ? '' : 'hidden'} />
                                                 {!googleReady && (
                                                     <div className="flex items-center justify-center gap-2 py-3">
-                                                        <Loader2 className="w-4 h-4 animate-spin text-muted-foreground" />
-                                                        <span className="text-sm text-muted-foreground">Loading...</span>
+                                                        <Loader2 className="w-4 h-4 animate-spin text-c-text-secondary" />
+                                                        <span className="c-type-footnote text-c-text-secondary">Loading...</span>
                                                     </div>
                                                 )}
                                             </div>
@@ -291,14 +316,15 @@ export default function AuthModal({ open, onOpenChange, onSuccess }) {
                                 )}
 
                                 <div className="flex items-center gap-4">
-                                    <div className="h-px flex-1 bg-border/50" />
-                                    <span className="text-xs text-muted-foreground">or</span>
-                                    <div className="h-px flex-1 bg-border/50" />
+                                    <div className="h-px flex-1 bg-c-border-hairline" />
+                                    <span className="text-xs text-c-text-tertiary">or</span>
+                                    <div className="h-px flex-1 bg-c-border-hairline" />
                                 </div>
 
                                 <button
+                                    type="button"
                                     onClick={() => setView('phone')}
-                                    className="flex items-center justify-center gap-2 w-full py-3 px-4 rounded-xl bg-secondary text-foreground border border-border text-sm font-medium hover:bg-accent hover:border-muted-foreground/30 transition-all"
+                                    className={secondaryButton}
                                 >
                                     <Smartphone className="w-4 h-4" />
                                     Continue with phone number
@@ -306,10 +332,9 @@ export default function AuthModal({ open, onOpenChange, onSuccess }) {
                             </div>
                         )}
 
-                        {error && <p className="text-sm text-destructive">{error}</p>}
+                        {error && <p className="c-type-footnote text-c-urgency">{error}</p>}
 
-                        <button onClick={() => onOpenChange(false)}
-                            className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors mt-4">
+                        <button type="button" onClick={() => onOpenChange(false)} className={`${textLink} mt-4`}>
                             Not now
                         </button>
                     </div>
@@ -319,8 +344,8 @@ export default function AuthModal({ open, onOpenChange, onSuccess }) {
                 {view === 'phone' && (
                     <div className="space-y-5 text-center">
                         <div>
-                            <h3 className="text-xl font-bold text-foreground">Enter your phone number</h3>
-                            <p className="text-sm text-muted-foreground mt-1.5">We'll send you a verification code</p>
+                            <h3 className="c-type-title text-c-text-primary">Enter your phone number</h3>
+                            <p className="c-type-body text-c-text-secondary mt-1.5">We'll send you a verification code</p>
                         </div>
                         <Input
                             type="tel"
@@ -329,12 +354,11 @@ export default function AuthModal({ open, onOpenChange, onSuccess }) {
                             placeholder="+1 555 123 4567"
                             className="text-center"
                         />
-                        {error && <p className="text-sm text-destructive">{error}</p>}
-                        <Button onClick={handleSendOTP} disabled={loading || phone.length < 4} className="w-full py-3 rounded-xl">
+                        {error && <p className="c-type-footnote text-c-urgency">{error}</p>}
+                        <Button onClick={handleSendOTP} disabled={loading || phone.length < 4} className="w-full h-12 rounded-c-pill">
                             {loading ? 'Sending...' : 'Send code'}
                         </Button>
-                        <button onClick={() => { setView('main'); setError(null); }}
-                            className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors">
+                        <button type="button" onClick={() => { setView('main'); setError(null); }} className={textLink}>
                             Back
                         </button>
                     </div>
@@ -344,8 +368,8 @@ export default function AuthModal({ open, onOpenChange, onSuccess }) {
                 {view === 'code' && (
                     <div className="space-y-5 text-center">
                         <div>
-                            <h3 className="text-xl font-bold text-foreground">Enter verification code</h3>
-                            <p className="text-sm text-muted-foreground mt-1.5">Sent to {phone}</p>
+                            <h3 className="c-type-title text-c-text-primary">Enter verification code</h3>
+                            <p className="c-type-body text-c-text-secondary mt-1.5">Sent to {phone}</p>
                         </div>
                         <div className="flex justify-center">
                             <InputOTP maxLength={6} value={code} onChange={setCode}>
@@ -359,12 +383,11 @@ export default function AuthModal({ open, onOpenChange, onSuccess }) {
                                 </InputOTPGroup>
                             </InputOTP>
                         </div>
-                        {error && <p className="text-sm text-destructive">{error}</p>}
-                        <Button onClick={handleVerifyOTP} disabled={loading || code.length < 6} className="w-full py-3 rounded-xl">
+                        {error && <p className="c-type-footnote text-c-urgency">{error}</p>}
+                        <Button onClick={handleVerifyOTP} disabled={loading || code.length < 6} className="w-full h-12 rounded-c-pill">
                             {loading ? 'Verifying...' : 'Verify'}
                         </Button>
-                        <button onClick={() => { setView('phone'); setError(null); setCode(''); }}
-                            className="w-full text-sm text-muted-foreground hover:text-foreground transition-colors">
+                        <button type="button" onClick={() => { setView('phone'); setError(null); setCode(''); }} className={textLink}>
                             Back
                         </button>
                     </div>
@@ -373,9 +396,9 @@ export default function AuthModal({ open, onOpenChange, onSuccess }) {
                 {/* Success */}
                 {view === 'success' && (
                     <div className="flex flex-col items-center gap-3 py-8">
-                        <CheckCircle2 className="w-12 h-12 text-emerald-500" />
-                        <p className="text-base font-semibold text-foreground">Welcome!</p>
-                        <p className="text-sm text-muted-foreground">You're signed in.</p>
+                        <CheckCircle2 className="w-12 h-12 text-c-confidence" />
+                        <p className="c-type-headline text-c-text-primary">Welcome!</p>
+                        <p className="c-type-body text-c-text-secondary">You're signed in.</p>
                     </div>
                 )}
 
