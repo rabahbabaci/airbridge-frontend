@@ -59,6 +59,22 @@ const STATUS_STYLES = {
     at_gate: 'bg-emerald-50 text-emerald-700',
 };
 
+// Inline action surfaced above a populated Active list. Sized smaller and
+// quieter than the empty-state body CTA so it doesn't compete visually with
+// the trip cards beneath it, but still reads as a tappable action (44×44pt
+// min hit target per iOS HIG).
+function NewTripPill() {
+    return (
+        <Link
+            to="/search"
+            className="inline-flex items-center gap-1.5 h-11 px-4 rounded-full bg-primary/10 text-primary text-sm font-semibold hover:bg-primary/15 transition-colors"
+        >
+            <Plus className="w-4 h-4" />
+            New Trip
+        </Link>
+    );
+}
+
 function StatusPill({ status }) {
     const label = STATUS_LABELS[status] || status;
     const style = STATUS_STYLES[status] || 'bg-muted text-muted-foreground';
@@ -453,7 +469,10 @@ export default function Trips() {
                 {/* Single trip: direct to detail */}
                 {showSingleTrip && (
                     <div>
-                        <ActiveTripCard trip={activeTrips[0]} />
+                        <NewTripPill />
+                        <div className="mt-3">
+                            <ActiveTripCard trip={activeTrips[0]} />
+                        </div>
                     </div>
                 )}
 
@@ -487,6 +506,7 @@ export default function Trips() {
                         {/* Active tab content */}
                         {activeTab === 'active' && (
                             <div className="space-y-3">
+                                <NewTripPill />
                                 {activeError && (
                                     <div className="bg-destructive/10 border border-destructive/20 rounded-2xl p-4">
                                         <p className="text-sm text-destructive">{activeError}</p>

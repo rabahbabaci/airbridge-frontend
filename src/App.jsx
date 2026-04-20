@@ -139,6 +139,11 @@ const AuthenticatedApp = () => {
             <MainPage />
           </LayoutWrapper>
         } />
+        {/* TODO Sprint 8: Active Trip should live at /trips/:id per brief §2.6.
+            Currently nested as Engine viewMode active_trip with router state
+            (viewTrip/editTrip). Refactor needs ActiveTripView extraction from
+            Engine.jsx, TripAwareHome target update, Trips list navigation,
+            and deep-link hydration. Out of scope for Sprint 7. */}
         {Object.entries(Pages).map(([path, Page]) => (
           <Route
             key={path}

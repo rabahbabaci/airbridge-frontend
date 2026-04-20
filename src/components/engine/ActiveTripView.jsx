@@ -66,7 +66,13 @@ export default function ActiveTripView({
 }) {
     const { token, updateTripCount } = useAuth();
     const navigate = useNavigate();
-    const { handleTabChange, authOpen, setAuthOpen, handleAuthSuccess } = useAuthGatedTabs('trip');
+    // No selfTabValue — My Trip tap on an Active Trip Screen always routes
+    // to /Trips (the list). A user viewing one trip with multiple tracked
+    // trips needs to reach the list to switch between them; no-op'ing here
+    // would leave them stuck on the current trip. The TabBar's value="trip"
+    // below keeps the active indicator on My Trip so the active context is
+    // still communicated.
+    const { handleTabChange, authOpen, setAuthOpen, handleAuthSuccess } = useAuthGatedTabs();
     const [countdown, setCountdown] = useState('');
     const [urgency, setUrgency] = useState('calm');
     const [refreshing, setRefreshing] = useState(false);
