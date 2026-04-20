@@ -123,6 +123,19 @@ function tsaSecurityLabel(adv) {
     return null;
 }
 
+// Row tone semantics, consumed by TimelineRow / HorizontalTimelineRow to
+// colour sub-details and icon chips:
+//   subtitleTone 'neutral'    — just a fact (drive duration, walk length,
+//                                address, bag count). Renders --c-text-tertiary.
+//   subtitleTone 'confidence' — good news (buffer cushion). --c-confidence.
+//   subtitleTone 'warning'    — heads up (TSA wait over typical). --c-warning.
+//   iconTone     'brand'      — default brand chip.
+//   iconTone     'warning'    — TSA gets an urgency chip so it pops.
+//   iconTone     'confidence' — last/gate phase reads as "you're set".
+// subtitleIsDuration toggles a pill treatment on the sub-detail — used for
+// timing facts ("44 min", "7 min walk") that benefit from visual weight.
+const TSA_WAIT_HEADS_UP_THRESHOLD_MIN = 30;
+
 function buildTimelineRows(recommendation, selectedFlight, transport, homeAddress) {
     const segments = recommendation?.segments || [];
     const leaveAt = recommendation?.leave_home_at;
@@ -143,6 +156,9 @@ function buildTimelineRows(recommendation, selectedFlight, transport, homeAddres
             Icon: House,
             name: 'Leave home',
             subtitle: homeAddress ? shortAddress(homeAddress) : null,
+            subtitleTone: 'neutral',
+            subtitleIsDuration: false,
+            iconTone: 'brand',
             time: formatUTCToLocal(leaveAt),
         },
     ];
@@ -166,6 +182,9 @@ function buildTimelineRows(recommendation, selectedFlight, transport, homeAddres
                 Icon: TransportIcon,
                 name: `${verb} to ${airportCode}`,
                 subtitle: formatDuration(seg.duration_minutes),
+                subtitleTone: 'neutral',
+                subtitleIsDuration: true,
+                iconTone: 'brand',
                 time: baseTime,
             });
             continue;
@@ -179,6 +198,9 @@ function buildTimelineRows(recommendation, selectedFlight, transport, homeAddres
                 Icon: MapPin,
                 name: `At ${airportCode}`,
                 subtitle: sub,
+                subtitleTone: 'neutral',
+                subtitleIsDuration: false,
+                iconTone: 'brand',
                 time: baseTime,
             });
             if (parkingSeg?.duration_minutes) cumulative += parkingSeg.duration_minutes;
@@ -196,6 +218,9 @@ function buildTimelineRows(recommendation, selectedFlight, transport, homeAddres
                 Icon: SuitcaseRolling,
                 name: seg.id === 'checkin' ? 'Check in' : 'Bag drop',
                 subtitle: parts.length ? parts.join(' · ') : null,
+                subtitleTone: 'neutral',
+                subtitleIsDuration: false,
+                iconTone: 'brand',
                 time: baseTime,
             });
             continue;
@@ -203,11 +228,15 @@ function buildTimelineRows(recommendation, selectedFlight, transport, homeAddres
         if (seg.id === 'tsa') {
             const waitMin = adv.wait ? parseInt(adv.wait, 10) : seg.duration_minutes;
             const badge = tsaSecurityLabel(seg.advice);
+            const isHeadsUp = Number.isFinite(waitMin) && waitMin > TSA_WAIT_HEADS_UP_THRESHOLD_MIN;
             rows.push({
                 key: `tsa-${i}`,
                 Icon: Shield,
                 name: 'TSA Security',
                 subtitle: `${formatDuration(waitMin)} wait`,
+                subtitleTone: isHeadsUp ? 'warning' : 'neutral',
+                subtitleIsDuration: true,
+                iconTone: 'warning',
                 badge,
                 time: baseTime,
             });
@@ -219,6 +248,9 @@ function buildTimelineRows(recommendation, selectedFlight, transport, homeAddres
                 Icon: Footprints,
                 name: `At gate ${selectedFlight?.departure_gate || ''}`.trim(),
                 subtitle: seg.duration_minutes ? `${formatDuration(seg.duration_minutes)} walk` : null,
+                subtitleTone: 'neutral',
+                subtitleIsDuration: true,
+                iconTone: 'brand',
                 time: baseTime,
             });
             continue;
@@ -228,10 +260,30 @@ function buildTimelineRows(recommendation, selectedFlight, transport, homeAddres
             Icon: MapPin,
             name: seg.label || seg.id,
             subtitle: seg.duration_minutes ? formatDuration(seg.duration_minutes) : null,
+            subtitleTone: 'neutral',
+            subtitleIsDuration: Boolean(seg.duration_minutes),
+            iconTone: 'brand',
             time: baseTime,
         });
     }
     return rows;
+}
+
+// Returns Tailwind class pair for an icon chip given its tone.
+// `isLast` is a legacy signal: the trailing phase (gate) always reads as
+// "you're set" even when the row's own iconTone is neutral/brand.
+function iconChipClasses(tone, isLast) {
+    if (isLast) return { bg: 'bg-c-confidence-surface', text: 'text-c-confidence' };
+    if (tone === 'warning') return { bg: 'bg-c-urgency-surface', text: 'text-c-urgency' };
+    if (tone === 'confidence') return { bg: 'bg-c-confidence-surface', text: 'text-c-confidence' };
+    return { bg: 'bg-c-brand-primary-surface', text: 'text-c-brand-primary' };
+}
+
+// Sub-detail color per tone.
+function subtitleToneClasses(tone) {
+    if (tone === 'confidence') return 'text-c-confidence';
+    if (tone === 'warning') return 'text-c-warning';
+    return 'text-c-text-tertiary';
 }
 
 /* ── Navigation deep links (drivers + transit) ──────────────────────── */
@@ -607,32 +659,33 @@ function HeroPill({ icon: Icon, children }) {
 
 /* ── Timeline row ───────────────────────────────────────────────────── */
 function TimelineRow({ row, isFirst, isLast }) {
-    const { Icon, name, subtitle, time, badge } = row;
+    const { Icon, name, subtitle, subtitleTone, time, badge, iconTone } = row;
+    const chip = iconChipClasses(iconTone, isLast);
     return (
         <div className="relative flex items-start gap-c-3 px-c-4 py-c-3">
             {!isLast && (
                 <span
                     aria-hidden="true"
-                    className="absolute w-px bg-c-border-hairline"
-                    style={{ left: '32px', top: '44px', bottom: '0' }}
+                    className="absolute w-0.5 bg-c-brand-primary/20"
+                    style={{ left: '31px', top: '44px', bottom: '0' }}
                 />
             )}
             <span
                 className={cn(
                     'relative z-10 shrink-0 w-8 h-8 rounded-c-pill flex items-center justify-center',
-                    isLast ? 'bg-c-confidence-surface' : 'bg-c-brand-primary-surface'
+                    chip.bg
                 )}
             >
                 <Icon
                     size={16}
                     weight={isFirst || isLast ? 'fill' : 'regular'}
-                    className={isLast ? 'text-c-confidence' : 'text-c-brand-primary'}
+                    className={chip.text}
                 />
             </span>
             <div className="flex-1 min-w-0">
                 <p className="c-type-body font-semibold text-c-text-primary truncate">{name}</p>
                 {subtitle && (
-                    <p className="c-type-footnote text-c-text-secondary truncate">
+                    <p className={cn('c-type-footnote truncate', subtitleToneClasses(subtitleTone))}>
                         {subtitle}
                         {badge && (
                             <span className="ml-c-2 inline-flex items-center px-c-1 rounded-c-xs bg-c-confidence-surface text-c-confidence font-semibold">
@@ -649,47 +702,58 @@ function TimelineRow({ row, isFirst, isLast }) {
     );
 }
 
-// Horizontal layout for md:+ viewports. Icons arranged left-to-right with
-// a single connector running behind them. Each column stacks icon → time →
-// name → optional subtitle/badge. Designed to accommodate 4–7 phases on
-// typical tablet/desktop widths without horizontal scroll.
+// Horizontal layout for md:+ viewports. Stacked per-column as:
+//   icon chip → bold time → phase label → optional subtitle pill / badge
+// Connector is 2px brand-tinted, sits at icon center between columns.
+// Sub-detail that expresses a duration ("44 min", "7 min walk") gets a
+// pill treatment so it reads as a labeled leg of the journey rather than
+// a loose caption. Non-duration subtitles (addresses, bag counts) render
+// as plain tertiary text.
 function HorizontalTimelineRow({ row, isFirst, isLast }) {
-    const { Icon, name, subtitle, time, badge } = row;
+    const { Icon, name, subtitle, subtitleTone, subtitleIsDuration, time, badge, iconTone } = row;
+    const chip = iconChipClasses(iconTone, isLast);
+    const subtitlePillBase = 'inline-flex items-center px-c-3 py-c-1 rounded-c-pill bg-c-ground-elevated border border-c-brand-primary/30 c-type-caption font-medium';
     return (
-        <div className="relative flex-1 min-w-0 flex flex-col items-center px-c-2 py-c-4">
-            {/* Connector to the next phase */}
+        <div className="relative flex-1 min-w-0 flex flex-col items-center px-c-2 py-c-5">
+            {/* Connector to the next phase — 2px brand tint, from this icon's
+               right edge to the next icon's left edge. */}
             {!isLast && (
                 <span
                     aria-hidden="true"
-                    className="absolute h-px bg-c-border-hairline"
-                    style={{ top: '32px', left: 'calc(50% + 20px)', right: 'calc(-50% + 20px)' }}
+                    className="absolute bg-c-brand-primary/20"
+                    style={{ top: '40px', height: '2px', left: 'calc(50% + 20px)', right: 'calc(-50% + 20px)' }}
                 />
             )}
             <span
                 className={cn(
-                    'relative z-10 w-8 h-8 rounded-c-pill flex items-center justify-center',
-                    isLast ? 'bg-c-confidence-surface' : 'bg-c-brand-primary-surface'
+                    'relative z-10 w-10 h-10 rounded-c-pill flex items-center justify-center',
+                    chip.bg
                 )}
             >
                 <Icon
-                    size={16}
+                    size={18}
                     weight={isFirst || isLast ? 'fill' : 'regular'}
-                    className={isLast ? 'text-c-confidence' : 'text-c-brand-primary'}
+                    className={chip.text}
                 />
             </span>
-            <p className="mt-c-2 c-type-footnote font-semibold text-c-text-primary tabular-nums">
+            <p className="mt-c-3 c-type-headline text-c-text-primary tabular-nums">
                 {time}
             </p>
-            <p className="c-type-caption text-c-text-secondary text-center leading-tight mt-c-1 line-clamp-2">
+            <p className="c-type-footnote text-c-text-primary text-center leading-tight mt-c-1 line-clamp-2">
                 {name}
             </p>
-            {subtitle && (
-                <p className="c-type-caption text-c-text-tertiary text-center leading-tight mt-c-1 line-clamp-1">
+            {subtitle && subtitleIsDuration && (
+                <span className={cn(subtitlePillBase, subtitleToneClasses(subtitleTone), 'mt-c-2 whitespace-nowrap')}>
+                    {subtitle}
+                </span>
+            )}
+            {subtitle && !subtitleIsDuration && (
+                <p className={cn('c-type-caption text-center leading-tight mt-c-1 line-clamp-1', subtitleToneClasses(subtitleTone))}>
                     {subtitle}
                 </p>
             )}
             {badge && (
-                <span className="mt-c-1 inline-flex items-center px-c-1 rounded-c-xs bg-c-confidence-surface text-c-confidence c-type-caption font-semibold">
+                <span className="mt-c-1 inline-flex items-center px-c-2 rounded-c-xs bg-c-confidence-surface text-c-confidence c-type-caption font-semibold">
                     {badge}
                 </span>
             )}
