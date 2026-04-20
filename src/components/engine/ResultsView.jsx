@@ -404,7 +404,7 @@ export default function ResultsView({
     ];
 
     return (
-        <div className="w-full max-w-[1024px] mx-auto -mx-4 pb-28">
+        <div className="w-full max-w-[896px] mx-auto -mx-4 pb-28">
             <TopBar title="Results" onBack={onEditSetup} />
 
             {selectedFlight && subtitleParts.length > 0 && (
@@ -455,79 +455,78 @@ export default function ResultsView({
                             )}
 
                             {/* Desktop / tablet — horizontal timeline.
-                               Uses a flex-segments approach: each phase
-                               column renders its own left + right connector
-                               half. Adjacent halves abut at the column
-                               boundary to form one continuous line — no
-                               parent-level absolute maths required, which
-                               has failed three times with percentage-based
-                               positioning. Pills ride the boundary at z-20
-                               with their own opaque tile so the line appears
-                               to pass behind them. */}
+                               IMPORTANT: connector line uses inline style
+                               with a hardcoded rgb + explicit positioning
+                               (NOT a Tailwind token class). Four previous
+                               attempts using bg-c-brand-primary/30 rendered
+                               nothing — the combination of a CSS-var base
+                               colour with Tailwind's /opacity modifier
+                               apparently fails silently in this tree. Using
+                               raw rgb() means the browser can't refuse it.
+                               Change the colour token only after the line
+                               is visibly present. */}
                             <div className="hidden md:block">
-                                <div className="flex items-start">
-                                    {timelineSteps.map((step, idx) => {
-                                        const isFirst = idx === 0;
-                                        const isLast = idx === timelineSteps.length - 1;
-                                        const outgoingLabel = !isLast ? connectorLabel(idx) : null;
-                                        return (
-                                            <div key={idx} className="relative flex-1 min-w-0 flex flex-col items-center text-center">
-                                                {/* Left half of the connector (from column's
-                                                   left edge to the icon centre). Skip on the
-                                                   first column. Chip is h-12 = 48px, top 0, so
-                                                   icon centre y = 24px. Line top = 23px places
-                                                   the 2px line centred on the icon. */}
-                                                {!isFirst && (
-                                                    <div
-                                                        aria-hidden="true"
-                                                        className="absolute z-0 h-0.5 bg-c-brand-primary/30"
-                                                        style={{ top: '23px', left: '0', right: '50%' }}
-                                                    />
-                                                )}
-                                                {/* Right half of the connector (icon centre
-                                                   to column's right edge). Skip on the last. */}
-                                                {!isLast && (
-                                                    <div
-                                                        aria-hidden="true"
-                                                        className="absolute z-0 h-0.5 bg-c-brand-primary/30"
-                                                        style={{ top: '23px', left: '50%', right: '0' }}
-                                                    />
-                                                )}
-                                                {/* Icon chip — sits above the line via z-10
-                                                   and an opaque tinted background. */}
-                                                <div className={cn('relative z-10 w-12 h-12 rounded-c-md flex items-center justify-center mb-c-3 shadow-c-sm', step.bg)}>
-                                                    <step.Icon size={22} weight="regular" className={step.iconColor} />
-                                                </div>
-                                                {/* Pill floating on the outgoing connector —
-                                                   centred horizontally on the column's right
-                                                   boundary, vertically on the icon-centre line. */}
-                                                {outgoingLabel && (
-                                                    <div
-                                                        className="absolute z-20"
-                                                        style={{ top: '24px', left: '100%', transform: 'translate(-50%, -50%)' }}
-                                                    >
-                                                        <div className="bg-c-ground-elevated px-c-3 py-0.5 rounded-c-sm border border-c-border-hairline shadow-c-sm flex items-center justify-center">
-                                                            <span className="font-bold text-c-brand-primary whitespace-nowrap leading-none" style={{ fontSize: '10px' }}>
-                                                                {outgoingLabel}
-                                                            </span>
-                                                        </div>
+                                <div style={{ position: 'relative' }}>
+                                    {/* CONNECTOR LINE — guaranteed render */}
+                                    {timelineSteps.length > 1 && (
+                                        <div
+                                            aria-hidden="true"
+                                            style={{
+                                                position: 'absolute',
+                                                top: '23px',
+                                                left: `${100 / (2 * timelineSteps.length)}%`,
+                                                right: `${100 / (2 * timelineSteps.length)}%`,
+                                                height: '2px',
+                                                backgroundColor: 'rgb(79 63 211 / 0.3)',
+                                                zIndex: 0,
+                                                pointerEvents: 'none',
+                                            }}
+                                        />
+                                    )}
+                                    <div style={{ position: 'relative', zIndex: 1 }} className="flex items-start">
+                                        {timelineSteps.map((step, idx) => {
+                                            const isLast = idx === timelineSteps.length - 1;
+                                            const outgoingLabel = !isLast ? connectorLabel(idx) : null;
+                                            return (
+                                                <div key={idx} className="relative flex-1 min-w-0 flex flex-col items-center text-center">
+                                                    {/* Icon chip. Opaque tinted bg covers the
+                                                       line where it passes behind the chip. */}
+                                                    <div className={cn('relative z-10 w-12 h-12 rounded-c-md flex items-center justify-center mb-c-3 shadow-c-sm', step.bg)}>
+                                                        <step.Icon size={22} weight="regular" className={step.iconColor} />
                                                     </div>
-                                                )}
-                                                <p className="c-type-body font-bold text-c-text-primary tabular-nums">{step.time}</p>
-                                                <p className="c-type-footnote text-c-text-secondary font-medium mt-c-1">{step.shortLabel}</p>
-                                                {step.subtitle && (
-                                                    <p className="c-type-caption text-c-brand-primary font-medium mt-c-1 max-w-[140px] leading-tight">
-                                                        {step.subtitle}
-                                                    </p>
-                                                )}
-                                                {step.securityBadge && (
-                                                    <span className="c-type-caption font-medium text-c-confidence bg-c-confidence-surface px-c-2 py-0.5 rounded-c-xs mt-c-1 inline-block">
-                                                        {step.securityBadge}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        );
-                                    })}
+                                                    {/* Transit pill rides the column's right
+                                                       boundary at the icon centre line. Opaque
+                                                       bg-c-ground-elevated tile covers the
+                                                       line beneath, giving the illusion that
+                                                       the line passes behind the pill. */}
+                                                    {outgoingLabel && (
+                                                        <div
+                                                            className="absolute z-20"
+                                                            style={{ top: '24px', left: '100%', transform: 'translate(-50%, -50%)' }}
+                                                        >
+                                                            <div className="bg-c-ground-elevated px-c-3 py-c-1 rounded-c-sm border border-c-border-hairline shadow-c-sm flex items-center justify-center">
+                                                                <span className="font-bold text-c-brand-primary whitespace-nowrap leading-none" style={{ fontSize: '12px' }}>
+                                                                    {outgoingLabel}
+                                                                </span>
+                                                            </div>
+                                                        </div>
+                                                    )}
+                                                    <p className="c-type-body font-bold text-c-text-primary tabular-nums">{step.time}</p>
+                                                    <p className="c-type-footnote text-c-text-secondary font-medium mt-c-1">{step.shortLabel}</p>
+                                                    {step.subtitle && (
+                                                        <p className="c-type-caption text-c-brand-primary font-medium mt-c-1 max-w-[140px] leading-tight">
+                                                            {step.subtitle}
+                                                        </p>
+                                                    )}
+                                                    {step.securityBadge && (
+                                                        <span className="c-type-caption font-medium text-c-confidence bg-c-confidence-surface px-c-2 py-0.5 rounded-c-xs mt-c-1 inline-block">
+                                                            {step.securityBadge}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            );
+                                        })}
+                                    </div>
                                 </div>
                             </div>
 
@@ -706,7 +705,7 @@ function HeroCard({
                right via ml-auto. Single row — no divider, no "Open in"
                label needed because the icons are self-explanatory in
                context. */}
-            <div className="flex flex-wrap items-center gap-c-2 mt-c-5">
+            <div className="flex flex-wrap items-end gap-c-2 mt-c-5">
                 {boardingTime && <HeroPill icon={Clock}>Boarding {boardingTime}</HeroPill>}
                 {bufferMinutes > 0 && (
                     <HeroPill icon={Timer}>+{formatDuration(bufferMinutes)} buffer</HeroPill>
@@ -748,6 +747,18 @@ function LauncherIcons({ transport, recommendation, selectedFlight }) {
         transit: isTransit,
     };
 
+    // Context label above the chip row disambiguates what tapping does —
+    // "Book your ride" for rideshare, "Navigate to airport" for driving,
+    // "Get directions" for transit. Small caps treatment on the
+    // brand-tinted hero background, right-aligned to match the chips.
+    const contextLabel = isRideshare
+        ? 'Book your ride'
+        : isDriving
+            ? 'Navigate to airport'
+            : isTransit
+                ? 'Get directions'
+                : null;
+
     // Rideshare chips are brand-coloured containers (Uber black, Lyft pink)
     // with a white wordmark filling the chip — same silhouette you'd see
     // as an iOS home-screen app icon. Drive / transit chips stay as white
@@ -768,21 +779,31 @@ function LauncherIcons({ transport, recommendation, selectedFlight }) {
         ].filter(Boolean);
         if (rideshareChips.length === 0) return null;
         return (
-            <div className="ml-auto flex items-center gap-c-2">
-                {rideshareChips.map(({ href, Icon, label, bg, iconColor }) => (
-                    <a
-                        key={label}
-                        href={href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label={label}
-                        title={label}
-                        className="inline-flex items-center justify-center h-11 px-c-4 rounded-c-md shadow-c-sm hover:opacity-90 active:scale-95 transition-all"
-                        style={{ backgroundColor: bg }}
+            <div className="ml-auto flex flex-col items-end gap-c-1">
+                {contextLabel && (
+                    <span
+                        className="text-c-text-secondary font-semibold uppercase"
+                        style={{ fontSize: '11px', letterSpacing: '0.05em' }}
                     >
-                        <Icon size={30} color={iconColor} />
-                    </a>
-                ))}
+                        {contextLabel}
+                    </span>
+                )}
+                <div className="flex items-center gap-c-2">
+                    {rideshareChips.map(({ href, Icon, label, bg, iconColor }) => (
+                        <a
+                            key={label}
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={label}
+                            title={label}
+                            className="inline-flex items-center justify-center h-11 px-c-4 rounded-c-md shadow-c-sm hover:opacity-90 active:scale-95 transition-all"
+                            style={{ backgroundColor: bg }}
+                        >
+                            <Icon size={30} color={iconColor} />
+                        </a>
+                    ))}
+                </div>
             </div>
         );
     }
@@ -805,21 +826,31 @@ function LauncherIcons({ transport, recommendation, selectedFlight }) {
     if (launchers.length === 0) return null;
 
     return (
-        <div className="ml-auto flex items-center gap-c-2">
-            {launchers.map(({ href, Icon, label, short }) => (
-                <a
-                    key={label}
-                    href={href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    aria-label={label}
-                    title={label}
-                    className="inline-flex flex-col items-center justify-center h-11 px-c-3 rounded-c-md bg-c-ground-elevated border border-c-border-hairline shadow-c-sm hover:bg-c-ground-sunken active:scale-95 transition-all"
+        <div className="ml-auto flex flex-col items-end gap-c-1">
+            {contextLabel && (
+                <span
+                    className="text-c-text-secondary font-semibold uppercase"
+                    style={{ fontSize: '11px', letterSpacing: '0.05em' }}
                 >
-                    <Icon size={20} />
-                    <span className="mt-0.5 text-c-text-secondary font-bold uppercase tracking-wider" style={{ fontSize: '9px', lineHeight: 1 }}>{short}</span>
-                </a>
-            ))}
+                    {contextLabel}
+                </span>
+            )}
+            <div className="flex items-center gap-c-2">
+                {launchers.map(({ href, Icon, label, short }) => (
+                    <a
+                        key={label}
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={label}
+                        title={label}
+                        className="inline-flex flex-col items-center justify-center h-11 px-c-3 rounded-c-md bg-c-ground-elevated border border-c-border-hairline shadow-c-sm hover:bg-c-ground-sunken active:scale-95 transition-all"
+                    >
+                        <Icon size={20} />
+                        <span className="mt-0.5 text-c-text-secondary font-bold uppercase tracking-wider" style={{ fontSize: '9px', lineHeight: 1 }}>{short}</span>
+                    </a>
+                ))}
+            </div>
         </div>
     );
 }
