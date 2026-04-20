@@ -2,8 +2,8 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/lib/AuthContext';
 import {
     House, Car, Train, Bus, MapPin, SuitcaseRolling, Shield,
-    Footprints, AirplaneTakeoff, Bell, Clock, Timer, Rocket,
-    WarningCircle, ArrowSquareOut, CheckCircle,
+    Footprints, Clock, Timer, Rocket,
+    WarningCircle, ArrowSquareOut, CheckCircle, NavigationArrow,
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import TopBar from '@/components/design-system/TopBar';
@@ -13,8 +13,27 @@ import {
     loadRideshareProvider, saveRideshareProvider,
 } from '@/utils/rideshareLinks';
 import { formatLocalTime, formatDuration } from '@/utils/format';
+import { isNative } from '@/utils/platform';
+import airports from '@/data/airports.json';
 
-/* ── Time helpers ───────────────────────────────────────────────────── */
+/* ── Airport lookup (IATA → city name). Built once at module load. ──── */
+const AIRPORT_BY_IATA = (() => {
+    const m = new Map();
+    for (const a of airports) m.set(a.iata, a);
+    return m;
+})();
+
+function cityForIata(iata) {
+    if (!iata) return null;
+    return AIRPORT_BY_IATA.get(iata)?.city || null;
+}
+
+function airportNameForIata(iata) {
+    if (!iata) return null;
+    return AIRPORT_BY_IATA.get(iata)?.name || null;
+}
+
+/* ── Time / date helpers ────────────────────────────────────────────── */
 function formatUTCToLocal(utcStr) {
     if (!utcStr) return '';
     const d = new Date(utcStr);
@@ -32,8 +51,6 @@ function addMinutesUTC(utcStr, minutes) {
 
 function boardingTimeFrom(localDepartureStr) {
     if (!localDepartureStr) return '';
-    // Try ISO-with-tz first; fall back to naive local string parsing so
-    // we handle both "2026-04-19T14:30:00-07:00" and "2026-04-19T14:30:00".
     let d;
     if (/[Zz]|[+-]\d{2}:\d{2}$/.test(localDepartureStr)) {
         d = new Date(localDepartureStr);
@@ -46,11 +63,23 @@ function boardingTimeFrom(localDepartureStr) {
     return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
+function formatTripDate(localIsoStr) {
+    if (!localIsoStr) return '';
+    const m = localIsoStr.match(/^(\d{4})-(\d{2})-(\d{2})/);
+    if (!m) return '';
+    const d = new Date(+m[1], +m[2] - 1, +m[3]);
+    return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+}
+
 function shortAddress(full) {
     if (!full) return '';
-    // Keep the street part; drop trailing ", City, State, ZIP, USA" noise.
     const parts = full.split(',').map((s) => s.trim());
     return parts.length > 1 ? parts[0] : full;
+}
+
+function firstName(displayName) {
+    if (!displayName) return null;
+    return displayName.trim().split(/\s+/)[0] || null;
 }
 
 /* ── Segment → phase row mapping ────────────────────────────────────── */
@@ -76,7 +105,6 @@ function parseAdvice(advice) {
 }
 
 function tsaSecurityLabel(adv) {
-    // advice for tsa ends with the security suffix (none|precheck|clear|clear_precheck|priority_lane)
     if (!adv) return null;
     const tail = adv.split('|').pop()?.trim();
     if (tail === 'precheck') return 'PreCheck';
@@ -86,10 +114,6 @@ function tsaSecurityLabel(adv) {
     return null;
 }
 
-/* Build the timeline rows from the backend recommendation. Each row is
-   { icon, name, subtitle, time, badge? } and is derived off the cumulative
-   duration from leave_home_at. Parking rolls into the At-airport subtitle
-   for drivers; comfort/gate buffer is surfaced in the hero pills row. */
 function buildTimelineRows(recommendation, selectedFlight, transport, homeAddress) {
     const segments = recommendation?.segments || [];
     const leaveAt = recommendation?.leave_home_at;
@@ -100,8 +124,6 @@ function buildTimelineRows(recommendation, selectedFlight, transport, homeAddres
     const TransportIcon = pickTransportIcon(transport);
 
     const parkingSeg = segments.find((s) => s.id === 'parking');
-    // Segments we actually render (in backend order), excluding buffer
-    // rows (surfaced elsewhere) and parking (subsumed into at_airport).
     const displaySegs = segments.filter(
         (s) => s.id !== 'comfort_buffer' && s.id !== 'gate_buffer' && s.id !== 'parking'
     );
@@ -119,18 +141,11 @@ function buildTimelineRows(recommendation, selectedFlight, transport, homeAddres
     let cumulative = 0;
     for (let i = 0; i < displaySegs.length; i++) {
         const seg = displaySegs[i];
-        // For the time column we want the arrival-at-next moment, i.e.
-        // leave_home_at + (cumulative including this segment).
         cumulative += seg.duration_minutes || 0;
 
-        // parking belongs to the at_airport row for drivers; so when we
-        // hit at_airport we also roll in the parking duration into the
-        // running cumulative AFTER computing the "arrival at airport"
-        // time (which should be BEFORE parking).
         let displayCumulative = cumulative;
         if (seg.id === 'at_airport' && parkingSeg?.duration_minutes) {
             displayCumulative = cumulative - parkingSeg.duration_minutes;
-            cumulative += 0; // parking time is already not in displaySegs; don't double-add
         }
 
         const adv = parseAdvice(seg.advice);
@@ -157,9 +172,6 @@ function buildTimelineRows(recommendation, selectedFlight, transport, homeAddres
                 subtitle: sub,
                 time: baseTime,
             });
-            // After rendering at_airport, add parking duration to cumulative
-            // so downstream rows (bag_drop, tsa, walk_to_gate) compute
-            // relative to leave+transport+parking, not leave+transport.
             if (parkingSeg?.duration_minutes) cumulative += parkingSeg.duration_minutes;
             continue;
         }
@@ -202,7 +214,6 @@ function buildTimelineRows(recommendation, selectedFlight, transport, homeAddres
             });
             continue;
         }
-        // Fallback for unknown segment ids
         rows.push({
             key: `seg-${i}`,
             Icon: MapPin,
@@ -214,10 +225,32 @@ function buildTimelineRows(recommendation, selectedFlight, transport, homeAddres
     return rows;
 }
 
+/* ── Navigation deep links (drivers + transit) ──────────────────────── */
+function buildAppleMapsUrl({ termLat, termLng, homeLat, homeLng, transit }) {
+    const dirflg = transit ? 'r' : 'd';
+    const saddr = homeLat != null && homeLng != null ? `saddr=${homeLat},${homeLng}&` : '';
+    if (isNative()) return `maps://?${saddr}daddr=${termLat},${termLng}&dirflg=${dirflg}`;
+    return `https://maps.apple.com/?${saddr}daddr=${termLat},${termLng}&dirflg=${dirflg}`;
+}
+
+function buildGoogleMapsUrl({ termLat, termLng, homeLat, homeLng, transit }) {
+    const travelmode = transit ? 'transit' : 'driving';
+    if (isNative()) {
+        return `comgooglemaps://?daddr=${termLat},${termLng}&directionsmode=${travelmode}`;
+    }
+    const origin = homeLat != null && homeLng != null ? `&origin=${homeLat},${homeLng}` : '';
+    return `https://www.google.com/maps/dir/?api=1${origin}&destination=${termLat},${termLng}&travelmode=${travelmode}`;
+}
+
+function buildWazeUrl({ termLat, termLng }) {
+    if (isNative()) return `waze://?ll=${termLat},${termLng}&navigate=yes`;
+    return `https://www.waze.com/ul?ll=${termLat},${termLng}&navigate=yes`;
+}
+
 /* ── Main Component ─────────────────────────────────────────────────── */
 export default function ResultsView({
     recommendation, selectedFlight, transport,
-    isAuthenticated,
+    isAuthenticated, display_name,
     apiError, setApiError,
     onEditSetup, onReady,
     onSignIn,
@@ -247,12 +280,27 @@ export default function ResultsView({
     const boardingTime = selectedFlight?.departure_time ? boardingTimeFrom(selectedFlight.departure_time) : '';
     const departureTime = selectedFlight?.departure_time ? formatLocalTime(selectedFlight.departure_time) : '';
 
-    const isRideshareMode = (transport || '').toLowerCase() === 'rideshare';
+    // City + date enrichment for the TopBar subtitle strip.
+    const originCity = cityForIata(selectedFlight?.origin_code);
+    const destCity = cityForIata(selectedFlight?.destination_code);
+    const tripDate = formatTripDate(selectedFlight?.departure_time);
 
-    // CTA handler — keeps the existing Engine contract (onSignIn for
-    // unauth, onTrack for tracked-trip creation, onUpdateTrip for edit
-    // mode). The submitting guard stops rapid double-taps while the
-    // network request is in flight.
+    const subtitleParts = [
+        tripDate,
+        selectedFlight?.flight_number,
+        originCity && destCity
+            ? `${originCity} → ${destCity}`
+            : (selectedFlight?.origin_code && selectedFlight?.destination_code)
+                ? `${selectedFlight.origin_code} → ${selectedFlight.destination_code}`
+                : null,
+        departureTime,
+    ].filter(Boolean);
+
+    const transportLc = (transport || '').toLowerCase();
+    const isRideshareMode = transportLc === 'rideshare';
+    const isDriving = transportLc === 'driving';
+    const isTransit = transportLc === 'train' || transportLc === 'bus';
+
     const handlePrimary = async () => {
         if (submitting) return;
         setSubmitting(true);
@@ -283,15 +331,16 @@ export default function ResultsView({
         ? !!isUpdating
         : isTracked || submitting || !hasRecommendation;
 
+    const signedInName = firstName(display_name);
+
     return (
         <div className="w-full max-w-[860px] mx-auto -mx-4">
             <TopBar title="Results" onBack={onEditSetup} />
 
-            {/* Flight identifier strip (matches Setup's subtitle pattern) */}
-            {selectedFlight && (
+            {selectedFlight && subtitleParts.length > 0 && (
                 <div className="border-b border-c-border-hairline bg-c-ground px-c-4 py-c-2">
                     <p className="c-type-footnote text-c-text-secondary text-center">
-                        {selectedFlight.flight_number} · {selectedFlight.origin_code} → {selectedFlight.destination_code} · {departureTime || ''}
+                        {subtitleParts.join(' · ')}
                     </p>
                 </div>
             )}
@@ -305,9 +354,7 @@ export default function ResultsView({
                     <ErrorBanner message={editError} />
                 )}
 
-                {!hasRecommendation && (
-                    <HeroSkeleton />
-                )}
+                {!hasRecommendation && <HeroSkeleton />}
 
                 {hasRecommendation && (
                     <>
@@ -316,6 +363,8 @@ export default function ResultsView({
                             selectedFlight={selectedFlight}
                             boardingTime={boardingTime}
                             bufferMinutes={bufferMinutes}
+                            originCity={originCity}
+                            destCity={destCity}
                         />
 
                         {/* ── Journey timeline ─────────────────────────── */}
@@ -360,12 +409,21 @@ export default function ResultsView({
                             />
                         </section>
 
-                        {/* ── Rideshare card (conditional, provider pick here per v2.4) ── */}
+                        {/* ── Rideshare card (rideshare mode) ──────────── */}
                         {isRideshareMode && (
                             <RideshareCard
                                 recommendation={recommendation}
                                 selectedFlight={selectedFlight}
                                 leaveAt={leaveAt}
+                            />
+                        )}
+
+                        {/* ── Navigation card (drivers + transit) ──────── */}
+                        {(isDriving || isTransit) && (
+                            <NavigationCard
+                                recommendation={recommendation}
+                                selectedFlight={selectedFlight}
+                                transit={isTransit}
                             />
                         )}
 
@@ -385,15 +443,18 @@ export default function ResultsView({
                                     Sign in to save this trip and get live updates.
                                 </p>
                             )}
+                            {!editMode && isAuthenticated && !isTracked && (
+                                <p className="c-type-footnote text-c-text-tertiary text-center mt-c-3 flex items-center justify-center gap-c-1">
+                                    <CheckCircle size={12} weight="fill" className="text-c-confidence" />
+                                    <span>
+                                        {signedInName
+                                            ? `Signed in as ${signedInName} — your trip will save automatically.`
+                                            : 'Signed in — your trip will save automatically.'}
+                                    </span>
+                                </p>
+                            )}
                         </div>
 
-                        {/* Pro nudge for non-Pro authenticated users —
-                            ActionCards previously surfaced Pro-only deep
-                            links in the old Results; this screen keeps
-                            the rideshare card live for everyone, but
-                            mentions the Pro navigation perk for drivers /
-                            transit users who no longer see a rideshare
-                            card but would still benefit from turn-by-turn. */}
                         {isAuthenticated && !isPro && !isRideshareMode && !editMode && (
                             <div className="rounded-c-md bg-c-brand-primary-surface border border-c-brand-primary/20 p-c-4">
                                 <p className="c-type-footnote text-c-text-primary">
@@ -409,7 +470,7 @@ export default function ResultsView({
 }
 
 /* ── Hero card (brief §4.5) ──────────────────────────────────────────── */
-function HeroCard({ recommendation, selectedFlight, boardingTime, bufferMinutes }) {
+function HeroCard({ recommendation, selectedFlight, boardingTime, bufferMinutes, originCity, destCity }) {
     const leaveTime = formatUTCToLocal(recommendation?.leave_home_at);
     const status = selectedFlight?.canceled
         ? 'Cancelled'
@@ -430,12 +491,14 @@ function HeroCard({ recommendation, selectedFlight, boardingTime, bufferMinutes 
             </div>
             <p className="c-type-hero text-c-brand-primary tracking-tight">{leaveTime}</p>
 
-            {/* Flight identifier cluster */}
+            {/* Flight identifier cluster — now with city names */}
             <div className="flex flex-wrap items-center gap-c-2 mt-c-4">
                 <IdBadge>{selectedFlight?.flight_number}</IdBadge>
-                {selectedFlight?.origin_code && (
+                {selectedFlight?.origin_code && selectedFlight?.destination_code && (
                     <span className="c-type-footnote text-c-text-secondary">
-                        {selectedFlight.origin_code} → {selectedFlight.destination_code}
+                        {selectedFlight.origin_code}{originCity ? ` · ${originCity}` : ''}
+                        {' → '}
+                        {selectedFlight.destination_code}{destCity ? ` · ${destCity}` : ''}
                     </span>
                 )}
                 {selectedFlight?.departure_terminal && (
@@ -449,9 +512,8 @@ function HeroCard({ recommendation, selectedFlight, boardingTime, bufferMinutes 
                 </span>
             </div>
 
-            {/* Pills row */}
+            {/* Pills row — "Track & get alerts" cut; only boarding + buffer remain */}
             <div className="flex flex-wrap gap-c-2 mt-c-6">
-                <HeroPill icon={Bell}>Track &amp; get alerts</HeroPill>
                 {boardingTime && <HeroPill icon={Clock}>Boarding {boardingTime}</HeroPill>}
                 {bufferMinutes > 0 && (
                     <HeroPill icon={Timer}>+{formatDuration(bufferMinutes)} buffer</HeroPill>
@@ -489,14 +551,11 @@ function TimelineRow({ row, isFirst, isLast }) {
     const { Icon, name, subtitle, time, badge } = row;
     return (
         <div className="relative flex items-start gap-c-3 px-c-4 py-c-3">
-            {/* Connector line, sitting behind the icon column */}
             {!isLast && (
                 <span
                     aria-hidden="true"
-                    className="absolute left-[calc(var(--c-space-4)+15px)] top-[calc(var(--c-space-3)+32px)] bottom-0 w-px bg-c-border-hairline"
-                    style={{ /* fallback if the CSS var isn't picked up by the plugin */
-                        left: `calc(16px + 15px)`, top: `calc(12px + 32px)`,
-                    }}
+                    className="absolute w-px bg-c-border-hairline"
+                    style={{ left: '32px', top: '44px', bottom: '0' }}
                 />
             )}
             <span
@@ -556,7 +615,30 @@ function InfoCard({ eyebrow, value, subtitle, urgency, urgencyNote }) {
     );
 }
 
-/* ── Rideshare card with Uber/Lyft provider toggle ──────────────────── */
+/* ── Shared ghost/provider button used by rideshare + navigation cards ─ */
+function PickerButton({ active, children, href, onClick, type = 'button' }) {
+    const cls = cn(
+        'inline-flex items-center justify-center gap-c-2 h-11 px-c-4 rounded-c-md c-type-footnote font-semibold transition-colors border',
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-c-brand-primary focus-visible:ring-offset-2',
+        active
+            ? 'bg-c-brand-primary-surface text-c-brand-primary border-c-brand-primary'
+            : 'bg-transparent text-c-text-primary border-c-border-hairline hover:bg-c-ground-sunken'
+    );
+    if (href) {
+        return (
+            <a href={href} target="_blank" rel="noopener noreferrer" onClick={onClick} className={cls}>
+                {children}
+            </a>
+        );
+    }
+    return (
+        <button type={type} onClick={onClick} aria-pressed={active} className={cls}>
+            {children}
+        </button>
+    );
+}
+
+/* ── Rideshare card — Concourse-native reskin (Fix 5) ─────────────── */
 function RideshareCard({ recommendation, selectedFlight, leaveAt }) {
     const [provider, setProvider] = useState(() => loadRideshareProvider());
     const [openedOnce, setOpenedOnce] = useState(false);
@@ -579,61 +661,55 @@ function RideshareCard({ recommendation, selectedFlight, leaveAt }) {
         saveRideshareProvider(p);
     };
 
+    const leaveTimeStr = formatUTCToLocal(leaveAt);
     const linkHref =
         provider === 'uber' ? buildUberUrl(coords)
         : provider === 'lyft' ? buildLyftUrl(coords)
         : null;
 
-    const leaveTimeStr = formatUTCToLocal(leaveAt);
-
     return (
         <section>
-            <div className="rounded-c-lg bg-c-text-primary p-c-6 text-c-text-inverse">
-                <p className="c-type-caption text-white/60 mb-c-3">
-                    {provider ? `BOOK YOUR ${provider === 'uber' ? 'UBER' : 'LYFT'}` : 'PICK YOUR RIDE'}
-                </p>
+            <div className="rounded-c-md bg-c-ground-elevated border border-c-border-hairline p-c-5">
+                <p className="c-type-caption text-c-text-secondary mb-c-3">Book your ride</p>
 
-                {/* Provider toggle */}
-                <div className="grid grid-cols-2 gap-c-2 mb-c-4">
-                    <ProviderButton
-                        active={provider === 'uber'}
-                        onClick={() => pickProvider('uber')}
-                    >
+                <div className="grid grid-cols-2 gap-c-2">
+                    <PickerButton active={provider === 'uber'} onClick={() => pickProvider('uber')}>
                         Uber
-                    </ProviderButton>
-                    <ProviderButton
-                        active={provider === 'lyft'}
-                        onClick={() => pickProvider('lyft')}
-                    >
+                    </PickerButton>
+                    <PickerButton active={provider === 'lyft'} onClick={() => pickProvider('lyft')}>
                         Lyft
-                    </ProviderButton>
+                    </PickerButton>
                 </div>
 
                 {provider && (
-                    <div className="flex items-center justify-between gap-c-3 pt-c-3 border-t border-white/10">
+                    <div className="flex items-center justify-between gap-c-3 pt-c-4 mt-c-4 border-t border-c-border-hairline">
                         <div className="min-w-0">
-                            <p className="c-type-body font-semibold text-c-text-inverse truncate">
-                                Schedule pickup
-                            </p>
-                            {leaveTimeStr && (
-                                <p className="c-type-footnote text-white/70">for {leaveTimeStr}</p>
+                            {canDeepLink ? (
+                                <>
+                                    <p className="c-type-body font-semibold text-c-text-primary">
+                                        Schedule pickup
+                                    </p>
+                                    {leaveTimeStr && (
+                                        <p className="c-type-footnote text-c-text-secondary">for {leaveTimeStr}</p>
+                                    )}
+                                </>
+                            ) : (
+                                <p className="c-type-footnote text-c-text-secondary">
+                                    Coords unavailable — open the {provider === 'uber' ? 'Uber' : 'Lyft'} app manually.
+                                </p>
                             )}
                         </div>
-                        {canDeepLink ? (
+                        {canDeepLink && (
                             <a
                                 href={linkHref}
                                 target="_blank"
                                 rel="noopener noreferrer"
                                 onClick={() => setOpenedOnce(true)}
-                                className="inline-flex items-center gap-c-1 px-c-4 h-10 rounded-c-pill bg-c-ground-elevated text-c-text-primary c-type-footnote font-semibold hover:bg-c-ground-sunken transition-colors shrink-0"
+                                className="inline-flex items-center gap-c-1 px-c-4 h-10 rounded-c-pill bg-c-brand-primary text-c-text-inverse c-type-footnote font-semibold hover:bg-c-brand-primary-hover transition-colors shrink-0"
                             >
                                 Open
                                 <ArrowSquareOut size={14} weight="bold" />
                             </a>
-                        ) : (
-                            <span className="c-type-footnote text-white/60 shrink-0">
-                                Coords unavailable
-                            </span>
                         )}
                     </div>
                 )}
@@ -648,22 +724,49 @@ function RideshareCard({ recommendation, selectedFlight, leaveAt }) {
     );
 }
 
-function ProviderButton({ active, onClick, children }) {
+/* ── Navigation card — drivers (Apple/Google/Waze) + transit (Google) ─ */
+function NavigationCard({ recommendation, selectedFlight, transit }) {
+    const termCoords = recommendation?.terminal_coordinates;
+    const homeCoords = recommendation?.home_coordinates;
+    if (!termCoords) return null;
+
+    const airportCode = selectedFlight?.origin_code || '';
+    const airportName = airportNameForIata(airportCode) || `${airportCode} Airport`;
+
+    const coords = {
+        termLat: termCoords.lat,
+        termLng: termCoords.lng,
+        homeLat: homeCoords?.lat,
+        homeLng: homeCoords?.lng,
+        transit,
+    };
+
     return (
-        <button
-            type="button"
-            onClick={onClick}
-            aria-pressed={active}
-            className={cn(
-                'h-12 rounded-c-md c-type-body font-semibold transition-colors border',
-                'focus:outline-none focus-visible:ring-2 focus-visible:ring-c-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-c-text-primary',
-                active
-                    ? 'bg-c-ground-elevated text-c-text-primary border-c-ground-elevated'
-                    : 'bg-transparent text-c-text-inverse border-white/20 hover:border-white/40'
-            )}
-        >
-            {children}
-        </button>
+        <section>
+            <div className="rounded-c-md bg-c-ground-elevated border border-c-border-hairline p-c-5">
+                <div className="flex items-center gap-c-2 mb-c-3">
+                    <NavigationArrow size={14} weight="fill" className="text-c-brand-primary" />
+                    <p className="c-type-caption text-c-text-secondary">
+                        Navigate to {airportCode} · {airportName}
+                    </p>
+                </div>
+                <div className={cn('grid gap-c-2', transit ? 'grid-cols-1' : 'grid-cols-3')}>
+                    {transit ? (
+                        // Transit users get Google Maps in transit mode — Apple Maps
+                        // transit coverage is spotty, Waze is driving-only.
+                        <PickerButton href={buildGoogleMapsUrl(coords)}>
+                            Google Maps · Transit
+                        </PickerButton>
+                    ) : (
+                        <>
+                            <PickerButton href={buildAppleMapsUrl(coords)}>Apple Maps</PickerButton>
+                            <PickerButton href={buildGoogleMapsUrl(coords)}>Google Maps</PickerButton>
+                            <PickerButton href={buildWazeUrl(coords)}>Waze</PickerButton>
+                        </>
+                    )}
+                </div>
+            </div>
+        </section>
     );
 }
 
@@ -688,7 +791,6 @@ function ErrorBanner({ message, onDismiss }) {
     );
 }
 
-/* ── Hero skeleton (recommendation still computing) ─────────────────── */
 function HeroSkeleton() {
     return (
         <div className="rounded-c-lg bg-c-brand-primary-surface p-c-8 animate-pulse">
@@ -698,7 +800,3 @@ function HeroSkeleton() {
         </div>
     );
 }
-
-/* Suppress AirplaneTakeoff lint — imported symbol reserved for future
-   phase rows (boarding/takeoff marker) when brief extends. */
-void AirplaneTakeoff;
