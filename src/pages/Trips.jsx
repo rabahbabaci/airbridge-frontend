@@ -1,11 +1,15 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plane, History, BarChart3, Plus, Clock } from 'lucide-react';
+import { Airplane, MagnifyingGlass, Gear } from '@phosphor-icons/react';
 import { createPageUrl } from '@/utils';
 import { useAuth } from '@/lib/AuthContext';
 import { API_BASE } from '@/config';
 import { formatCountdownText, formatLocalTime } from '@/utils/format';
 import PaywallModal from '@/components/PaywallModal';
+import TabBar from '@/components/design-system/TabBar';
+import AuthModal from '@/components/engine/AuthModal';
+import useAuthGatedTabs from '@/hooks/useAuthGatedTabs';
 
 const HISTORY_PAGE_SIZE = 10;
 const FREE_TIER_HISTORY_LIMIT = 5;
@@ -194,6 +198,28 @@ function HistoryTripRow({ trip, isFirst }) {
 export default function Trips() {
     const navigate = useNavigate();
     const { token, isAuthenticated, isPro } = useAuth();
+    const { handleTabChange, authOpen, setAuthOpen, handleAuthSuccess } = useAuthGatedTabs('trip');
+
+    const tabs = [
+        {
+            value: 'search',
+            label: 'Search',
+            icon: <MagnifyingGlass size={22} weight="regular" />,
+            iconActive: <MagnifyingGlass size={22} weight="bold" />,
+        },
+        {
+            value: 'trip',
+            label: 'My Trip',
+            icon: <Airplane size={22} weight="regular" />,
+            iconActive: <Airplane size={22} weight="bold" />,
+        },
+        {
+            value: 'settings',
+            label: 'Settings',
+            icon: <Gear size={22} weight="regular" />,
+            iconActive: <Gear size={22} weight="bold" />,
+        },
+    ];
 
     // Active tab state
     const [activeTrips, setActiveTrips] = useState([]);
@@ -353,30 +379,16 @@ export default function Trips() {
         : historyAggregate.total > FREE_TIER_HISTORY_LIMIT;
 
     return (
-        <div className="min-h-screen bg-secondary/50 font-sans antialiased">
-            {/* Header */}
+        <div className="min-h-screen bg-secondary/50 font-sans antialiased pb-28">
+            {/* Header — logomark only. Tab switching lives in the DS TabBar
+               at the bottom; empty state surfaces "+ New Trip" directly. */}
             <header className="bg-card border-b border-border sticky top-0 z-50">
-                <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
-                    <div className="flex items-center gap-4 sm:gap-6">
-                        <Link to={createPageUrl('Home')} className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                                <Plane className="w-4 h-4 text-primary-foreground" />
-                            </div>
-                            <span className="font-bold text-lg text-foreground">AirBridge</span>
-                        </Link>
-                        <nav className="hidden md:flex items-center gap-1 text-sm">
-                            <Link to="/search" className="text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg transition-colors">Search</Link>
-                            <span className="text-foreground font-semibold px-3 py-1.5 bg-secondary rounded-lg">My Trip</span>
-                            <Link to={createPageUrl('Settings')} className="text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg transition-colors">Settings</Link>
-                        </nav>
-                    </div>
-                    <Link
-                        to="/search"
-                        aria-label="New trip"
-                        title="New trip"
-                        className="w-11 h-11 rounded-lg bg-primary flex items-center justify-center text-primary-foreground hover:bg-primary/90 transition-colors"
-                    >
-                        <Plus className="w-4 h-4" />
+                <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3.5">
+                    <Link to="/search" className="inline-flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                            <Plane className="w-4 h-4 text-primary-foreground" />
+                        </div>
+                        <span className="font-bold text-lg text-foreground">AirBridge</span>
                     </Link>
                 </div>
             </header>
@@ -599,6 +611,14 @@ export default function Trips() {
                 open={paywallOpen}
                 onOpenChange={setPaywallOpen}
                 token={token}
+            />
+
+            <TabBar value="trip" onChange={handleTabChange} tabs={tabs} />
+
+            <AuthModal
+                open={authOpen}
+                onOpenChange={setAuthOpen}
+                onSuccess={handleAuthSuccess}
             />
         </div>
     );
