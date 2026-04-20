@@ -129,13 +129,15 @@ const AuthenticatedApp = () => {
       <Routes>
         <Route path="/" element={<RootRoute />} />
         {/* /search is the explicit app entrypoint — bypasses the viewport-
-            based Landing/Search swap at `/`. Landing CTAs target it. */}
+            based Landing/Search swap at `/`. Landing CTAs target it.
+            Does NOT go through TripAwareHome: `/search` is an explicit
+            user intent to search, so the active-trip takeover rule only
+            applies to the generic `/` entry. Users with an upcoming
+            tracked trip still see a banner in Search pointing to it. */}
         <Route path="/search" element={
-          <TripAwareHome>
-            <LayoutWrapper currentPageName={mainPageKey}>
-              <MainPage />
-            </LayoutWrapper>
-          </TripAwareHome>
+          <LayoutWrapper currentPageName={mainPageKey}>
+            <MainPage />
+          </LayoutWrapper>
         } />
         {Object.entries(Pages).map(([path, Page]) => (
           <Route
