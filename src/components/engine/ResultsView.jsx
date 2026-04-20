@@ -4,10 +4,14 @@ import {
     House, Car, Train, Bus, MapPin, SuitcaseRolling, Shield,
     Footprints, Clock, Timer, Rocket,
     WarningCircle, ArrowSquareOut, CheckCircle, NavigationArrow,
+    Airplane as AirplanePhosphor, MagnifyingGlass, Gear,
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import TopBar from '@/components/design-system/TopBar';
+import TabBar from '@/components/design-system/TabBar';
 import Button from '@/components/design-system/Button';
+import AuthModal from '@/components/engine/AuthModal';
+import useAuthGatedTabs from '@/hooks/useAuthGatedTabs';
 import {
     buildUberUrl, buildLyftUrl,
     loadRideshareProvider, saveRideshareProvider,
@@ -259,6 +263,7 @@ export default function ResultsView({
     editMode, editIsDraft, editError, isUpdating, onUpdateTrip,
 }) {
     const { isPro } = useAuth();
+    const { handleTabChange, authOpen, setAuthOpen, handleAuthSuccess } = useAuthGatedTabs();
     const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
@@ -333,8 +338,29 @@ export default function ResultsView({
 
     const signedInName = firstName(display_name);
 
+    const tabs = [
+        {
+            value: 'search',
+            label: 'Search',
+            icon: <MagnifyingGlass size={22} weight="regular" />,
+            iconActive: <MagnifyingGlass size={22} weight="bold" />,
+        },
+        {
+            value: 'trip',
+            label: 'My Trip',
+            icon: <AirplanePhosphor size={22} weight="regular" />,
+            iconActive: <AirplanePhosphor size={22} weight="bold" />,
+        },
+        {
+            value: 'settings',
+            label: 'Settings',
+            icon: <Gear size={22} weight="regular" />,
+            iconActive: <Gear size={22} weight="bold" />,
+        },
+    ];
+
     return (
-        <div className="w-full max-w-[860px] mx-auto -mx-4">
+        <div className="w-full max-w-[860px] mx-auto -mx-4 pb-28">
             <TopBar title="Results" onBack={onEditSetup} />
 
             {selectedFlight && subtitleParts.length > 0 && (
@@ -465,6 +491,14 @@ export default function ResultsView({
                     </>
                 )}
             </div>
+
+            <TabBar onChange={handleTabChange} tabs={tabs} />
+
+            <AuthModal
+                open={authOpen}
+                onOpenChange={setAuthOpen}
+                onSuccess={handleAuthSuccess}
+            />
         </div>
     );
 }
