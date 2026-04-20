@@ -5,7 +5,7 @@ import {
 } from '@/components/BrandIcons';
 import {
     House, Car, Train, Bus, MapPin, SuitcaseRolling, Shield,
-    Footprints, Clock, Timer, Rocket,
+    Clock, Timer, Rocket,
     WarningCircle, CheckCircle,
     Airplane as AirplanePhosphor, MagnifyingGlass, Gear,
 } from '@phosphor-icons/react';
@@ -113,20 +113,23 @@ function tsaSecurityLabel(adv) {
     return null;
 }
 
-// Row tone semantics, consumed by TimelineRow / HorizontalTimelineRow to
-// colour sub-details and icon chips:
-//   subtitleTone 'neutral'    — just a fact (drive duration, walk length,
-//                                address, bag count). Renders --c-text-tertiary.
+// Row metadata consumed by TimelineRow / HorizontalTimelineRow:
+//   subtitleTone 'neutral'    — plain fact (bag count, parking note).
+//                               Renders --c-text-tertiary.
 //   subtitleTone 'confidence' — good news (buffer cushion). --c-confidence.
 //   subtitleTone 'warning'    — heads up (TSA wait over typical). --c-warning.
 //   iconTone     'brand'      — default brand chip.
 //   iconTone     'warning'    — TSA gets an urgency chip so it pops.
-//   iconTone     'confidence' — last/gate phase reads as "you're set".
-// subtitleIsDuration toggles a pill treatment on the sub-detail — used for
-// timing facts ("44 min", "7 min walk") that benefit from visual weight.
+//   iconTone     'confidence' — gate phase reads as "you're set".
+//   connectorPillAfter        — string shown as a pill on the outgoing
+//                               connector line after this row, at the icon
+//                               centreline between this row and the next.
+//                               Reserved for in-transit durations (drive,
+//                               airport walk, gate walk) — NOT in-phase
+//                               service times (bag drop, TSA wait).
 const TSA_WAIT_HEADS_UP_THRESHOLD_MIN = 30;
 
-function buildTimelineRows(recommendation, selectedFlight, transport, homeAddress) {
+function buildTimelineRows(recommendation, selectedFlight, transport, homeAddress, bufferMinutes) {
     const segments = recommendation?.segments || [];
     const leaveAt = recommendation?.leave_home_at;
     if (!leaveAt) return [];
@@ -135,68 +138,84 @@ function buildTimelineRows(recommendation, selectedFlight, transport, homeAddres
     const verb = pickTransportVerb(transport);
     const TransportIcon = pickTransportIcon(transport);
 
+    const transportSeg = segments.find((s) => s.id === 'transport');
     const parkingSeg = segments.find((s) => s.id === 'parking');
-    const displaySegs = segments.filter(
-        (s) => s.id !== 'comfort_buffer' && s.id !== 'gate_buffer' && s.id !== 'parking'
+    const airportSeg = segments.find((s) => s.id === 'at_airport');
+    const walkSeg = segments.find((s) => s.id === 'walk_to_gate');
+
+    // Phase-level segments render as icons (rows). Transit / meta segments
+    // (transport, walk_to_gate, parking, buffer) are either consumed into
+    // the departure row or surfaced as pills on connector lines.
+    const phaseSegs = segments.filter((s) =>
+        s.id !== 'transport' &&
+        s.id !== 'walk_to_gate' &&
+        s.id !== 'at_airport' &&
+        s.id !== 'parking' &&
+        s.id !== 'comfort_buffer' &&
+        s.id !== 'gate_buffer'
     );
 
-    const rows = [
-        {
-            key: 'leave_home',
-            Icon: House,
-            name: 'Leave home',
-            subtitle: homeAddress ? shortAddress(homeAddress) : null,
-            subtitleTone: 'neutral',
-            subtitleIsDuration: false,
-            iconTone: 'brand',
-            time: formatUTCToLocal(leaveAt),
-        },
-    ];
+    const rows = [];
+    let cum = 0; // minutes since leaveAt
 
-    let cumulative = 0;
-    for (let i = 0; i < displaySegs.length; i++) {
-        const seg = displaySegs[i];
-        cumulative += seg.duration_minutes || 0;
+    // ── Row 1 — departure. When a transport segment exists we merge the
+    // "leave home" moment with the transit verb (Ride to SFO / Drive to
+    // SFO / etc.) so the first icon is the mode, not a House. That matches
+    // the reference design where the journey is framed around the action.
+    rows.push({
+        key: 'depart',
+        Icon: transportSeg ? TransportIcon : House,
+        name: transportSeg ? `${verb} to ${airportCode}` : 'Leave home',
+        subtitle: transportSeg ? null : (homeAddress ? shortAddress(homeAddress) : null),
+        subtitleTone: 'neutral',
+        iconTone: 'brand',
+        time: formatUTCToLocal(leaveAt),
+        connectorPillAfter: transportSeg?.duration_minutes
+            ? formatDuration(transportSeg.duration_minutes)
+            : null,
+    });
+    cum += transportSeg?.duration_minutes || 0;
 
-        let displayCumulative = cumulative;
-        if (seg.id === 'at_airport' && parkingSeg?.duration_minutes) {
-            displayCumulative = cumulative - parkingSeg.duration_minutes;
-        }
-
-        const adv = parseAdvice(seg.advice);
-        const baseTime = addMinutesUTC(leaveAt, displayCumulative);
-
-        if (seg.id === 'transport') {
-            rows.push({
-                key: `transport-${i}`,
-                Icon: TransportIcon,
-                name: `${verb} to ${airportCode}`,
-                subtitle: formatDuration(seg.duration_minutes),
-                subtitleTone: 'neutral',
-                subtitleIsDuration: true,
-                iconTone: 'brand',
-                time: baseTime,
-            });
-            continue;
-        }
-        if (seg.id === 'at_airport') {
-            const sub = parkingSeg?.duration_minutes
+    // ── Row 2 — At airport. The segment's own duration represents the
+    // walk from drop-off / parking to the concourse, surfaced as the pill
+    // on the outgoing connector.
+    if (airportSeg) {
+        rows.push({
+            key: 'at_airport',
+            Icon: MapPin,
+            name: `At ${airportCode}`,
+            subtitle: parkingSeg?.duration_minutes
                 ? `+${formatDuration(parkingSeg.duration_minutes)} parking`
-                : null;
-            rows.push({
-                key: `at_airport-${i}`,
-                Icon: MapPin,
-                name: `At ${airportCode}`,
-                subtitle: sub,
-                subtitleTone: 'neutral',
-                subtitleIsDuration: false,
-                iconTone: 'brand',
-                time: baseTime,
-            });
-            if (parkingSeg?.duration_minutes) cumulative += parkingSeg.duration_minutes;
-            continue;
-        }
+                : null,
+            subtitleTone: 'neutral',
+            iconTone: 'brand',
+            time: addMinutesUTC(leaveAt, cum),
+            connectorPillAfter: airportSeg.duration_minutes
+                ? `${formatDuration(airportSeg.duration_minutes)} walk`
+                : null,
+        });
+        cum += airportSeg.duration_minutes || 0;
+        if (parkingSeg?.duration_minutes) cum += parkingSeg.duration_minutes;
+    }
+
+    // ── Middle rows — bag drop, check in, TSA. These are service phases;
+    // their duration is time spent AT the phase, so sub-details sit under
+    // the label (not on the connector).
+    for (let i = 0; i < phaseSegs.length; i++) {
+        const seg = phaseSegs[i];
+        const arrivalTime = addMinutesUTC(leaveAt, cum);
+        cum += seg.duration_minutes || 0;
+        const isLastMiddle = i === phaseSegs.length - 1;
+
+        // If this is the last service phase and there's a walk_to_gate
+        // after it, the walk duration renders as the connector pill out
+        // of this row — "TSA Security → 7 min walk → At gate".
+        const pillAfter = isLastMiddle && walkSeg?.duration_minutes
+            ? `${formatDuration(walkSeg.duration_minutes)} walk`
+            : null;
+
         if (seg.id === 'bag_drop' || seg.id === 'checkin') {
+            const adv = parseAdvice(seg.advice);
             const bagCount = adv.bags || parseInt(seg.advice?.match(/(\d+)\s*bag/)?.[1] || '', 10);
             const parts = [];
             if (!Number.isNaN(bagCount) && bagCount > 0) {
@@ -209,15 +228,15 @@ function buildTimelineRows(recommendation, selectedFlight, transport, homeAddres
                 name: seg.id === 'checkin' ? 'Check in' : 'Bag drop',
                 subtitle: parts.length ? parts.join(' · ') : null,
                 subtitleTone: 'neutral',
-                subtitleIsDuration: false,
                 iconTone: 'brand',
-                time: baseTime,
+                time: arrivalTime,
+                connectorPillAfter: pillAfter,
             });
             continue;
         }
         if (seg.id === 'tsa') {
+            const adv = parseAdvice(seg.advice);
             const waitMin = adv.wait ? parseInt(adv.wait, 10) : seg.duration_minutes;
-            const badge = tsaSecurityLabel(seg.advice);
             const isHeadsUp = Number.isFinite(waitMin) && waitMin > TSA_WAIT_HEADS_UP_THRESHOLD_MIN;
             rows.push({
                 key: `tsa-${i}`,
@@ -225,45 +244,50 @@ function buildTimelineRows(recommendation, selectedFlight, transport, homeAddres
                 name: 'TSA Security',
                 subtitle: `${formatDuration(waitMin)} wait`,
                 subtitleTone: isHeadsUp ? 'warning' : 'neutral',
-                subtitleIsDuration: true,
                 iconTone: 'warning',
-                badge,
-                time: baseTime,
+                badge: tsaSecurityLabel(seg.advice),
+                time: arrivalTime,
+                connectorPillAfter: pillAfter,
             });
             continue;
         }
-        if (seg.id === 'walk_to_gate') {
-            rows.push({
-                key: `walk-${i}`,
-                Icon: Footprints,
-                name: `At gate ${selectedFlight?.departure_gate || ''}`.trim(),
-                subtitle: seg.duration_minutes ? `${formatDuration(seg.duration_minutes)} walk` : null,
-                subtitleTone: 'neutral',
-                subtitleIsDuration: true,
-                iconTone: 'brand',
-                time: baseTime,
-            });
-            continue;
-        }
+        // Generic fallback for an unknown phase id — treat as brand row.
         rows.push({
             key: `seg-${i}`,
             Icon: MapPin,
             name: seg.label || seg.id,
             subtitle: seg.duration_minutes ? formatDuration(seg.duration_minutes) : null,
             subtitleTone: 'neutral',
-            subtitleIsDuration: Boolean(seg.duration_minutes),
             iconTone: 'brand',
-            time: baseTime,
+            time: arrivalTime,
+            connectorPillAfter: pillAfter,
         });
     }
+
+    // ── Final row — At gate. Synthesized (backend has no at_gate segment;
+    // walk_to_gate's end time is the gate arrival). Buffer minutes surface
+    // here as a confidence-green sub-detail: "you've landed with time to
+    // spare".
+    if (walkSeg?.duration_minutes) {
+        cum += walkSeg.duration_minutes;
+        const gateName = `At gate ${selectedFlight?.departure_gate || ''}`.trim() || 'At gate';
+        rows.push({
+            key: 'at_gate',
+            Icon: Rocket,
+            name: gateName,
+            subtitle: bufferMinutes > 0 ? `+${formatDuration(bufferMinutes)} buffer` : null,
+            subtitleTone: 'confidence',
+            iconTone: 'confidence',
+            time: addMinutesUTC(leaveAt, cum),
+            connectorPillAfter: null,
+        });
+    }
+
     return rows;
 }
 
 // Returns Tailwind class pair for an icon chip given its tone.
-// `isLast` is a legacy signal: the trailing phase (gate) always reads as
-// "you're set" even when the row's own iconTone is neutral/brand.
-function iconChipClasses(tone, isLast) {
-    if (isLast) return { bg: 'bg-c-confidence-surface', text: 'text-c-confidence' };
+function iconChipClasses(tone) {
     if (tone === 'warning') return { bg: 'bg-c-urgency-surface', text: 'text-c-urgency' };
     if (tone === 'confidence') return { bg: 'bg-c-confidence-surface', text: 'text-c-confidence' };
     return { bg: 'bg-c-brand-primary-surface', text: 'text-c-brand-primary' };
@@ -324,8 +348,8 @@ export default function ResultsView({
     const bufferMinutes = comfortBuffer?.duration_minutes ?? recommendation?.gate_time_minutes ?? 0;
 
     const timelineRows = useMemo(
-        () => buildTimelineRows(recommendation, selectedFlight, transport, homeAddress),
-        [recommendation, selectedFlight, transport, homeAddress]
+        () => buildTimelineRows(recommendation, selectedFlight, transport, homeAddress, bufferMinutes),
+        [recommendation, selectedFlight, transport, homeAddress, bufferMinutes]
     );
 
     const boardingTime = selectedFlight?.departure_time ? boardingTimeFrom(selectedFlight.departure_time) : '';
@@ -720,10 +744,10 @@ function HeroPill({ icon: Icon, children }) {
     );
 }
 
-/* ── Timeline row ───────────────────────────────────────────────────── */
+/* ── Timeline row — vertical, mobile ────────────────────────────────── */
 function TimelineRow({ row, isFirst, isLast }) {
-    const { Icon, name, subtitle, subtitleTone, time, badge, iconTone } = row;
-    const chip = iconChipClasses(iconTone, isLast);
+    const { Icon, name, subtitle, subtitleTone, time, badge, iconTone, connectorPillAfter } = row;
+    const chip = iconChipClasses(iconTone);
     return (
         <div className="relative flex items-start gap-c-3 px-c-4 py-c-3">
             {!isLast && (
@@ -735,20 +759,25 @@ function TimelineRow({ row, isFirst, isLast }) {
             )}
             <span
                 className={cn(
-                    'relative z-10 shrink-0 w-8 h-8 rounded-c-pill flex items-center justify-center',
+                    'relative z-10 shrink-0 w-10 h-10 rounded-c-md flex items-center justify-center',
                     chip.bg
                 )}
             >
                 <Icon
-                    size={16}
+                    size={18}
                     weight={isFirst || isLast ? 'fill' : 'regular'}
                     className={chip.text}
                 />
             </span>
             <div className="flex-1 min-w-0">
-                <p className="c-type-body font-semibold text-c-text-primary truncate">{name}</p>
+                <p className="c-type-body font-semibold text-c-text-primary">{name}</p>
+                {connectorPillAfter && (
+                    <span className="inline-flex items-center mt-c-1 px-c-2 py-0.5 rounded-c-pill bg-c-ground-elevated border border-c-brand-primary/30 c-type-caption text-c-text-primary font-medium whitespace-nowrap">
+                        {connectorPillAfter}
+                    </span>
+                )}
                 {subtitle && (
-                    <p className={cn('c-type-footnote truncate', subtitleToneClasses(subtitleTone))}>
+                    <p className={cn('c-type-footnote mt-c-1', subtitleToneClasses(subtitleTone))}>
                         {subtitle}
                         {badge && (
                             <span className="ml-c-2 inline-flex items-center px-c-1 rounded-c-xs bg-c-confidence-surface text-c-confidence font-semibold">
@@ -765,31 +794,36 @@ function TimelineRow({ row, isFirst, isLast }) {
     );
 }
 
-// Horizontal layout for md:+ viewports. Stacked per-column as:
-//   icon chip → bold time → phase label → optional subtitle pill / badge
-// Connector is 2px brand-tinted, sits at icon center between columns.
-// Sub-detail that expresses a duration ("44 min", "7 min walk") gets a
-// pill treatment so it reads as a labeled leg of the journey rather than
-// a loose caption. Non-duration subtitles (addresses, bag counts) render
-// as plain tertiary text.
+// Horizontal layout for md:+ viewports. Per-column stack:
+//   rounded-square icon chip → bold time → phase label → optional sub-detail.
+// A continuous 2px brand-tinted connector threads horizontally through
+// icon centres across columns. Rows carrying `connectorPillAfter` render
+// a pill floating at the boundary between this column and the next,
+// centred on the connector line — matching the reference design where
+// transit durations (drive, airport walk, gate walk) live ON the line.
 function HorizontalTimelineRow({ row, isFirst, isLast }) {
-    const { Icon, name, subtitle, subtitleTone, subtitleIsDuration, time, badge, iconTone } = row;
-    const chip = iconChipClasses(iconTone, isLast);
-    const subtitlePillBase = 'inline-flex items-center px-c-3 py-c-1 rounded-c-pill bg-c-ground-elevated border border-c-brand-primary/30 c-type-caption font-medium';
+    const { Icon, name, subtitle, subtitleTone, time, badge, iconTone, connectorPillAfter } = row;
+    const chip = iconChipClasses(iconTone);
+    // Icon chip centres at 20px from its top within a w-10/h-10 box. Column
+    // top padding is py-c-5; icon chip sits at the top, so its centre-y
+    // relative to the column = py-c-5 + 20px. Using approximate absolute
+    // px offsets for the connector + pill vertical placement.
+    const ICON_CENTER_Y = 40; // py-c-5 (~20px) + h-10/2 (20px)
     return (
         <div className="relative flex-1 min-w-0 flex flex-col items-center px-c-2 py-c-5">
-            {/* Connector to the next phase — 2px brand tint, from this icon's
-               right edge to the next icon's left edge. */}
+            {/* Continuous connector line to the next column — 2px brand
+               tint, spanning from this icon's right edge (50%) to the next
+               icon's left edge (-50% into next column). */}
             {!isLast && (
                 <span
                     aria-hidden="true"
                     className="absolute bg-c-brand-primary/20"
-                    style={{ top: '40px', height: '2px', left: 'calc(50% + 20px)', right: 'calc(-50% + 20px)' }}
+                    style={{ top: `${ICON_CENTER_Y - 1}px`, height: '2px', left: 'calc(50% + 20px)', right: 'calc(-50% + 20px)' }}
                 />
             )}
             <span
                 className={cn(
-                    'relative z-10 w-10 h-10 rounded-c-pill flex items-center justify-center',
+                    'relative z-10 w-10 h-10 rounded-c-md flex items-center justify-center',
                     chip.bg
                 )}
             >
@@ -799,19 +833,24 @@ function HorizontalTimelineRow({ row, isFirst, isLast }) {
                     className={chip.text}
                 />
             </span>
+            {/* Pill riding the connector — centred horizontally on the
+               column boundary, vertically on the connector line. */}
+            {!isLast && connectorPillAfter && (
+                <span
+                    className="absolute z-20 inline-flex items-center px-c-3 py-c-1 rounded-c-pill bg-c-ground-elevated border border-c-brand-primary/30 shadow-c-sm c-type-caption text-c-text-primary font-medium whitespace-nowrap"
+                    style={{ top: `${ICON_CENTER_Y}px`, left: '100%', transform: 'translate(-50%, -50%)' }}
+                >
+                    {connectorPillAfter}
+                </span>
+            )}
             <p className="mt-c-3 c-type-headline text-c-text-primary tabular-nums">
                 {time}
             </p>
-            <p className="c-type-footnote text-c-text-primary text-center leading-tight mt-c-1 line-clamp-2">
+            <p className="c-type-footnote font-semibold text-c-text-primary text-center leading-tight mt-c-1">
                 {name}
             </p>
-            {subtitle && subtitleIsDuration && (
-                <span className={cn(subtitlePillBase, subtitleToneClasses(subtitleTone), 'mt-c-2 whitespace-nowrap')}>
-                    {subtitle}
-                </span>
-            )}
-            {subtitle && !subtitleIsDuration && (
-                <p className={cn('c-type-caption text-center leading-tight mt-c-1 line-clamp-1', subtitleToneClasses(subtitleTone))}>
+            {subtitle && (
+                <p className={cn('c-type-caption text-center leading-tight mt-c-1', subtitleToneClasses(subtitleTone))}>
                     {subtitle}
                 </p>
             )}
