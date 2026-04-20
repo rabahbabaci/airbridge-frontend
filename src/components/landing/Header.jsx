@@ -4,20 +4,27 @@ import { Menu, X, Plane } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/lib/AuthContext';
+import { createPageUrl } from '@/utils';
 import AuthModal from '@/components/engine/AuthModal';
 
 const SCROLL_THRESHOLD = 100;
+
+function initials(name) {
+    if (!name) return '';
+    const parts = name.trim().split(/\s+/).slice(0, 2);
+    return parts.map((p) => p[0]?.toUpperCase() ?? '').join('');
+}
 
 export default function Header() {
     const [scrolled, setScrolled] = useState(false);
     const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
     const [authOpen, setAuthOpen] = useState(false);
     const navigate = useNavigate();
-    const { login, isAuthenticated } = useAuth();
+    const { login, isAuthenticated, display_name } = useAuth();
 
     useEffect(() => {
         const handleScroll = () => setScrolled(window.scrollY > SCROLL_THRESHOLD);
-        handleScroll(); // Sync once on mount in case the page was opened mid-scroll.
+        handleScroll();
         window.addEventListener('scroll', handleScroll, { passive: true });
         return () => window.removeEventListener('scroll', handleScroll);
     }, []);
@@ -32,17 +39,30 @@ export default function Header() {
 
     const handleGetStarted = () => navigate('/search');
     const handleSignIn = () => setAuthOpen(true);
+    // Authenticated users: tap avatar → Trips (the canonical authenticated
+    // home area). Matches Search's avatar pattern but targets Trips rather
+    // than Settings so the landing sends them to the app, not to config.
+    const handleAvatarTap = () => navigate(createPageUrl('Trips'));
+    const avatarInitials = initials(display_name) || '👤';
 
-    // Shared motion settings for the flat ↔ pill crossfade.
     const swapTransition = { duration: 0.28, ease: [0.4, 0, 0.2, 1] };
+
+    // Avatar button — shared between desktop flat nav and floating pill.
+    // Two size variants because the pill is slightly tighter than the
+    // open-page nav.
+    const AvatarButton = ({ size = 'md' }) => (
+        <button
+            type="button"
+            onClick={handleAvatarTap}
+            aria-label={display_name ? `Open your trips — signed in as ${display_name}` : 'Open your trips'}
+            className={cnAvatar(size)}
+        >
+            {avatarInitials}
+        </button>
+    );
 
     return (
         <>
-            {/* The outer <motion.header> owns the on-mount slide-in; the inner
-                AnimatePresence crossfades the flat and pill variants in place
-                when scroll crosses SCROLL_THRESHOLD. Content below the Header
-                was already accounting for a fixed-top bar (Hero uses pt-28),
-                so switching variants doesn't cause layout shift. */}
             <motion.header
                 initial={{ y: -100 }}
                 animate={{ y: 0 }}
@@ -58,7 +78,6 @@ export default function Header() {
                             transition={swapTransition}
                             className="hidden md:flex w-fit mx-auto mt-c-6 pointer-events-auto c-glass border border-[color:var(--c-glass-border)] rounded-c-pill shadow-c-glass items-center gap-c-2 px-c-3 py-c-2"
                         >
-                            {/* Icon-only logo in pill state */}
                             <a
                                 href="#"
                                 aria-label="AirBridge home"
@@ -79,7 +98,9 @@ export default function Header() {
                                 </a>
                             ))}
 
-                            {!isAuthenticated && (
+                            {isAuthenticated ? (
+                                <AvatarButton size="pill" />
+                            ) : (
                                 <>
                                     <div className="w-px h-4 bg-c-border-hairline mx-1" />
                                     <button
@@ -89,16 +110,15 @@ export default function Header() {
                                     >
                                         Sign in
                                     </button>
+                                    <button
+                                        type="button"
+                                        onClick={handleGetStarted}
+                                        className="text-sm bg-c-brand-primary hover:bg-c-brand-primary-hover text-c-text-inverse font-semibold px-4 h-9 inline-flex items-center rounded-c-pill transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-c-brand-primary focus-visible:ring-offset-2"
+                                    >
+                                        Get Started
+                                    </button>
                                 </>
                             )}
-
-                            <button
-                                type="button"
-                                onClick={handleGetStarted}
-                                className="text-sm bg-c-brand-primary hover:bg-c-brand-primary-hover text-c-text-inverse font-semibold px-4 h-9 inline-flex items-center rounded-c-pill transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-c-brand-primary focus-visible:ring-offset-2"
-                            >
-                                Get Started
-                            </button>
                         </motion.div>
                     ) : (
                         <motion.div
@@ -130,7 +150,9 @@ export default function Header() {
                                             </a>
                                         ))}
 
-                                        {!isAuthenticated && (
+                                        {isAuthenticated ? (
+                                            <AvatarButton size="md" />
+                                        ) : (
                                             <>
                                                 <div className="w-px h-4 bg-c-border-hairline mx-1" />
                                                 <button
@@ -140,16 +162,15 @@ export default function Header() {
                                                 >
                                                     Sign in
                                                 </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={handleGetStarted}
+                                                    className="text-sm bg-c-brand-primary hover:bg-c-brand-primary-hover text-c-text-inverse font-semibold px-5 py-1.5 rounded-full transition-all"
+                                                >
+                                                    Get Started
+                                                </button>
                                             </>
                                         )}
-
-                                        <button
-                                            type="button"
-                                            onClick={handleGetStarted}
-                                            className="text-sm bg-c-brand-primary hover:bg-c-brand-primary-hover text-c-text-inverse font-semibold px-5 py-1.5 rounded-full transition-all"
-                                        >
-                                            Get Started
-                                        </button>
                                     </nav>
 
                                     <button
@@ -165,8 +186,6 @@ export default function Header() {
                     )}
                 </AnimatePresence>
 
-                {/* Mobile drawer — shared across flat/pill, rarely fires on the
-                    landing (viewport ≥ 1024px gate) but kept for fallback. */}
                 <AnimatePresence>
                     {mobileMenuOpen && (
                         <motion.div
@@ -191,24 +210,30 @@ export default function Header() {
                                     </a>
                                 ))}
                                 <div className="pt-4 space-y-3">
-                                    {!isAuthenticated && (
+                                    {isAuthenticated ? (
                                         <Button
-                                            variant="outline"
-                                            className="w-full"
-                                            onClick={() => { setMobileMenuOpen(false); setAuthOpen(true); }}
+                                            className="w-full bg-c-brand-primary hover:bg-c-brand-primary-hover text-c-text-inverse"
+                                            onClick={() => { setMobileMenuOpen(false); handleAvatarTap(); }}
                                         >
-                                            Sign In
+                                            My Trips
                                         </Button>
+                                    ) : (
+                                        <>
+                                            <Button
+                                                variant="outline"
+                                                className="w-full"
+                                                onClick={() => { setMobileMenuOpen(false); setAuthOpen(true); }}
+                                            >
+                                                Sign In
+                                            </Button>
+                                            <Button
+                                                className="w-full bg-c-brand-primary hover:bg-c-brand-primary-hover text-c-text-inverse"
+                                                onClick={() => { setMobileMenuOpen(false); navigate('/search'); }}
+                                            >
+                                                Get Started
+                                            </Button>
+                                        </>
                                     )}
-                                    <Button
-                                        className="w-full bg-c-brand-primary hover:bg-c-brand-primary-hover text-c-text-inverse"
-                                        onClick={() => {
-                                            setMobileMenuOpen(false);
-                                            navigate('/search');
-                                        }}
-                                    >
-                                        Get Started
-                                    </Button>
                                 </div>
                             </div>
                         </motion.div>
@@ -219,4 +244,12 @@ export default function Header() {
             <AuthModal open={authOpen} onOpenChange={setAuthOpen} onSuccess={(data) => login(data)} />
         </>
     );
+}
+
+// Avatar class per size variant. `pill` is slightly denser to fit the
+// floating glass pill's tighter vertical rhythm.
+function cnAvatar(size) {
+    const base = 'rounded-c-pill bg-c-brand-primary text-c-text-inverse font-bold flex items-center justify-center hover:bg-c-brand-primary-hover transition-colors focus:outline-none focus-visible:ring-2 focus-visible:ring-c-brand-primary focus-visible:ring-offset-2 shrink-0';
+    if (size === 'pill') return `${base} w-9 h-9 text-sm`;
+    return `${base} w-10 h-10 text-sm`;
 }
