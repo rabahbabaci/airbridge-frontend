@@ -889,6 +889,43 @@ export default function Engine() {
             const result = await handleRecompute();
             if (result) {
                 setJourneyReady(true);
+
+                // Edit mode is a two-tap commit that the user reads as one.
+                // Setup's "Update my trip" used to only preview via recompute
+                // and leave Results wearing an "Update my trip" label — so
+                // the user reasonably tapped it again expecting Track. Here
+                // we persist the edit via PUT alongside the preview recompute
+                // and clear editMode so the Results CTA becomes "Track my
+                // trip". If PUT fails, keep editMode=true so the user can
+                // retry from Results.
+                if (editMode && editTripId) {
+                    try {
+                        const putRes = await fetch(`${API_BASE}/v1/trips/${editTripId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json', ...authHeaders },
+                            body: JSON.stringify({
+                                flight_number: flightNumber.trim() || undefined,
+                                departure_date: departureDate || undefined,
+                                home_address: startingAddress.trim() || undefined,
+                                transport_mode: transport || undefined,
+                                security_access: computeSecurityAccess() || undefined,
+                                buffer_preference: gateTime,
+                            }),
+                        });
+                        if (putRes.ok) {
+                            setEditMode(false);
+                        } else if (putRes.status === 409) {
+                            const err = await putRes.json().catch(() => ({}));
+                            setEditError(err.detail || 'This trip can no longer be edited because it is in progress.');
+                        } else {
+                            setEditError('Failed to save your changes. Please try again.');
+                        }
+                    } catch (err) {
+                        console.error('PUT during edit recalculate failed:', err);
+                        setEditError('Network error — could not save your changes.');
+                    }
+                }
+
                 if (isTracked) {
                     setActiveTripData({
                         trip_id: currentTripId,
