@@ -1,10 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/lib/AuthContext';
-import uberIcon from '@/assets/brand-icons/uber.svg';
-import lyftIcon from '@/assets/brand-icons/lyft.svg';
-import appleMapsIcon from '@/assets/brand-icons/apple-maps.svg';
-import googleMapsIcon from '@/assets/brand-icons/google-maps.svg';
-import wazeIcon from '@/assets/brand-icons/waze.svg';
+import {
+    UberIcon, LyftIcon, AppleMapsIcon, GoogleMapsIcon, WazeIcon,
+} from '@/components/BrandIcons';
 import {
     House, Car, Train, Bus, MapPin, SuitcaseRolling, Shield,
     Footprints, Clock, Timer, Rocket,
@@ -607,28 +605,28 @@ function HeroCard({
                 </span>
             </div>
 
-            {/* Pills row — "Track & get alerts" cut; only boarding + buffer remain */}
-            <div className="flex flex-wrap gap-c-2 mt-c-5">
+            {/* Pill row + inline launcher icons. Boarding + buffer sit on
+               the left; the transport-mode brand shortcuts float on the
+               right via ml-auto. Single row — no divider, no "Open in"
+               label needed because the icons are self-explanatory in
+               context. */}
+            <div className="flex flex-wrap items-center gap-c-2 mt-c-5">
                 {boardingTime && <HeroPill icon={Clock}>Boarding {boardingTime}</HeroPill>}
                 {bufferMinutes > 0 && (
                     <HeroPill icon={Timer}>+{formatDuration(bufferMinutes)} buffer</HeroPill>
                 )}
+                <LauncherIcons
+                    transport={transport}
+                    recommendation={recommendation}
+                    selectedFlight={selectedFlight}
+                />
             </div>
-
-            {/* Transit launchers — relocated from the old "BOOK YOUR RIDE" /
-               "NAVIGATE TO …" sections. Brand icons sit flush beneath the
-               boarding/buffer row, deep-linking to the same providers. */}
-            <LauncherRow
-                transport={transport}
-                recommendation={recommendation}
-                selectedFlight={selectedFlight}
-            />
         </div>
     );
 }
 
-/* ── Launcher row — brand-icon shortcuts inside HeroCard ────────────── */
-function LauncherRow({ transport, recommendation, selectedFlight }) {
+/* ── Launcher icons — brand-icon shortcuts inside HeroCard pill row ─── */
+function LauncherIcons({ transport, recommendation, selectedFlight }) {
     const t = (transport || '').toLowerCase();
     const isRideshare = t === 'rideshare';
     const isDriving = t === 'driving';
@@ -662,42 +660,39 @@ function LauncherRow({ transport, recommendation, selectedFlight }) {
         const uberHref = homeCoords ? buildUberUrl(rideshareCoords) : null;
         const lyftHref = homeCoords ? buildLyftUrl(rideshareCoords) : null;
         launchers = [
-            uberHref && { href: uberHref, icon: uberIcon, label: 'Open in Uber' },
-            lyftHref && { href: lyftHref, icon: lyftIcon, label: 'Open in Lyft' },
+            uberHref && { href: uberHref, Icon: UberIcon, label: 'Open in Uber' },
+            lyftHref && { href: lyftHref, Icon: LyftIcon, label: 'Open in Lyft' },
         ].filter(Boolean);
     } else if (isDriving) {
         launchers = [
-            { href: buildAppleMapsUrl(navCoords), icon: appleMapsIcon, label: 'Open in Apple Maps' },
-            { href: buildGoogleMapsUrl(navCoords), icon: googleMapsIcon, label: 'Open in Google Maps' },
-            { href: buildWazeUrl(navCoords), icon: wazeIcon, label: 'Open in Waze' },
+            { href: buildAppleMapsUrl(navCoords), Icon: AppleMapsIcon, label: 'Open in Apple Maps' },
+            { href: buildGoogleMapsUrl(navCoords), Icon: GoogleMapsIcon, label: 'Open in Google Maps' },
+            { href: buildWazeUrl(navCoords), Icon: WazeIcon, label: 'Open in Waze' },
         ];
     } else if (isTransit) {
         launchers = [
-            { href: buildAppleMapsUrl(navCoords), icon: appleMapsIcon, label: 'Open in Apple Maps' },
-            { href: buildGoogleMapsUrl(navCoords), icon: googleMapsIcon, label: 'Open in Google Maps' },
+            { href: buildAppleMapsUrl(navCoords), Icon: AppleMapsIcon, label: 'Open in Apple Maps' },
+            { href: buildGoogleMapsUrl(navCoords), Icon: GoogleMapsIcon, label: 'Open in Google Maps' },
         ];
     }
 
     if (launchers.length === 0) return null;
 
     return (
-        <div className="flex items-center gap-c-3 mt-c-5 pt-c-4 border-t border-c-brand-primary/15">
-            <span className="c-type-caption text-c-text-secondary">Open in</span>
-            <div className="flex items-center gap-c-2">
-                {launchers.map((l) => (
-                    <a
-                        key={l.label}
-                        href={l.href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label={l.label}
-                        title={l.label}
-                        className="inline-flex items-center justify-center w-9 h-9 rounded-c-sm hover:opacity-80 active:scale-95 transition-all"
-                    >
-                        <img src={l.icon} alt="" className="w-8 h-8" />
-                    </a>
-                ))}
-            </div>
+        <div className="ml-auto flex items-center gap-c-2">
+            {launchers.map(({ href, Icon, label }) => (
+                <a
+                    key={label}
+                    href={href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    aria-label={label}
+                    title={label}
+                    className="inline-flex items-center justify-center w-8 h-8 rounded-c-sm hover:opacity-80 active:scale-95 transition-all"
+                >
+                    <Icon size={28} />
+                </a>
+            ))}
         </div>
     );
 }

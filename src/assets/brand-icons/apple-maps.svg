@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" role="img" aria-label="Apple Maps">
-  <rect width="24" height="24" rx="4" fill="#F5F5F7"/>
-  <circle cx="12" cy="12" r="7" fill="#FFFFFF" stroke="#D1D1D6" stroke-width="0.5"/>
-  <path d="M12 4 L14 12 L12 11 L10 12 Z" fill="#FF3B30"/>
-  <path d="M12 20 L10 12 L12 13 L14 12 Z" fill="#8E8E93"/>
-</svg>
