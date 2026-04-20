@@ -8,7 +8,7 @@ import wazeIcon from '@/assets/brand-icons/waze.svg';
 import {
     House, Car, Train, Bus, MapPin, SuitcaseRolling, Shield,
     Footprints, Clock, Timer, Rocket,
-    WarningCircle, ArrowSquareOut, CheckCircle, NavigationArrow,
+    WarningCircle, CheckCircle,
     Airplane as AirplanePhosphor, MagnifyingGlass, Gear,
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
@@ -17,10 +17,7 @@ import TabBar from '@/components/design-system/TabBar';
 import Button from '@/components/design-system/Button';
 import AuthModal from '@/components/engine/AuthModal';
 import useAuthGatedTabs from '@/hooks/useAuthGatedTabs';
-import {
-    buildUberUrl, buildLyftUrl,
-    loadRideshareProvider, saveRideshareProvider,
-} from '@/utils/rideshareLinks';
+import { buildUberUrl, buildLyftUrl } from '@/utils/rideshareLinks';
 import { formatLocalTime, formatDuration } from '@/utils/format';
 import { isNative } from '@/utils/platform';
 import airports from '@/data/airports.json';
@@ -35,11 +32,6 @@ const AIRPORT_BY_IATA = (() => {
 function cityForIata(iata) {
     if (!iata) return null;
     return AIRPORT_BY_IATA.get(iata)?.city || null;
-}
-
-function airportNameForIata(iata) {
-    if (!iata) return null;
-    return AIRPORT_BY_IATA.get(iata)?.name || null;
 }
 
 /* ── Time / date helpers ────────────────────────────────────────────── */
@@ -357,10 +349,10 @@ export default function ResultsView({
         departureTime,
     ].filter(Boolean);
 
-    const transportLc = (transport || '').toLowerCase();
-    const isRideshareMode = transportLc === 'rideshare';
-    const isDriving = transportLc === 'driving';
-    const isTransit = transportLc === 'train' || transportLc === 'bus';
+    // Only the Pro upsell banner uses this flag — the transport-mode-specific
+    // standalone cards (Rideshare / Navigation) moved into HeroCard's
+    // LauncherRow and compute their own mode locals.
+    const isRideshareMode = (transport || '').toLowerCase() === 'rideshare';
 
     const handlePrimary = async () => {
         if (submitting) return;
@@ -452,6 +444,7 @@ export default function ResultsView({
                             bufferMinutes={bufferMinutes}
                             originCity={originCity}
                             destCity={destCity}
+                            transport={transport}
                         />
 
                         {/* ── Journey timeline ─────────────────────────── */}
@@ -512,23 +505,11 @@ export default function ResultsView({
                             />
                         </section>
 
-                        {/* ── Rideshare card (rideshare mode) ──────────── */}
-                        {isRideshareMode && (
-                            <RideshareCard
-                                recommendation={recommendation}
-                                selectedFlight={selectedFlight}
-                                leaveAt={leaveAt}
-                            />
-                        )}
-
-                        {/* ── Navigation card (drivers + transit) ──────── */}
-                        {(isDriving || isTransit) && (
-                            <NavigationCard
-                                recommendation={recommendation}
-                                selectedFlight={selectedFlight}
-                                transit={isTransit}
-                            />
-                        )}
+                        {/* Launcher icons for Rideshare / Drive / Transit now
+                           live inside the HeroCard above (LauncherRow) — the
+                           standalone "BOOK YOUR RIDE" and "NAVIGATE TO …"
+                           sections they replaced took too much vertical real
+                           estate for a small set of brand-icon shortcuts. */}
 
                         {/* ── Primary CTA ──────────────────────────────── */}
                         <div className="pt-c-2">
@@ -581,7 +562,10 @@ export default function ResultsView({
 }
 
 /* ── Hero card (brief §4.5) ──────────────────────────────────────────── */
-function HeroCard({ recommendation, selectedFlight, boardingTime, bufferMinutes, originCity, destCity }) {
+function HeroCard({
+    recommendation, selectedFlight, boardingTime, bufferMinutes,
+    originCity, destCity, transport,
+}) {
     const leaveTime = formatUTCToLocal(recommendation?.leave_home_at);
     const status = selectedFlight?.canceled
         ? 'Cancelled'
@@ -624,11 +608,95 @@ function HeroCard({ recommendation, selectedFlight, boardingTime, bufferMinutes,
             </div>
 
             {/* Pills row — "Track & get alerts" cut; only boarding + buffer remain */}
-            <div className="flex flex-wrap gap-c-2 mt-c-6">
+            <div className="flex flex-wrap gap-c-2 mt-c-5">
                 {boardingTime && <HeroPill icon={Clock}>Boarding {boardingTime}</HeroPill>}
                 {bufferMinutes > 0 && (
                     <HeroPill icon={Timer}>+{formatDuration(bufferMinutes)} buffer</HeroPill>
                 )}
+            </div>
+
+            {/* Transit launchers — relocated from the old "BOOK YOUR RIDE" /
+               "NAVIGATE TO …" sections. Brand icons sit flush beneath the
+               boarding/buffer row, deep-linking to the same providers. */}
+            <LauncherRow
+                transport={transport}
+                recommendation={recommendation}
+                selectedFlight={selectedFlight}
+            />
+        </div>
+    );
+}
+
+/* ── Launcher row — brand-icon shortcuts inside HeroCard ────────────── */
+function LauncherRow({ transport, recommendation, selectedFlight }) {
+    const t = (transport || '').toLowerCase();
+    const isRideshare = t === 'rideshare';
+    const isDriving = t === 'driving';
+    const isTransit = t === 'train' || t === 'bus' || t === 'transit';
+
+    const homeCoords = recommendation?.home_coordinates;
+    const termCoords = recommendation?.terminal_coordinates;
+    if (!termCoords) return null;
+
+    const rideshareCoords = {
+        homeLat: homeCoords?.lat,
+        homeLng: homeCoords?.lng,
+        termLat: termCoords.lat,
+        termLng: termCoords.lng,
+        airportCode: selectedFlight?.origin_code || '',
+        terminal: selectedFlight?.departure_terminal || '',
+    };
+    const navCoords = {
+        homeLat: homeCoords?.lat,
+        homeLng: homeCoords?.lng,
+        termLat: termCoords.lat,
+        termLng: termCoords.lng,
+        transit: isTransit,
+    };
+
+    // Build the launcher list per transport mode. Transit omits Waze (driving
+    // only) — Apple Maps transit coverage is spotty, but we still surface it
+    // so users can pick; Google Maps is the primary transit provider.
+    let launchers = [];
+    if (isRideshare) {
+        const uberHref = homeCoords ? buildUberUrl(rideshareCoords) : null;
+        const lyftHref = homeCoords ? buildLyftUrl(rideshareCoords) : null;
+        launchers = [
+            uberHref && { href: uberHref, icon: uberIcon, label: 'Open in Uber' },
+            lyftHref && { href: lyftHref, icon: lyftIcon, label: 'Open in Lyft' },
+        ].filter(Boolean);
+    } else if (isDriving) {
+        launchers = [
+            { href: buildAppleMapsUrl(navCoords), icon: appleMapsIcon, label: 'Open in Apple Maps' },
+            { href: buildGoogleMapsUrl(navCoords), icon: googleMapsIcon, label: 'Open in Google Maps' },
+            { href: buildWazeUrl(navCoords), icon: wazeIcon, label: 'Open in Waze' },
+        ];
+    } else if (isTransit) {
+        launchers = [
+            { href: buildAppleMapsUrl(navCoords), icon: appleMapsIcon, label: 'Open in Apple Maps' },
+            { href: buildGoogleMapsUrl(navCoords), icon: googleMapsIcon, label: 'Open in Google Maps' },
+        ];
+    }
+
+    if (launchers.length === 0) return null;
+
+    return (
+        <div className="flex items-center gap-c-3 mt-c-5 pt-c-4 border-t border-c-brand-primary/15">
+            <span className="c-type-caption text-c-text-secondary">Open in</span>
+            <div className="flex items-center gap-c-2">
+                {launchers.map((l) => (
+                    <a
+                        key={l.label}
+                        href={l.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={l.label}
+                        title={l.label}
+                        className="inline-flex items-center justify-center w-9 h-9 rounded-c-sm hover:opacity-80 active:scale-95 transition-all"
+                    >
+                        <img src={l.icon} alt="" className="w-8 h-8" />
+                    </a>
+                ))}
             </div>
         </div>
     );
@@ -783,171 +851,6 @@ function InfoCard({ eyebrow, value, subtitle, urgency, urgencyNote }) {
                 <p className="c-type-footnote text-c-warning font-semibold mt-c-2">{urgencyNote}</p>
             )}
         </div>
-    );
-}
-
-/* ── Shared ghost/provider button used by rideshare + navigation cards ─
-   `icon` is an SVG asset URL rendered as a decorative 20px <img> to the
-   left of children. alt="" — the brand name already appears in the button
-   text, so the icon is visual reinforcement, not announced twice by a
-   screen reader. */
-function PickerButton({ active, children, href, onClick, type = 'button', icon }) {
-    const cls = cn(
-        'inline-flex items-center justify-center gap-c-2 h-11 px-c-4 rounded-c-md c-type-footnote font-semibold transition-colors border',
-        'focus:outline-none focus-visible:ring-2 focus-visible:ring-c-brand-primary focus-visible:ring-offset-2',
-        active
-            ? 'bg-c-brand-primary-surface text-c-brand-primary border-c-brand-primary'
-            : 'bg-transparent text-c-text-primary border-c-border-hairline hover:bg-c-ground-sunken'
-    );
-    const content = (
-        <>
-            {icon && <img src={icon} alt="" className="w-5 h-5 shrink-0" />}
-            {children}
-        </>
-    );
-    if (href) {
-        return (
-            <a href={href} target="_blank" rel="noopener noreferrer" onClick={onClick} className={cls}>
-                {content}
-            </a>
-        );
-    }
-    return (
-        <button type={type} onClick={onClick} aria-pressed={active} className={cls}>
-            {content}
-        </button>
-    );
-}
-
-/* ── Rideshare card — Concourse-native reskin (Fix 5) ─────────────── */
-function RideshareCard({ recommendation, selectedFlight, leaveAt }) {
-    const [provider, setProvider] = useState(() => loadRideshareProvider());
-    const [openedOnce, setOpenedOnce] = useState(false);
-
-    const homeCoords = recommendation?.home_coordinates;
-    const termCoords = recommendation?.terminal_coordinates;
-    const canDeepLink = !!(homeCoords && termCoords);
-
-    const coords = {
-        homeLat: homeCoords?.lat,
-        homeLng: homeCoords?.lng,
-        termLat: termCoords?.lat,
-        termLng: termCoords?.lng,
-        airportCode: selectedFlight?.origin_code || '',
-        terminal: selectedFlight?.departure_terminal || '',
-    };
-
-    const pickProvider = (p) => {
-        setProvider(p);
-        saveRideshareProvider(p);
-    };
-
-    const leaveTimeStr = formatUTCToLocal(leaveAt);
-    const linkHref =
-        provider === 'uber' ? buildUberUrl(coords)
-        : provider === 'lyft' ? buildLyftUrl(coords)
-        : null;
-
-    return (
-        <section>
-            <div className="rounded-c-md bg-c-ground-elevated border border-c-border-hairline p-c-5">
-                <p className="c-type-caption text-c-text-secondary mb-c-3">Book your ride</p>
-
-                <div className="grid grid-cols-2 gap-c-2">
-                    <PickerButton active={provider === 'uber'} onClick={() => pickProvider('uber')} icon={uberIcon}>
-                        Uber
-                    </PickerButton>
-                    <PickerButton active={provider === 'lyft'} onClick={() => pickProvider('lyft')} icon={lyftIcon}>
-                        Lyft
-                    </PickerButton>
-                </div>
-
-                {provider && (
-                    <div className="flex items-center justify-between gap-c-3 pt-c-4 mt-c-4 border-t border-c-border-hairline">
-                        <div className="min-w-0">
-                            {canDeepLink ? (
-                                <>
-                                    <p className="c-type-body font-semibold text-c-text-primary">
-                                        Schedule pickup
-                                    </p>
-                                    {leaveTimeStr && (
-                                        <p className="c-type-footnote text-c-text-secondary">for {leaveTimeStr}</p>
-                                    )}
-                                </>
-                            ) : (
-                                <p className="c-type-footnote text-c-text-secondary">
-                                    Coords unavailable — open the {provider === 'uber' ? 'Uber' : 'Lyft'} app manually.
-                                </p>
-                            )}
-                        </div>
-                        {canDeepLink && (
-                            <a
-                                href={linkHref}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                onClick={() => setOpenedOnce(true)}
-                                className="inline-flex items-center gap-c-1 px-c-4 h-10 rounded-c-pill bg-c-brand-primary text-c-text-inverse c-type-footnote font-semibold hover:bg-c-brand-primary-hover transition-colors shrink-0"
-                            >
-                                Open with {provider === 'uber' ? 'Uber' : 'Lyft'}
-                                <ArrowSquareOut size={14} weight="bold" />
-                            </a>
-                        )}
-                    </div>
-                )}
-            </div>
-
-            {openedOnce && (
-                <p className="c-type-footnote text-c-brand-primary text-center mt-c-3">
-                    ← Back to AirBridge
-                </p>
-            )}
-        </section>
-    );
-}
-
-/* ── Navigation card — drivers (Apple/Google/Waze) + transit (Google) ─ */
-function NavigationCard({ recommendation, selectedFlight, transit }) {
-    const termCoords = recommendation?.terminal_coordinates;
-    const homeCoords = recommendation?.home_coordinates;
-    if (!termCoords) return null;
-
-    const airportCode = selectedFlight?.origin_code || '';
-    const airportName = airportNameForIata(airportCode) || `${airportCode} Airport`;
-
-    const coords = {
-        termLat: termCoords.lat,
-        termLng: termCoords.lng,
-        homeLat: homeCoords?.lat,
-        homeLng: homeCoords?.lng,
-        transit,
-    };
-
-    return (
-        <section>
-            <div className="rounded-c-md bg-c-ground-elevated border border-c-border-hairline p-c-5">
-                <div className="flex items-center gap-c-2 mb-c-3">
-                    <NavigationArrow size={14} weight="fill" className="text-c-brand-primary" />
-                    <p className="c-type-caption text-c-text-secondary">
-                        Navigate to {airportCode} · {airportName}
-                    </p>
-                </div>
-                <div className={cn('grid gap-c-2', transit ? 'grid-cols-1' : 'grid-cols-3')}>
-                    {transit ? (
-                        // Transit users get Google Maps in transit mode — Apple Maps
-                        // transit coverage is spotty, Waze is driving-only.
-                        <PickerButton href={buildGoogleMapsUrl(coords)} icon={googleMapsIcon}>
-                            Google Maps · Transit
-                        </PickerButton>
-                    ) : (
-                        <>
-                            <PickerButton href={buildAppleMapsUrl(coords)} icon={appleMapsIcon}>Apple Maps</PickerButton>
-                            <PickerButton href={buildGoogleMapsUrl(coords)} icon={googleMapsIcon}>Google Maps</PickerButton>
-                            <PickerButton href={buildWazeUrl(coords)} icon={wazeIcon}>Waze</PickerButton>
-                        </>
-                    )}
-                </div>
-            </div>
-        </section>
     );
 }
 
