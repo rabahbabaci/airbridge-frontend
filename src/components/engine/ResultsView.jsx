@@ -406,9 +406,25 @@ export default function ResultsView({
                                     <span className="truncate">{shortAddress(homeAddress)}</span>
                                 </p>
                             )}
-                            <div className="rounded-c-lg bg-c-ground-elevated border border-c-border-hairline overflow-hidden">
+                            {/* Mobile — vertical list, the default experience on
+                               phones. Each phase is its own row with a running
+                               connector along the left edge. */}
+                            <div className="md:hidden rounded-c-lg bg-c-ground-elevated border border-c-border-hairline overflow-hidden">
                                 {timelineRows.map((row, i) => (
                                     <TimelineRow
+                                        key={row.key}
+                                        row={row}
+                                        isFirst={i === 0}
+                                        isLast={i === timelineRows.length - 1}
+                                    />
+                                ))}
+                            </div>
+                            {/* Tablet/desktop — horizontal track showing every
+                               phase at a glance. Keeps the single-glance scan
+                               the brief wants from Results on wider screens. */}
+                            <div className="hidden md:flex rounded-c-lg bg-c-ground-elevated border border-c-border-hairline overflow-hidden">
+                                {timelineRows.map((row, i) => (
+                                    <HorizontalTimelineRow
                                         key={row.key}
                                         row={row}
                                         isFirst={i === 0}
@@ -624,6 +640,54 @@ function TimelineRow({ row, isFirst, isLast }) {
             <span className="shrink-0 c-type-body font-semibold text-c-text-primary tabular-nums self-center">
                 {time}
             </span>
+        </div>
+    );
+}
+
+// Horizontal layout for md:+ viewports. Icons arranged left-to-right with
+// a single connector running behind them. Each column stacks icon → time →
+// name → optional subtitle/badge. Designed to accommodate 4–7 phases on
+// typical tablet/desktop widths without horizontal scroll.
+function HorizontalTimelineRow({ row, isFirst, isLast }) {
+    const { Icon, name, subtitle, time, badge } = row;
+    return (
+        <div className="relative flex-1 min-w-0 flex flex-col items-center px-c-2 py-c-4">
+            {/* Connector to the next phase */}
+            {!isLast && (
+                <span
+                    aria-hidden="true"
+                    className="absolute h-px bg-c-border-hairline"
+                    style={{ top: '32px', left: 'calc(50% + 20px)', right: 'calc(-50% + 20px)' }}
+                />
+            )}
+            <span
+                className={cn(
+                    'relative z-10 w-8 h-8 rounded-c-pill flex items-center justify-center',
+                    isLast ? 'bg-c-confidence-surface' : 'bg-c-brand-primary-surface'
+                )}
+            >
+                <Icon
+                    size={16}
+                    weight={isFirst || isLast ? 'fill' : 'regular'}
+                    className={isLast ? 'text-c-confidence' : 'text-c-brand-primary'}
+                />
+            </span>
+            <p className="mt-c-2 c-type-footnote font-semibold text-c-text-primary tabular-nums">
+                {time}
+            </p>
+            <p className="c-type-caption text-c-text-secondary text-center leading-tight mt-c-1 line-clamp-2">
+                {name}
+            </p>
+            {subtitle && (
+                <p className="c-type-caption text-c-text-tertiary text-center leading-tight mt-c-1 line-clamp-1">
+                    {subtitle}
+                </p>
+            )}
+            {badge && (
+                <span className="mt-c-1 inline-flex items-center px-c-1 rounded-c-xs bg-c-confidence-surface text-c-confidence c-type-caption font-semibold">
+                    {badge}
+                </span>
+            )}
         </div>
     );
 }
