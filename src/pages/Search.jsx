@@ -317,13 +317,13 @@ export default function Search() {
     const [searchError, setSearchError] = useState(null);
     const [authOpen, setAuthOpen] = useState(false);
 
-    // Informational banner: authenticated user landed here but has an
-    // upcoming tracked trip. We surface a quiet link into Active Trip so
-    // the explicit-Search path (banner off the active-trip takeover) still
-    // lets them jump to their trip.
-    const [upcomingTrip, setUpcomingTrip] = useState(null);
+    // Informational banner: authenticated user landed here but has one or
+    // more upcoming tracked trips. Tapping always routes to /Trips so the
+    // user sees everything they're working with — no arbitrary first-trip
+    // selection when multiple are active.
+    const [upcomingTrips, setUpcomingTrips] = useState([]);
     useEffect(() => {
-        if (!isAuthenticated || !token) { setUpcomingTrip(null); return; }
+        if (!isAuthenticated || !token) { setUpcomingTrips([]); return; }
         let cancelled = false;
         (async () => {
             try {
@@ -332,14 +332,14 @@ export default function Search() {
                 });
                 if (!res.ok || cancelled) return;
                 const data = await res.json();
-                const soonest = (data.trips || [])
+                const trips = (data.trips || [])
                     .filter(t => ACTIVE_BANNER_STATUSES.includes(t.status) && isDepartingWithin24h(t))
                     .sort((a, b) => {
                         const aT = a.projected_timeline?.departure_utc || a.departure_date || '';
                         const bT = b.projected_timeline?.departure_utc || b.departure_date || '';
                         return aT.localeCompare(bT);
-                    })[0] || null;
-                if (!cancelled) setUpcomingTrip(soonest);
+                    });
+                if (!cancelled) setUpcomingTrips(trips);
             } catch {
                 // Silent — the banner is a convenience, not a primary path.
             }
@@ -480,28 +480,31 @@ export default function Search() {
                 <StatusPill tone="neutral">🇺🇸 US domestic flights only</StatusPill>
             </div>
 
-            {/* Active-trip informational banner. Shown only when the user has
-               landed on Search explicitly but has an upcoming tracked trip
-               worth surfacing. Tap routes to the Active Trip Screen. */}
-            {upcomingTrip && (
+            {/* Active-trip informational banner. Always routes to /Trips so
+               the user sees everything they're working with — single or
+               many. Copy and subtitle adapt to trip count. */}
+            {upcomingTrips.length > 0 && (
                 <div className="px-c-6 pt-c-3">
                     <button
                         type="button"
-                        onClick={() =>
-                            navigate(createPageUrl('Engine'), { state: { viewTrip: upcomingTrip } })
-                        }
+                        onClick={() => navigate(createPageUrl('Trips'))}
                         className="w-full flex items-center gap-c-3 px-c-4 py-c-3 bg-c-brand-primary-surface rounded-c-md text-c-brand-primary hover:bg-c-brand-primary-surface/80 transition-colors text-left"
                     >
                         <Airplane size={18} weight="bold" className="shrink-0" />
                         <div className="flex-1 min-w-0">
                             <p className="c-type-footnote font-semibold truncate">
-                                You have an active trip
+                                {upcomingTrips.length === 1
+                                    ? 'You have an active trip'
+                                    : `You have ${upcomingTrips.length} active trips`}
                             </p>
                             <p className="c-type-caption opacity-80 truncate">
-                                {upcomingTrip.flight_number}
-                                {upcomingTrip.origin_iata && upcomingTrip.destination_iata
-                                    ? ` · ${upcomingTrip.origin_iata} → ${upcomingTrip.destination_iata}`
-                                    : ''}
+                                {upcomingTrips.length === 1
+                                    ? `${upcomingTrips[0].flight_number}${
+                                        upcomingTrips[0].origin_iata && upcomingTrips[0].destination_iata
+                                            ? ` · ${upcomingTrips[0].origin_iata} → ${upcomingTrips[0].destination_iata}`
+                                            : ''
+                                    }`
+                                    : 'View them all'}
                             </p>
                         </div>
                         <CaretRight size={16} weight="bold" className="shrink-0" />
