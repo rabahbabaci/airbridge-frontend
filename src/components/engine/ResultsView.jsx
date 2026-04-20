@@ -454,14 +454,35 @@ export default function ResultsView({
                                 </p>
                             )}
 
-                            {/* Desktop / tablet — horizontal timeline */}
+                            {/* Desktop / tablet — horizontal timeline.
+                               Connector line is positioned at y=48px to
+                               thread through the icon chip centres
+                               (container has pt-c-6=24px, chips are h-12=48px
+                               so chip centre = 24 + 24 = 48px). Transit pills
+                               ride the same y-coord so their opaque
+                               background "breaks" the line where they overlay. */}
                             <div className="hidden md:block">
                                 <div className="relative pt-c-6">
-                                    <div
-                                        className="absolute left-8 right-8 h-0.5 bg-c-brand-primary/30 z-0"
-                                        style={{ top: '3.5rem' }}
-                                        aria-hidden="true"
-                                    />
+                                    {/* Continuous connector — threads through
+                                       icon centres. First/last columns have
+                                       their chips at column-centre x; the
+                                       flex layout keeps edges fixed, so the
+                                       line runs from first-icon-centre to
+                                       last-icon-centre via 50%-column insets. */}
+                                    {timelineSteps.length > 1 && (() => {
+                                        const stepWidth = 100 / timelineSteps.length;
+                                        return (
+                                            <div
+                                                className="absolute h-0.5 bg-c-brand-primary/30 z-0"
+                                                style={{
+                                                    top: '48px',
+                                                    left: `${stepWidth / 2}%`,
+                                                    right: `${stepWidth / 2}%`,
+                                                }}
+                                                aria-hidden="true"
+                                            />
+                                        );
+                                    })()}
                                     {timelineSteps.length > 1 && (() => {
                                         const stepWidth = 100 / timelineSteps.length;
                                         return timelineSteps.slice(0, -1).map((_, idx) => {
@@ -472,9 +493,9 @@ export default function ResultsView({
                                                 <div
                                                     key={`dur-${idx}`}
                                                     className="absolute z-20"
-                                                    style={{ top: '3.5rem', left: `${leftPercent}%`, transform: 'translate(-50%, -50%)' }}
+                                                    style={{ top: '48px', left: `${leftPercent}%`, transform: 'translate(-50%, -50%)' }}
                                                 >
-                                                    <div className="bg-c-ground px-c-3 py-c-1 rounded-c-sm border border-c-border-hairline shadow-c-sm flex items-center justify-center">
+                                                    <div className="bg-c-ground-elevated px-c-3 py-c-1 rounded-c-sm border border-c-border-hairline shadow-c-sm flex items-center justify-center">
                                                         <span className="c-type-caption font-bold text-c-brand-primary whitespace-nowrap leading-none">{label}</span>
                                                     </div>
                                                 </div>
@@ -550,16 +571,22 @@ export default function ResultsView({
                         <section className="grid grid-cols-1 md:grid-cols-2 gap-c-3">
                             <InfoCard
                                 eyebrow="BOARDING"
+                                EyebrowIcon={Clock}
                                 value={boardingTime || '—'}
                                 subtitle={bufferMinutes ? `${formatDuration(bufferMinutes)} cushion at gate` : 'Boards 30 min before departure'}
+                                subtitleTone={bufferMinutes ? 'confidence' : 'neutral'}
+                                accent="confidence"
                             />
                             <InfoCard
                                 eyebrow="FLIGHT DEPARTS"
+                                EyebrowIcon={AirplanePhosphor}
                                 value={departureTime || '—'}
                                 subtitle={[
                                     selectedFlight?.flight_number,
                                     selectedFlight?.departure_terminal ? `Terminal ${selectedFlight.departure_terminal}` : null,
                                 ].filter(Boolean).join(' · ') || null}
+                                subtitleTone="neutral"
+                                accent="brand"
                                 urgency={selectedFlight?.is_delayed}
                                 urgencyNote={selectedFlight?.is_delayed && selectedFlight?.revised_departure_local
                                     ? `Delayed · new time ${formatLocalTime(selectedFlight.revised_departure_local)}`
@@ -717,18 +744,17 @@ function LauncherIcons({ transport, recommendation, selectedFlight }) {
     };
 
     // Build the launcher list per transport mode. Transit omits Waze
-    // (driving only). Rideshare picker icons are themselves coloured brand
-    // containers (Uber black square, Lyft pink square) so they render as
-    // bare icons. Drive / transit map apps ship low-contrast marks that
-    // fade into the hero's tinted background without visual containment —
-    // those get wrapped in a branded chip with a short label.
+    // (driving only). All launchers now render as branded chips for visual
+    // consistency across modes — Uber/Lyft's colored marks already read as
+    // brand containers, but placing them on the hero card without structural
+    // containment made the hero feel uneven next to drive-mode's white chips.
     let launchers = [];
     if (isRideshare) {
         const uberHref = homeCoords ? buildUberUrl(rideshareCoords) : null;
         const lyftHref = homeCoords ? buildLyftUrl(rideshareCoords) : null;
         launchers = [
-            uberHref && { href: uberHref, Icon: UberIcon, label: 'Open in Uber' },
-            lyftHref && { href: lyftHref, Icon: LyftIcon, label: 'Open in Lyft' },
+            uberHref && { href: uberHref, Icon: UberIcon, label: 'Open in Uber', short: 'Uber' },
+            lyftHref && { href: lyftHref, Icon: LyftIcon, label: 'Open in Lyft', short: 'Lyft' },
         ].filter(Boolean);
     } else if (isDriving) {
         launchers = [
@@ -745,31 +771,10 @@ function LauncherIcons({ transport, recommendation, selectedFlight }) {
 
     if (launchers.length === 0) return null;
 
-    // Rideshare: bare icons — Uber/Lyft marks are already branded containers.
-    if (isRideshare) {
-        return (
-            <div className="ml-auto flex items-center gap-c-2">
-                {launchers.map(({ href, Icon, label }) => (
-                    <a
-                        key={label}
-                        href={href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label={label}
-                        title={label}
-                        className="inline-flex items-center justify-center w-8 h-8 rounded-c-sm hover:opacity-80 active:scale-95 transition-all"
-                    >
-                        <Icon size={28} />
-                    </a>
-                ))}
-            </div>
-        );
-    }
-
-    // Drive / transit: branded chips. The chip's white rounded container
-    // provides the visual containment the bare map marks lack, and the
-    // short brand label disambiguates between Apple Maps ("Maps") and
-    // Google Maps ("Google") sitting next to each other.
+    // Uniform chip treatment for every launcher — white rounded container
+    // with a hairline border, icon on top (20px) and caps label below in
+    // tight tracking. Chip content stacks vertically so icon + label fit
+    // inside a compact 44pt-tall tap target.
     return (
         <div className="ml-auto flex items-center gap-c-2">
             {launchers.map(({ href, Icon, label, short }) => (
@@ -780,10 +785,10 @@ function LauncherIcons({ transport, recommendation, selectedFlight }) {
                     rel="noopener noreferrer"
                     aria-label={label}
                     title={label}
-                    className="inline-flex items-center gap-c-1 h-11 px-c-3 rounded-c-md bg-c-ground-elevated border border-c-border-hairline shadow-c-sm hover:bg-c-ground-sunken active:scale-95 transition-all"
+                    className="inline-flex flex-col items-center justify-center h-11 px-c-3 rounded-c-md bg-c-ground-elevated border border-c-border-hairline shadow-c-sm hover:bg-c-ground-sunken active:scale-95 transition-all"
                 >
                     <Icon size={20} />
-                    <span className="c-type-caption text-c-text-secondary font-semibold">{short}</span>
+                    <span className="mt-0.5 text-c-text-secondary font-bold uppercase tracking-wider" style={{ fontSize: '9px', lineHeight: 1 }}>{short}</span>
                 </a>
             ))}
         </div>
@@ -813,23 +818,61 @@ function HeroPill({ icon: Icon, children }) {
     );
 }
 
-/* ── Info card (boarding / flight departs) ──────────────────────────── */
-function InfoCard({ eyebrow, value, subtitle, urgency, urgencyNote }) {
+/* ── Info card (boarding / flight departs) ──────────────────────────
+   Two semantic flavours via `accent`: the Boarding pair reads as
+   "you're set" (confidence green) and the Flight Departs pair reads
+   as the anchor fact (brand indigo). The treatment is a thin left
+   border + an eyebrow icon in the same tone + a subtitle whose color
+   follows `subtitleTone`. Urgency (delayed flight) overrides to
+   warning across the whole card. */
+function InfoCard({
+    eyebrow, EyebrowIcon, value, subtitle, subtitleTone,
+    accent, urgency, urgencyNote,
+}) {
+    const ACCENT_BORDER = {
+        confidence: 'border-l-c-confidence',
+        brand: 'border-l-c-brand-primary',
+        warning: 'border-l-c-warning',
+    };
+    const ACCENT_TEXT = {
+        confidence: 'text-c-confidence',
+        brand: 'text-c-brand-primary',
+        warning: 'text-c-warning',
+    };
+    const SUBTITLE_TEXT = {
+        confidence: 'text-c-confidence',
+        brand: 'text-c-brand-primary',
+        neutral: 'text-c-text-secondary',
+    };
+    const eyebrowTone = urgency ? 'warning' : accent || null;
+    const borderClass = urgency
+        ? 'bg-c-warning-surface border-c-warning/20'
+        : cn(
+            'bg-c-ground-elevated border-c-border-hairline',
+            eyebrowTone ? `${ACCENT_BORDER[eyebrowTone]} border-l-[3px]` : null
+        );
+    const effectiveSubtitleTone = urgency ? 'warning' : (subtitleTone || 'neutral');
     return (
-        <div className={cn(
-            'rounded-c-md p-c-5 border',
-            urgency
-                ? 'bg-c-warning-surface border-c-warning/20'
-                : 'bg-c-ground-elevated border-c-border-hairline'
-        )}>
-            <p className={cn('c-type-caption mb-c-2', urgency ? 'text-c-warning' : 'text-c-text-tertiary')}>
-                {eyebrow}
-            </p>
-            <p className={cn('c-type-display tracking-tight', urgency ? 'text-c-warning' : 'text-c-text-primary')}>
+        <div className={cn('rounded-c-md p-c-5 border', borderClass)}>
+            <div className="flex items-center gap-c-1 mb-c-2">
+                {EyebrowIcon && (
+                    <EyebrowIcon
+                        size={14}
+                        weight="fill"
+                        className={eyebrowTone ? ACCENT_TEXT[eyebrowTone] : 'text-c-text-tertiary'}
+                    />
+                )}
+                <p className={cn('c-type-caption', urgency ? 'text-c-warning' : 'text-c-text-tertiary')}>
+                    {eyebrow}
+                </p>
+            </div>
+            <p className={cn('c-type-display tracking-tight tabular-nums', urgency ? 'text-c-warning' : 'text-c-text-primary')}>
                 {value}
             </p>
             {subtitle && !urgencyNote && (
-                <p className="c-type-footnote text-c-text-secondary mt-c-2">{subtitle}</p>
+                <p className={cn('c-type-footnote mt-c-2 font-medium', SUBTITLE_TEXT[effectiveSubtitleTone])}>
+                    {subtitle}
+                </p>
             )}
             {urgencyNote && (
                 <p className="c-type-footnote text-c-warning font-semibold mt-c-2">{urgencyNote}</p>
