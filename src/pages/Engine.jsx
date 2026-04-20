@@ -20,6 +20,7 @@ import { setupPushListeners, removePushListeners } from '@/utils/pushNotificatio
 import { postEvent } from '@/utils/events';
 import { clearSearchState } from '@/pages/Search';
 import { clearSetupState } from '@/components/engine/StepDepartureSetup';
+import { clearRideshareProvider } from '@/utils/rideshareLinks';
 
 // ── Animations ──────────────────────────────────────────────────────────────
 const pageTransition = {
@@ -745,6 +746,7 @@ export default function Engine() {
                 const data = await res.json();
                 setIsTracked(true);
                 clearSearchState();
+                clearRideshareProvider();
                 if (data.trip_count != null) updateTripCount(data.trip_count);
 
                 // Show push priming on native after tracking
@@ -870,6 +872,7 @@ export default function Engine() {
                     if (trackRes.ok) {
                         const trackData = await trackRes.json();
                         clearSearchState();
+                        clearRideshareProvider();
                         if (trackData.trip_count != null) updateTripCount(trackData.trip_count);
 
                         if (isNative() && shouldShowPushPriming(trackData.trip_count)) {
@@ -1091,6 +1094,7 @@ export default function Engine() {
                                 const trackData = await res.json();
                                 setIsTracked(true);
                                 clearSearchState();
+                                clearRideshareProvider();
                                 if (trackData.trip_count != null) updateTripCount(trackData.trip_count);
 
                                 // Show push priming on native after first tracked trip

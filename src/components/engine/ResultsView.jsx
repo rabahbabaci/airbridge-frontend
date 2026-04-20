@@ -1,162 +1,704 @@
-import React, { useState } from 'react';
-import { motion } from 'framer-motion';
-import { AlertCircle, ArrowLeft, Smartphone, Share2, Check, Sparkles } from 'lucide-react';
-import { formatLocalTime, shortCity } from '@/utils/format';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/lib/AuthContext';
+import {
+    House, Car, Train, Bus, MapPin, SuitcaseRolling, Shield,
+    Footprints, AirplaneTakeoff, Bell, Clock, Timer, Rocket,
+    WarningCircle, ArrowSquareOut, CheckCircle,
+} from '@phosphor-icons/react';
+import { cn } from '@/lib/utils';
+import TopBar from '@/components/design-system/TopBar';
+import Button from '@/components/design-system/Button';
+import {
+    buildUberUrl, buildLyftUrl,
+    loadRideshareProvider, saveRideshareProvider,
+} from '@/utils/rideshareLinks';
+import { formatLocalTime, formatDuration } from '@/utils/format';
 
-import JourneyVisualization from './JourneyVisualization';
-import ActionCards from './ActionCards';
-
-const pageTransition = {
-    initial: { opacity: 0, y: 24 },
-    animate: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] } },
-    exit: { opacity: 0, y: -16, transition: { duration: 0.25, ease: [0.4, 0, 1, 1] } },
-};
-
+/* ── Time helpers ───────────────────────────────────────────────────── */
 function formatUTCToLocal(utcStr) {
     if (!utcStr) return '';
     const d = new Date(utcStr);
+    if (isNaN(d.getTime())) return '';
     return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
 }
 
+function addMinutesUTC(utcStr, minutes) {
+    if (!utcStr) return '';
+    const d = new Date(utcStr);
+    if (isNaN(d.getTime())) return '';
+    d.setMinutes(d.getMinutes() + minutes);
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
+function boardingTimeFrom(localDepartureStr) {
+    if (!localDepartureStr) return '';
+    // Try ISO-with-tz first; fall back to naive local string parsing so
+    // we handle both "2026-04-19T14:30:00-07:00" and "2026-04-19T14:30:00".
+    let d;
+    if (/[Zz]|[+-]\d{2}:\d{2}$/.test(localDepartureStr)) {
+        d = new Date(localDepartureStr);
+    } else {
+        const m = localDepartureStr.match(/(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})/);
+        d = m ? new Date(+m[1], +m[2] - 1, +m[3], +m[4], +m[5]) : null;
+    }
+    if (!d || isNaN(d.getTime())) return '';
+    d.setMinutes(d.getMinutes() - 30);
+    return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+}
+
+function shortAddress(full) {
+    if (!full) return '';
+    // Keep the street part; drop trailing ", City, State, ZIP, USA" noise.
+    const parts = full.split(',').map((s) => s.trim());
+    return parts.length > 1 ? parts[0] : full;
+}
+
+/* ── Segment → phase row mapping ────────────────────────────────────── */
+const TRANSPORT_ICON = { rideshare: Car, driving: Car, train: Train, bus: Bus };
+const TRANSPORT_VERB = { rideshare: 'Ride', driving: 'Drive', train: 'Train', bus: 'Bus' };
+
+function pickTransportIcon(transport) {
+    return TRANSPORT_ICON[(transport || '').toLowerCase()] || Car;
+}
+
+function pickTransportVerb(transport) {
+    return TRANSPORT_VERB[(transport || '').toLowerCase()] || 'Ride';
+}
+
+function parseAdvice(advice) {
+    if (!advice) return {};
+    const out = {};
+    for (const part of advice.split('|')) {
+        const [k, v] = part.split(':').map((s) => s && s.trim());
+        if (k && v !== undefined) out[k] = v;
+    }
+    return out;
+}
+
+function tsaSecurityLabel(adv) {
+    // advice for tsa ends with the security suffix (none|precheck|clear|clear_precheck|priority_lane)
+    if (!adv) return null;
+    const tail = adv.split('|').pop()?.trim();
+    if (tail === 'precheck') return 'PreCheck';
+    if (tail === 'clear') return 'CLEAR';
+    if (tail === 'clear_precheck') return 'PreCheck + CLEAR';
+    if (tail === 'priority_lane') return 'Priority';
+    return null;
+}
+
+/* Build the timeline rows from the backend recommendation. Each row is
+   { icon, name, subtitle, time, badge? } and is derived off the cumulative
+   duration from leave_home_at. Parking rolls into the At-airport subtitle
+   for drivers; comfort/gate buffer is surfaced in the hero pills row. */
+function buildTimelineRows(recommendation, selectedFlight, transport, homeAddress) {
+    const segments = recommendation?.segments || [];
+    const leaveAt = recommendation?.leave_home_at;
+    if (!leaveAt) return [];
+
+    const airportCode = selectedFlight?.origin_code || 'Airport';
+    const verb = pickTransportVerb(transport);
+    const TransportIcon = pickTransportIcon(transport);
+
+    const parkingSeg = segments.find((s) => s.id === 'parking');
+    // Segments we actually render (in backend order), excluding buffer
+    // rows (surfaced elsewhere) and parking (subsumed into at_airport).
+    const displaySegs = segments.filter(
+        (s) => s.id !== 'comfort_buffer' && s.id !== 'gate_buffer' && s.id !== 'parking'
+    );
+
+    const rows = [
+        {
+            key: 'leave_home',
+            Icon: House,
+            name: 'Leave home',
+            subtitle: homeAddress ? shortAddress(homeAddress) : null,
+            time: formatUTCToLocal(leaveAt),
+        },
+    ];
+
+    let cumulative = 0;
+    for (let i = 0; i < displaySegs.length; i++) {
+        const seg = displaySegs[i];
+        // For the time column we want the arrival-at-next moment, i.e.
+        // leave_home_at + (cumulative including this segment).
+        cumulative += seg.duration_minutes || 0;
+
+        // parking belongs to the at_airport row for drivers; so when we
+        // hit at_airport we also roll in the parking duration into the
+        // running cumulative AFTER computing the "arrival at airport"
+        // time (which should be BEFORE parking).
+        let displayCumulative = cumulative;
+        if (seg.id === 'at_airport' && parkingSeg?.duration_minutes) {
+            displayCumulative = cumulative - parkingSeg.duration_minutes;
+            cumulative += 0; // parking time is already not in displaySegs; don't double-add
+        }
+
+        const adv = parseAdvice(seg.advice);
+        const baseTime = addMinutesUTC(leaveAt, displayCumulative);
+
+        if (seg.id === 'transport') {
+            rows.push({
+                key: `transport-${i}`,
+                Icon: TransportIcon,
+                name: `${verb} to ${airportCode}`,
+                subtitle: formatDuration(seg.duration_minutes),
+                time: baseTime,
+            });
+            continue;
+        }
+        if (seg.id === 'at_airport') {
+            const sub = parkingSeg?.duration_minutes
+                ? `+${formatDuration(parkingSeg.duration_minutes)} parking`
+                : null;
+            rows.push({
+                key: `at_airport-${i}`,
+                Icon: MapPin,
+                name: `At ${airportCode}`,
+                subtitle: sub,
+                time: baseTime,
+            });
+            // After rendering at_airport, add parking duration to cumulative
+            // so downstream rows (bag_drop, tsa, walk_to_gate) compute
+            // relative to leave+transport+parking, not leave+transport.
+            if (parkingSeg?.duration_minutes) cumulative += parkingSeg.duration_minutes;
+            continue;
+        }
+        if (seg.id === 'bag_drop' || seg.id === 'checkin') {
+            const bagCount = adv.bags || parseInt(seg.advice?.match(/(\d+)\s*bag/)?.[1] || '', 10);
+            const parts = [];
+            if (!Number.isNaN(bagCount) && bagCount > 0) {
+                parts.push(`${bagCount} bag${bagCount !== 1 ? 's' : ''}`);
+            }
+            if (seg.duration_minutes) parts.push(`${formatDuration(seg.duration_minutes)} drop`);
+            rows.push({
+                key: `bag-${i}`,
+                Icon: SuitcaseRolling,
+                name: seg.id === 'checkin' ? 'Check in' : 'Bag drop',
+                subtitle: parts.length ? parts.join(' · ') : null,
+                time: baseTime,
+            });
+            continue;
+        }
+        if (seg.id === 'tsa') {
+            const waitMin = adv.wait ? parseInt(adv.wait, 10) : seg.duration_minutes;
+            const badge = tsaSecurityLabel(seg.advice);
+            rows.push({
+                key: `tsa-${i}`,
+                Icon: Shield,
+                name: 'TSA Security',
+                subtitle: `${formatDuration(waitMin)} wait`,
+                badge,
+                time: baseTime,
+            });
+            continue;
+        }
+        if (seg.id === 'walk_to_gate') {
+            rows.push({
+                key: `walk-${i}`,
+                Icon: Footprints,
+                name: `At gate ${selectedFlight?.departure_gate || ''}`.trim(),
+                subtitle: seg.duration_minutes ? `${formatDuration(seg.duration_minutes)} walk` : null,
+                time: baseTime,
+            });
+            continue;
+        }
+        // Fallback for unknown segment ids
+        rows.push({
+            key: `seg-${i}`,
+            Icon: MapPin,
+            name: seg.label || seg.id,
+            subtitle: seg.duration_minutes ? formatDuration(seg.duration_minutes) : null,
+            time: baseTime,
+        });
+    }
+    return rows;
+}
+
+/* ── Main Component ─────────────────────────────────────────────────── */
 export default function ResultsView({
     recommendation, selectedFlight, transport,
-    isAuthenticated, display_name,
+    isAuthenticated,
     apiError, setApiError,
-    onEditSetup, onReset, onReady,
+    onEditSetup, onReady,
     onSignIn,
     isTracked, onTrack,
-    securityLabel, homeAddress,
+    homeAddress,
     editMode, editIsDraft, editError, isUpdating, onUpdateTrip,
 }) {
-    const [copied, setCopied] = useState(false);
     const { isPro } = useAuth();
+    const [submitting, setSubmitting] = useState(false);
 
-    const handleShare = async () => {
-        const leaveTime = formatUTCToLocal(recommendation?.leave_home_at);
-        const depTime = selectedFlight?.departure_time ? formatLocalTime(selectedFlight.departure_time) : '';
-        const flightNum = selectedFlight?.flight_number || '';
-        const dest = shortCity(selectedFlight?.destination_name) || selectedFlight?.destination_code || '';
+    useEffect(() => {
+        if (recommendation && onReady) onReady();
+    }, [recommendation, onReady]);
 
-        const message = `I need to leave by ${leaveTime} to catch my ${depTime} ${flightNum} flight to ${dest} ✈️ — powered by AirBridge https://airbridge.live`;
+    const leaveAt = recommendation?.leave_home_at;
+    const hasRecommendation = !!leaveAt;
 
-        if (navigator.share) {
-            try {
-                await navigator.share({ text: message });
-            } catch {}
-        } else {
-            try {
-                await navigator.clipboard.writeText(message);
-                setCopied(true);
-                setTimeout(() => setCopied(false), 2000);
-            } catch {}
+    const segments = recommendation?.segments || [];
+    const comfortBuffer = segments.find((s) => s.id === 'comfort_buffer' || s.id === 'gate_buffer');
+    const bufferMinutes = comfortBuffer?.duration_minutes ?? recommendation?.gate_time_minutes ?? 0;
+
+    const timelineRows = useMemo(
+        () => buildTimelineRows(recommendation, selectedFlight, transport, homeAddress),
+        [recommendation, selectedFlight, transport, homeAddress]
+    );
+
+    const boardingTime = selectedFlight?.departure_time ? boardingTimeFrom(selectedFlight.departure_time) : '';
+    const departureTime = selectedFlight?.departure_time ? formatLocalTime(selectedFlight.departure_time) : '';
+
+    const isRideshareMode = (transport || '').toLowerCase() === 'rideshare';
+
+    // CTA handler — keeps the existing Engine contract (onSignIn for
+    // unauth, onTrack for tracked-trip creation, onUpdateTrip for edit
+    // mode). The submitting guard stops rapid double-taps while the
+    // network request is in flight.
+    const handlePrimary = async () => {
+        if (submitting) return;
+        setSubmitting(true);
+        try {
+            if (editMode && editIsDraft && onUpdateTrip) {
+                await onUpdateTrip();
+            } else if (editMode) {
+                await onUpdateTrip?.();
+            } else if (!isAuthenticated) {
+                onSignIn?.();
+            } else {
+                await onTrack?.();
+            }
+        } finally {
+            setSubmitting(false);
         }
     };
 
+    const primaryLabel = editMode
+        ? (isUpdating ? 'Updating…' : 'Update my trip')
+        : isTracked
+            ? 'Tracking your trip'
+            : submitting
+                ? 'Tracking…'
+                : 'Track my trip';
+
+    const primaryDisabled = editMode
+        ? !!isUpdating
+        : isTracked || submitting || !hasRecommendation;
+
     return (
-        <motion.div key="results" {...pageTransition} className="min-h-[calc(100vh-57px)] bg-secondary/50">
-            {/* Results Header */}
-            <div className="bg-card border-b border-border">
-                <div className="max-w-5xl mx-auto px-4 sm:px-6 py-4 flex items-center justify-between">
-                    <div className="flex items-center gap-3">
-                        <button onClick={onEditSetup}
-                            className="w-9 h-9 rounded-xl border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 transition-all">
-                            <ArrowLeft className="w-4 h-4" />
-                        </button>
-                        <div>
-                            <h1 className="font-bold text-foreground">Journey Blueprint</h1>
-                            <p className="text-sm text-muted-foreground">Your optimized travel timeline</p>
-                        </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        {!isPro && (
-                            <span className="hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-primary/10 text-primary text-[11px] font-bold">
-                                <Sparkles className="w-3 h-3" />
-                                Upgrade to Pro
-                            </span>
+        <div className="w-full max-w-[860px] mx-auto -mx-4">
+            <TopBar title="Results" onBack={onEditSetup} />
+
+            {/* Flight identifier strip (matches Setup's subtitle pattern) */}
+            {selectedFlight && (
+                <div className="border-b border-c-border-hairline bg-c-ground px-c-4 py-c-2">
+                    <p className="c-type-footnote text-c-text-secondary text-center">
+                        {selectedFlight.flight_number} · {selectedFlight.origin_code} → {selectedFlight.destination_code} · {departureTime || ''}
+                    </p>
+                </div>
+            )}
+
+            <div className="px-c-6 pb-c-12 pt-c-6 space-y-c-6">
+
+                {apiError && (
+                    <ErrorBanner message={apiError} onDismiss={() => setApiError?.(null)} />
+                )}
+                {editError && (
+                    <ErrorBanner message={editError} />
+                )}
+
+                {!hasRecommendation && (
+                    <HeroSkeleton />
+                )}
+
+                {hasRecommendation && (
+                    <>
+                        <HeroCard
+                            recommendation={recommendation}
+                            selectedFlight={selectedFlight}
+                            boardingTime={boardingTime}
+                            bufferMinutes={bufferMinutes}
+                        />
+
+                        {/* ── Journey timeline ─────────────────────────── */}
+                        <section>
+                            <h2 className="c-type-headline text-c-text-primary mb-c-1">Your journey timeline</h2>
+                            {homeAddress && (
+                                <p className="c-type-footnote text-c-text-secondary mb-c-4 flex items-center gap-c-1">
+                                    <MapPin size={12} weight="fill" className="text-c-text-tertiary" />
+                                    <span className="truncate">{shortAddress(homeAddress)}</span>
+                                </p>
+                            )}
+                            <div className="rounded-c-lg bg-c-ground-elevated border border-c-border-hairline overflow-hidden">
+                                {timelineRows.map((row, i) => (
+                                    <TimelineRow
+                                        key={row.key}
+                                        row={row}
+                                        isFirst={i === 0}
+                                        isLast={i === timelineRows.length - 1}
+                                    />
+                                ))}
+                            </div>
+                        </section>
+
+                        {/* ── Boarding + Flight row ────────────────────── */}
+                        <section className="grid grid-cols-1 md:grid-cols-2 gap-c-3">
+                            <InfoCard
+                                eyebrow="BOARDING"
+                                value={boardingTime || '—'}
+                                subtitle={bufferMinutes ? `${formatDuration(bufferMinutes)} cushion at gate` : 'Boards 30 min before departure'}
+                            />
+                            <InfoCard
+                                eyebrow="FLIGHT DEPARTS"
+                                value={departureTime || '—'}
+                                subtitle={[
+                                    selectedFlight?.flight_number,
+                                    selectedFlight?.departure_terminal ? `Terminal ${selectedFlight.departure_terminal}` : null,
+                                ].filter(Boolean).join(' · ') || null}
+                                urgency={selectedFlight?.is_delayed}
+                                urgencyNote={selectedFlight?.is_delayed && selectedFlight?.revised_departure_local
+                                    ? `Delayed · new time ${formatLocalTime(selectedFlight.revised_departure_local)}`
+                                    : null}
+                            />
+                        </section>
+
+                        {/* ── Rideshare card (conditional, provider pick here per v2.4) ── */}
+                        {isRideshareMode && (
+                            <RideshareCard
+                                recommendation={recommendation}
+                                selectedFlight={selectedFlight}
+                                leaveAt={leaveAt}
+                            />
                         )}
-                        <button onClick={handleShare}
-                            className="w-9 h-9 rounded-xl border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 transition-all"
-                            title="Share">
-                            {copied ? <Check className="w-4 h-4 text-emerald-600" /> : <Share2 className="w-4 h-4" />}
-                        </button>
-                        <button onClick={onReset}
-                            className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-                            Start Over
-                        </button>
-                    </div>
-                </div>
+
+                        {/* ── Primary CTA ──────────────────────────────── */}
+                        <div className="pt-c-2">
+                            <Button
+                                variant="primary"
+                                full
+                                disabled={primaryDisabled}
+                                onClick={handlePrimary}
+                                leftIcon={isTracked && !editMode ? <CheckCircle size={18} weight="fill" /> : <Rocket size={18} weight="fill" />}
+                            >
+                                {primaryLabel}
+                            </Button>
+                            {!editMode && !isAuthenticated && (
+                                <p className="c-type-footnote text-c-text-tertiary text-center mt-c-3">
+                                    Sign in to save this trip and get live updates.
+                                </p>
+                            )}
+                        </div>
+
+                        {/* Pro nudge for non-Pro authenticated users —
+                            ActionCards previously surfaced Pro-only deep
+                            links in the old Results; this screen keeps
+                            the rideshare card live for everyone, but
+                            mentions the Pro navigation perk for drivers /
+                            transit users who no longer see a rideshare
+                            card but would still benefit from turn-by-turn. */}
+                        {isAuthenticated && !isPro && !isRideshareMode && !editMode && (
+                            <div className="rounded-c-md bg-c-brand-primary-surface border border-c-brand-primary/20 p-c-4">
+                                <p className="c-type-footnote text-c-text-primary">
+                                    <span className="font-semibold">AirBridge Pro</span> adds one-tap turn-by-turn directions to your terminal.
+                                </p>
+                            </div>
+                        )}
+                    </>
+                )}
             </div>
-
-            {/* Error banner */}
-            {apiError && (
-                <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-4">
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                        className="rounded-2xl px-5 py-4 flex items-start gap-3 bg-destructive/10 border border-destructive/20">
-                        <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
-                        <div>
-                            <p className="text-destructive text-sm font-medium">{apiError}</p>
-                            <button onClick={() => setApiError(null)}
-                                className="text-sm text-destructive font-semibold underline mt-1 hover:text-destructive/80">
-                                Dismiss
-                            </button>
-                        </div>
-                    </motion.div>
-                </div>
-            )}
-
-            {/* Edit mode error banner */}
-            {editError && (
-                <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-4">
-                    <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                        className="rounded-2xl px-5 py-4 flex items-start gap-3 bg-destructive/10 border border-destructive/20">
-                        <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
-                        <p className="text-destructive text-sm font-medium">{editError}</p>
-                    </motion.div>
-                </div>
-            )}
-
-            {/* Journey Visualization */}
-            <JourneyVisualization
-                locked={true}
-                recommendation={recommendation}
-                selectedFlight={selectedFlight}
-                transport={transport}
-                onReady={onReady}
-                securityLabel={securityLabel}
-                isTracked={editMode ? false : isTracked}
-                onTrack={editMode ? undefined : onTrack}
-                isAuthenticated={isAuthenticated}
-                homeAddress={homeAddress}
-                editMode={editMode}
-                editIsDraft={editIsDraft}
-                isUpdating={isUpdating}
-                onUpdateTrip={onUpdateTrip}
-            />
-
-            {/* Action cards — rideshare / navigation deep links (post-auth feature) */}
-            {isAuthenticated && (
-                <ActionCards
-                    recommendation={recommendation}
-                    selectedFlight={selectedFlight}
-                    transport={transport}
-                />
-            )}
-
-            {/* App download upsell — compact banner */}
-            {isTracked && (
-                <div className="max-w-5xl mx-auto px-4 sm:px-6 pb-6">
-                    <div className="flex items-center justify-between gap-3 py-3 px-4 rounded-xl bg-card border border-border">
-                        <div className="flex items-center gap-2">
-                            <Smartphone className="w-4 h-4 text-muted-foreground shrink-0" />
-                            <p className="text-xs text-muted-foreground">
-                                Get lock screen countdown & spoken alerts with the AirBridge app
-                            </p>
-                        </div>
-                        <span className="text-xs text-muted-foreground/60 whitespace-nowrap">Coming soon</span>
-                    </div>
-                </div>
-            )}
-        </motion.div>
+        </div>
     );
 }
+
+/* ── Hero card (brief §4.5) ──────────────────────────────────────────── */
+function HeroCard({ recommendation, selectedFlight, boardingTime, bufferMinutes }) {
+    const leaveTime = formatUTCToLocal(recommendation?.leave_home_at);
+    const status = selectedFlight?.canceled
+        ? 'Cancelled'
+        : selectedFlight?.is_delayed
+            ? 'Delayed'
+            : 'On time';
+    const statusTone = selectedFlight?.canceled
+        ? 'bg-c-urgency-surface text-c-urgency'
+        : selectedFlight?.is_delayed
+            ? 'bg-c-warning-surface text-c-warning'
+            : 'bg-c-confidence-surface text-c-confidence';
+
+    return (
+        <div className="rounded-c-lg bg-c-brand-primary-surface border border-c-brand-primary/15 p-c-8 shadow-c-sm">
+            <div className="flex items-center gap-c-2 c-type-caption text-c-brand-primary mb-c-3">
+                <Timer size={14} weight="fill" />
+                <span>LEAVE AT</span>
+            </div>
+            <p className="c-type-hero text-c-brand-primary tracking-tight">{leaveTime}</p>
+
+            {/* Flight identifier cluster */}
+            <div className="flex flex-wrap items-center gap-c-2 mt-c-4">
+                <IdBadge>{selectedFlight?.flight_number}</IdBadge>
+                {selectedFlight?.origin_code && (
+                    <span className="c-type-footnote text-c-text-secondary">
+                        {selectedFlight.origin_code} → {selectedFlight.destination_code}
+                    </span>
+                )}
+                {selectedFlight?.departure_terminal && (
+                    <IdBadge variant="subtle">Terminal {selectedFlight.departure_terminal}</IdBadge>
+                )}
+                {selectedFlight?.departure_gate && (
+                    <IdBadge variant="subtle">Gate {selectedFlight.departure_gate}</IdBadge>
+                )}
+                <span className={cn('inline-flex items-center px-c-2 py-c-1 rounded-c-pill c-type-footnote font-semibold', statusTone)}>
+                    {status}
+                </span>
+            </div>
+
+            {/* Pills row */}
+            <div className="flex flex-wrap gap-c-2 mt-c-6">
+                <HeroPill icon={Bell}>Track &amp; get alerts</HeroPill>
+                {boardingTime && <HeroPill icon={Clock}>Boarding {boardingTime}</HeroPill>}
+                {bufferMinutes > 0 && (
+                    <HeroPill icon={Timer}>+{formatDuration(bufferMinutes)} buffer</HeroPill>
+                )}
+            </div>
+        </div>
+    );
+}
+
+function IdBadge({ children, variant = 'default' }) {
+    if (!children) return null;
+    return (
+        <span className={cn(
+            'inline-flex items-center px-c-2 py-c-1 rounded-c-xs c-type-footnote font-semibold',
+            variant === 'subtle'
+                ? 'bg-c-ground-elevated text-c-text-secondary border border-c-border-hairline'
+                : 'bg-c-brand-primary text-c-text-inverse'
+        )}>
+            {children}
+        </span>
+    );
+}
+
+function HeroPill({ icon: Icon, children }) {
+    return (
+        <span className="inline-flex items-center gap-c-1 px-c-3 py-c-1 rounded-c-pill bg-c-ground-elevated c-type-footnote text-c-text-primary border border-c-border-hairline">
+            <Icon size={12} weight="fill" className="text-c-brand-primary" />
+            {children}
+        </span>
+    );
+}
+
+/* ── Timeline row ───────────────────────────────────────────────────── */
+function TimelineRow({ row, isFirst, isLast }) {
+    const { Icon, name, subtitle, time, badge } = row;
+    return (
+        <div className="relative flex items-start gap-c-3 px-c-4 py-c-3">
+            {/* Connector line, sitting behind the icon column */}
+            {!isLast && (
+                <span
+                    aria-hidden="true"
+                    className="absolute left-[calc(var(--c-space-4)+15px)] top-[calc(var(--c-space-3)+32px)] bottom-0 w-px bg-c-border-hairline"
+                    style={{ /* fallback if the CSS var isn't picked up by the plugin */
+                        left: `calc(16px + 15px)`, top: `calc(12px + 32px)`,
+                    }}
+                />
+            )}
+            <span
+                className={cn(
+                    'relative z-10 shrink-0 w-8 h-8 rounded-c-pill flex items-center justify-center',
+                    isLast ? 'bg-c-confidence-surface' : 'bg-c-brand-primary-surface'
+                )}
+            >
+                <Icon
+                    size={16}
+                    weight={isFirst || isLast ? 'fill' : 'regular'}
+                    className={isLast ? 'text-c-confidence' : 'text-c-brand-primary'}
+                />
+            </span>
+            <div className="flex-1 min-w-0">
+                <p className="c-type-body font-semibold text-c-text-primary truncate">{name}</p>
+                {subtitle && (
+                    <p className="c-type-footnote text-c-text-secondary truncate">
+                        {subtitle}
+                        {badge && (
+                            <span className="ml-c-2 inline-flex items-center px-c-1 rounded-c-xs bg-c-confidence-surface text-c-confidence font-semibold">
+                                {badge}
+                            </span>
+                        )}
+                    </p>
+                )}
+            </div>
+            <span className="shrink-0 c-type-body font-semibold text-c-text-primary tabular-nums self-center">
+                {time}
+            </span>
+        </div>
+    );
+}
+
+/* ── Info card (boarding / flight departs) ──────────────────────────── */
+function InfoCard({ eyebrow, value, subtitle, urgency, urgencyNote }) {
+    return (
+        <div className={cn(
+            'rounded-c-md p-c-5 border',
+            urgency
+                ? 'bg-c-warning-surface border-c-warning/20'
+                : 'bg-c-ground-elevated border-c-border-hairline'
+        )}>
+            <p className={cn('c-type-caption mb-c-2', urgency ? 'text-c-warning' : 'text-c-text-tertiary')}>
+                {eyebrow}
+            </p>
+            <p className={cn('c-type-display tracking-tight', urgency ? 'text-c-warning' : 'text-c-text-primary')}>
+                {value}
+            </p>
+            {subtitle && !urgencyNote && (
+                <p className="c-type-footnote text-c-text-secondary mt-c-2">{subtitle}</p>
+            )}
+            {urgencyNote && (
+                <p className="c-type-footnote text-c-warning font-semibold mt-c-2">{urgencyNote}</p>
+            )}
+        </div>
+    );
+}
+
+/* ── Rideshare card with Uber/Lyft provider toggle ──────────────────── */
+function RideshareCard({ recommendation, selectedFlight, leaveAt }) {
+    const [provider, setProvider] = useState(() => loadRideshareProvider());
+    const [openedOnce, setOpenedOnce] = useState(false);
+
+    const homeCoords = recommendation?.home_coordinates;
+    const termCoords = recommendation?.terminal_coordinates;
+    const canDeepLink = !!(homeCoords && termCoords);
+
+    const coords = {
+        homeLat: homeCoords?.lat,
+        homeLng: homeCoords?.lng,
+        termLat: termCoords?.lat,
+        termLng: termCoords?.lng,
+        airportCode: selectedFlight?.origin_code || '',
+        terminal: selectedFlight?.departure_terminal || '',
+    };
+
+    const pickProvider = (p) => {
+        setProvider(p);
+        saveRideshareProvider(p);
+    };
+
+    const linkHref =
+        provider === 'uber' ? buildUberUrl(coords)
+        : provider === 'lyft' ? buildLyftUrl(coords)
+        : null;
+
+    const leaveTimeStr = formatUTCToLocal(leaveAt);
+
+    return (
+        <section>
+            <div className="rounded-c-lg bg-c-text-primary p-c-6 text-c-text-inverse">
+                <p className="c-type-caption text-white/60 mb-c-3">
+                    {provider ? `BOOK YOUR ${provider === 'uber' ? 'UBER' : 'LYFT'}` : 'PICK YOUR RIDE'}
+                </p>
+
+                {/* Provider toggle */}
+                <div className="grid grid-cols-2 gap-c-2 mb-c-4">
+                    <ProviderButton
+                        active={provider === 'uber'}
+                        onClick={() => pickProvider('uber')}
+                    >
+                        Uber
+                    </ProviderButton>
+                    <ProviderButton
+                        active={provider === 'lyft'}
+                        onClick={() => pickProvider('lyft')}
+                    >
+                        Lyft
+                    </ProviderButton>
+                </div>
+
+                {provider && (
+                    <div className="flex items-center justify-between gap-c-3 pt-c-3 border-t border-white/10">
+                        <div className="min-w-0">
+                            <p className="c-type-body font-semibold text-c-text-inverse truncate">
+                                Schedule pickup
+                            </p>
+                            {leaveTimeStr && (
+                                <p className="c-type-footnote text-white/70">for {leaveTimeStr}</p>
+                            )}
+                        </div>
+                        {canDeepLink ? (
+                            <a
+                                href={linkHref}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                onClick={() => setOpenedOnce(true)}
+                                className="inline-flex items-center gap-c-1 px-c-4 h-10 rounded-c-pill bg-c-ground-elevated text-c-text-primary c-type-footnote font-semibold hover:bg-c-ground-sunken transition-colors shrink-0"
+                            >
+                                Open
+                                <ArrowSquareOut size={14} weight="bold" />
+                            </a>
+                        ) : (
+                            <span className="c-type-footnote text-white/60 shrink-0">
+                                Coords unavailable
+                            </span>
+                        )}
+                    </div>
+                )}
+            </div>
+
+            {openedOnce && (
+                <p className="c-type-footnote text-c-brand-primary text-center mt-c-3">
+                    ← Back to AirBridge
+                </p>
+            )}
+        </section>
+    );
+}
+
+function ProviderButton({ active, onClick, children }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            aria-pressed={active}
+            className={cn(
+                'h-12 rounded-c-md c-type-body font-semibold transition-colors border',
+                'focus:outline-none focus-visible:ring-2 focus-visible:ring-c-brand-primary focus-visible:ring-offset-2 focus-visible:ring-offset-c-text-primary',
+                active
+                    ? 'bg-c-ground-elevated text-c-text-primary border-c-ground-elevated'
+                    : 'bg-transparent text-c-text-inverse border-white/20 hover:border-white/40'
+            )}
+        >
+            {children}
+        </button>
+    );
+}
+
+/* ── Error banner ───────────────────────────────────────────────────── */
+function ErrorBanner({ message, onDismiss }) {
+    return (
+        <div className="rounded-c-md bg-c-urgency-surface border border-c-urgency/30 p-c-4 flex items-start gap-c-3">
+            <WarningCircle size={20} weight="regular" className="text-c-urgency shrink-0 mt-0.5" />
+            <div className="flex-1 min-w-0">
+                <p className="c-type-footnote text-c-urgency">{message}</p>
+                {onDismiss && (
+                    <button
+                        type="button"
+                        onClick={onDismiss}
+                        className="c-type-footnote text-c-urgency underline mt-c-1"
+                    >
+                        Dismiss
+                    </button>
+                )}
+            </div>
+        </div>
+    );
+}
+
+/* ── Hero skeleton (recommendation still computing) ─────────────────── */
+function HeroSkeleton() {
+    return (
+        <div className="rounded-c-lg bg-c-brand-primary-surface p-c-8 animate-pulse">
+            <div className="h-4 w-20 bg-c-brand-primary/20 rounded-c-xs mb-c-4" />
+            <div className="h-16 w-48 bg-c-brand-primary/30 rounded-c-md" />
+            <div className="h-4 w-3/4 bg-c-brand-primary/20 rounded-c-xs mt-c-6" />
+        </div>
+    );
+}
+
+/* Suppress AirplaneTakeoff lint — imported symbol reserved for future
+   phase rows (boarding/takeoff marker) when brief extends. */
+void AirplaneTakeoff;
