@@ -365,7 +365,7 @@ export default function Trips() {
                             <span className="font-bold text-lg text-foreground">AirBridge</span>
                         </Link>
                         <nav className="hidden md:flex items-center gap-1 text-sm">
-                            <Link to={createPageUrl('Engine')} className="text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg transition-colors">Search</Link>
+                            <Link to="/search" className="text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg transition-colors">Search</Link>
                             <span className="text-foreground font-semibold px-3 py-1.5 bg-secondary rounded-lg">My Trip</span>
                             <Link to={createPageUrl('Settings')} className="text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg transition-colors">Settings</Link>
                         </nav>
