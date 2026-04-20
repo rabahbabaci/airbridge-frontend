@@ -19,6 +19,7 @@ import Card from '@/components/design-system/Card';
 import Button from '@/components/design-system/Button';
 import StatusPill from '@/components/design-system/StatusPill';
 import AuthModal from '@/components/engine/AuthModal';
+import useAuthGatedTabs from '@/hooks/useAuthGatedTabs';
 import { cn } from '@/lib/utils';
 
 /* ── Constants ──────────────────────────────────────────────────────────── */
@@ -300,7 +301,8 @@ function DatePills({ value, onChange }) {
 /* ── Search screen ───────────────────────────────────────────────────────── */
 export default function Search() {
     const navigate = useNavigate();
-    const { display_name, isAuthenticated, token, login } = useAuth();
+    const { display_name, isAuthenticated, token } = useAuth();
+    const { handleTabChange, authOpen, setAuthOpen, handleAuthSuccess } = useAuthGatedTabs('search');
 
     // Hydrate from sessionStorage (set by prior interactions in this flow).
     // Falls back to defaults when the key is missing or JSON is corrupted.
@@ -312,10 +314,8 @@ export default function Search() {
     const [destination, setDestination] = useState(() => loadSearchState()?.to?.iata || '');
     const [flightNumber, setFlightNumber] = useState(() => loadSearchState()?.flightNumber || '');
     const [departureDate, setDepartureDate] = useState(() => resolveStoredDate(loadSearchState()?.date));
-    const [tabValue, setTabValue] = useState('search');
     const [searching, setSearching] = useState(false);
     const [searchError, setSearchError] = useState(null);
-    const [authOpen, setAuthOpen] = useState(false);
 
     // Informational banner: authenticated user landed here but has one or
     // more upcoming tracked trips. Tapping always routes to /Trips so the
@@ -432,12 +432,6 @@ export default function Search() {
             iconActive: <Gear size={22} weight="bold" />,
         },
     ];
-
-    const handleTabChange = (value) => {
-        setTabValue(value);
-        if (value === 'trip') navigate(createPageUrl('Trips'));
-        else if (value === 'settings') navigate(createPageUrl('Settings'));
-    };
 
     return (
         <div className="min-h-screen bg-c-ground font-c-sans text-c-text-primary">
@@ -592,15 +586,12 @@ export default function Search() {
                 </Card>
             </main>
 
-            <TabBar value={tabValue} onChange={handleTabChange} tabs={tabs} />
+            <TabBar value="search" onChange={handleTabChange} tabs={tabs} />
 
             <AuthModal
                 open={authOpen}
                 onOpenChange={setAuthOpen}
-                onSuccess={(data) => {
-                    login(data);
-                    setAuthOpen(false);
-                }}
+                onSuccess={handleAuthSuccess}
             />
         </div>
     );

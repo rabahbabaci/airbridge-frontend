@@ -9,6 +9,8 @@ import { useAuth } from '@/lib/AuthContext';
 import { API_BASE } from '@/config';
 import { createPageUrl } from '@/utils';
 import TabBar from '@/components/design-system/TabBar';
+import AuthModal from '@/components/engine/AuthModal';
+import useAuthGatedTabs from '@/hooks/useAuthGatedTabs';
 import JourneyVisualization from './JourneyVisualization';
 import ActionCards from './ActionCards';
 import UntrackConfirmModal from './UntrackConfirmModal';
@@ -64,6 +66,7 @@ export default function ActiveTripView({
 }) {
     const { token, updateTripCount } = useAuth();
     const navigate = useNavigate();
+    const { handleTabChange, authOpen, setAuthOpen, handleAuthSuccess } = useAuthGatedTabs('trip');
     const [countdown, setCountdown] = useState('');
     const [urgency, setUrgency] = useState('calm');
     const [refreshing, setRefreshing] = useState(false);
@@ -222,12 +225,6 @@ export default function ActiveTripView({
             iconActive: <Gear size={22} weight="bold" />,
         },
     ];
-
-    const handleTabChange = (value) => {
-        if (value === 'search') navigate('/search');
-        else if (value === 'settings') navigate(createPageUrl('Settings'));
-        // 'trip' → no-op, we're already on it
-    };
 
     return (
         <motion.div key="active_trip" {...pageTransition} className="min-h-[calc(100vh-57px)] bg-secondary/50 pb-28">
@@ -414,6 +411,12 @@ export default function ActiveTripView({
             />
 
             <TabBar value="trip" onChange={handleTabChange} tabs={tabs} />
+
+            <AuthModal
+                open={authOpen}
+                onOpenChange={setAuthOpen}
+                onSuccess={handleAuthSuccess}
+            />
         </motion.div>
     );
 }
