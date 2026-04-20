@@ -1,5 +1,10 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { useAuth } from '@/lib/AuthContext';
+import uberIcon from '@/assets/brand-icons/uber.svg';
+import lyftIcon from '@/assets/brand-icons/lyft.svg';
+import appleMapsIcon from '@/assets/brand-icons/apple-maps.svg';
+import googleMapsIcon from '@/assets/brand-icons/google-maps.svg';
+import wazeIcon from '@/assets/brand-icons/waze.svg';
 import {
     House, Car, Train, Bus, MapPin, SuitcaseRolling, Shield,
     Footprints, Clock, Timer, Rocket,
@@ -717,8 +722,12 @@ function InfoCard({ eyebrow, value, subtitle, urgency, urgencyNote }) {
     );
 }
 
-/* ── Shared ghost/provider button used by rideshare + navigation cards ─ */
-function PickerButton({ active, children, href, onClick, type = 'button' }) {
+/* ── Shared ghost/provider button used by rideshare + navigation cards ─
+   `icon` is an SVG asset URL rendered as a decorative 20px <img> to the
+   left of children. alt="" — the brand name already appears in the button
+   text, so the icon is visual reinforcement, not announced twice by a
+   screen reader. */
+function PickerButton({ active, children, href, onClick, type = 'button', icon }) {
     const cls = cn(
         'inline-flex items-center justify-center gap-c-2 h-11 px-c-4 rounded-c-md c-type-footnote font-semibold transition-colors border',
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-c-brand-primary focus-visible:ring-offset-2',
@@ -726,16 +735,22 @@ function PickerButton({ active, children, href, onClick, type = 'button' }) {
             ? 'bg-c-brand-primary-surface text-c-brand-primary border-c-brand-primary'
             : 'bg-transparent text-c-text-primary border-c-border-hairline hover:bg-c-ground-sunken'
     );
+    const content = (
+        <>
+            {icon && <img src={icon} alt="" className="w-5 h-5 shrink-0" />}
+            {children}
+        </>
+    );
     if (href) {
         return (
             <a href={href} target="_blank" rel="noopener noreferrer" onClick={onClick} className={cls}>
-                {children}
+                {content}
             </a>
         );
     }
     return (
         <button type={type} onClick={onClick} aria-pressed={active} className={cls}>
-            {children}
+            {content}
         </button>
     );
 }
@@ -775,10 +790,10 @@ function RideshareCard({ recommendation, selectedFlight, leaveAt }) {
                 <p className="c-type-caption text-c-text-secondary mb-c-3">Book your ride</p>
 
                 <div className="grid grid-cols-2 gap-c-2">
-                    <PickerButton active={provider === 'uber'} onClick={() => pickProvider('uber')}>
+                    <PickerButton active={provider === 'uber'} onClick={() => pickProvider('uber')} icon={uberIcon}>
                         Uber
                     </PickerButton>
-                    <PickerButton active={provider === 'lyft'} onClick={() => pickProvider('lyft')}>
+                    <PickerButton active={provider === 'lyft'} onClick={() => pickProvider('lyft')} icon={lyftIcon}>
                         Lyft
                     </PickerButton>
                 </div>
@@ -809,7 +824,7 @@ function RideshareCard({ recommendation, selectedFlight, leaveAt }) {
                                 onClick={() => setOpenedOnce(true)}
                                 className="inline-flex items-center gap-c-1 px-c-4 h-10 rounded-c-pill bg-c-brand-primary text-c-text-inverse c-type-footnote font-semibold hover:bg-c-brand-primary-hover transition-colors shrink-0"
                             >
-                                Open
+                                Open with {provider === 'uber' ? 'Uber' : 'Lyft'}
                                 <ArrowSquareOut size={14} weight="bold" />
                             </a>
                         )}
@@ -856,14 +871,14 @@ function NavigationCard({ recommendation, selectedFlight, transit }) {
                     {transit ? (
                         // Transit users get Google Maps in transit mode — Apple Maps
                         // transit coverage is spotty, Waze is driving-only.
-                        <PickerButton href={buildGoogleMapsUrl(coords)}>
+                        <PickerButton href={buildGoogleMapsUrl(coords)} icon={googleMapsIcon}>
                             Google Maps · Transit
                         </PickerButton>
                     ) : (
                         <>
-                            <PickerButton href={buildAppleMapsUrl(coords)}>Apple Maps</PickerButton>
-                            <PickerButton href={buildGoogleMapsUrl(coords)}>Google Maps</PickerButton>
-                            <PickerButton href={buildWazeUrl(coords)}>Waze</PickerButton>
+                            <PickerButton href={buildAppleMapsUrl(coords)} icon={appleMapsIcon}>Apple Maps</PickerButton>
+                            <PickerButton href={buildGoogleMapsUrl(coords)} icon={googleMapsIcon}>Google Maps</PickerButton>
+                            <PickerButton href={buildWazeUrl(coords)} icon={wazeIcon}>Waze</PickerButton>
                         </>
                     )}
                 </div>
