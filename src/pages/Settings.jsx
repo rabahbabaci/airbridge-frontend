@@ -324,8 +324,8 @@ export default function Settings() {
                             <span className="font-bold text-lg text-foreground">AirBridge</span>
                         </Link>
                         <nav className="hidden md:flex items-center gap-1 text-sm">
-                            <Link to={createPageUrl('Engine')} className="text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg transition-colors">Engine</Link>
-                            <Link to={createPageUrl('Trips')} className="text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg transition-colors">Trip History</Link>
+                            <Link to="/search" className="text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg transition-colors">Search</Link>
+                            <Link to={createPageUrl('Trips')} className="text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg transition-colors">My Trip</Link>
                             <span className="text-foreground font-semibold px-3 py-1.5 bg-secondary rounded-lg">Settings</span>
                         </nav>
                     </div>
@@ -347,10 +347,18 @@ export default function Settings() {
             <div className="max-w-2xl mx-auto px-4 py-8">
                 {/* Page title */}
                 <div className="flex items-center gap-3 mb-6">
-                    <Link to={createPageUrl('Engine')}
+                    <button
+                        type="button"
+                        onClick={() => {
+                            // Prefer actual back navigation when there's history;
+                            // otherwise land on the home surface (`/`).
+                            if (window.history.length > 1) navigate(-1);
+                            else navigate('/');
+                        }}
+                        aria-label="Back"
                         className="w-9 h-9 rounded-xl border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 transition-all">
                         <ArrowLeft className="w-4 h-4" />
-                    </Link>
+                    </button>
                     <div className="flex-1">
                         <h1 className="text-2xl font-black text-foreground tracking-tight">Settings</h1>
                         <p className="text-sm text-muted-foreground">Manage your account and preferences</p>

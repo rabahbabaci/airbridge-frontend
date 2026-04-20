@@ -10,6 +10,7 @@ import {
     MagnifyingGlass,
     Gear,
     ArrowRight,
+    CaretRight,
     X as XIcon,
 } from '@phosphor-icons/react';
 import TopBar from '@/components/design-system/TopBar';
@@ -18,6 +19,7 @@ import Card from '@/components/design-system/Card';
 import Button from '@/components/design-system/Button';
 import StatusPill from '@/components/design-system/StatusPill';
 import AuthModal from '@/components/engine/AuthModal';
+import useAuthGatedTabs from '@/hooks/useAuthGatedTabs';
 import { cn } from '@/lib/utils';
 
 /* ── Constants ──────────────────────────────────────────────────────────── */
@@ -69,6 +71,21 @@ function serializeDate(iso) {
     if (iso === todayIso()) return 'today';
     if (iso === tomorrowIso()) return 'tomorrow';
     return iso;
+}
+
+// Trips with these statuses are eligible for the "you have an active trip"
+// banner — same set the active-trip takeover rule uses on `/`.
+const ACTIVE_BANNER_STATUSES = ['active', 'en_route', 'at_airport', 'at_gate'];
+
+function isDepartingWithin24h(trip) {
+    const depUtc = trip.projected_timeline?.departure_utc;
+    if (depUtc) {
+        const diff = new Date(depUtc) - Date.now();
+        return diff > 0 && diff < 24 * 60 * 60 * 1000;
+    }
+    const today = new Date().toISOString().split('T')[0];
+    const tomorrow = new Date(Date.now() + 86400000).toISOString().split('T')[0];
+    return trip.departure_date === today || trip.departure_date === tomorrow;
 }
 
 function airportInfo(iata) {
@@ -284,7 +301,8 @@ function DatePills({ value, onChange }) {
 /* ── Search screen ───────────────────────────────────────────────────────── */
 export default function Search() {
     const navigate = useNavigate();
-    const { display_name, isAuthenticated, token, login } = useAuth();
+    const { display_name, isAuthenticated, token } = useAuth();
+    const { handleTabChange, authOpen, setAuthOpen, handleAuthSuccess } = useAuthGatedTabs('search');
 
     // Hydrate from sessionStorage (set by prior interactions in this flow).
     // Falls back to defaults when the key is missing or JSON is corrupted.
@@ -296,10 +314,38 @@ export default function Search() {
     const [destination, setDestination] = useState(() => loadSearchState()?.to?.iata || '');
     const [flightNumber, setFlightNumber] = useState(() => loadSearchState()?.flightNumber || '');
     const [departureDate, setDepartureDate] = useState(() => resolveStoredDate(loadSearchState()?.date));
-    const [tabValue, setTabValue] = useState('search');
     const [searching, setSearching] = useState(false);
     const [searchError, setSearchError] = useState(null);
-    const [authOpen, setAuthOpen] = useState(false);
+
+    // Informational banner: authenticated user landed here but has one or
+    // more upcoming tracked trips. Tapping always routes to /Trips so the
+    // user sees everything they're working with — no arbitrary first-trip
+    // selection when multiple are active.
+    const [upcomingTrips, setUpcomingTrips] = useState([]);
+    useEffect(() => {
+        if (!isAuthenticated || !token) { setUpcomingTrips([]); return; }
+        let cancelled = false;
+        (async () => {
+            try {
+                const res = await fetch(`${API_BASE}/v1/trips/active-list`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (!res.ok || cancelled) return;
+                const data = await res.json();
+                const trips = (data.trips || [])
+                    .filter(t => ACTIVE_BANNER_STATUSES.includes(t.status) && isDepartingWithin24h(t))
+                    .sort((a, b) => {
+                        const aT = a.projected_timeline?.departure_utc || a.departure_date || '';
+                        const bT = b.projected_timeline?.departure_utc || b.departure_date || '';
+                        return aT.localeCompare(bT);
+                    });
+                if (!cancelled) setUpcomingTrips(trips);
+            } catch {
+                // Silent — the banner is a convenience, not a primary path.
+            }
+        })();
+        return () => { cancelled = true; };
+    }, [isAuthenticated, token]);
 
     // Persist form state on every change so Flight Selection → back restores
     // the user's inputs. Cleared by Engine when a trip is tracked (Task 7.3).
@@ -387,12 +433,6 @@ export default function Search() {
         },
     ];
 
-    const handleTabChange = (value) => {
-        setTabValue(value);
-        if (value === 'trip') navigate(createPageUrl('Trips'));
-        else if (value === 'settings') navigate(createPageUrl('Settings'));
-    };
-
     return (
         <div className="min-h-screen bg-c-ground font-c-sans text-c-text-primary">
             <TopBar
@@ -433,6 +473,38 @@ export default function Search() {
             <div className="px-c-6 pt-c-4">
                 <StatusPill tone="neutral">🇺🇸 US domestic flights only</StatusPill>
             </div>
+
+            {/* Active-trip informational banner. Always routes to /Trips so
+               the user sees everything they're working with — single or
+               many. Copy and subtitle adapt to trip count. */}
+            {upcomingTrips.length > 0 && (
+                <div className="px-c-6 pt-c-3">
+                    <button
+                        type="button"
+                        onClick={() => navigate(createPageUrl('Trips'))}
+                        className="w-full flex items-center gap-c-3 px-c-4 py-c-3 bg-c-brand-primary-surface rounded-c-md text-c-brand-primary hover:bg-c-brand-primary-surface/80 transition-colors text-left"
+                    >
+                        <Airplane size={18} weight="bold" className="shrink-0" />
+                        <div className="flex-1 min-w-0">
+                            <p className="c-type-footnote font-semibold truncate">
+                                {upcomingTrips.length === 1
+                                    ? 'You have an active trip'
+                                    : `You have ${upcomingTrips.length} active trips`}
+                            </p>
+                            <p className="c-type-caption opacity-80 truncate">
+                                {upcomingTrips.length === 1
+                                    ? `${upcomingTrips[0].flight_number}${
+                                        upcomingTrips[0].origin_iata && upcomingTrips[0].destination_iata
+                                            ? ` · ${upcomingTrips[0].origin_iata} → ${upcomingTrips[0].destination_iata}`
+                                            : ''
+                                    }`
+                                    : 'View them all'}
+                            </p>
+                        </div>
+                        <CaretRight size={16} weight="bold" className="shrink-0" />
+                    </button>
+                </div>
+            )}
 
             {/* Content */}
             <main className="px-c-6 pt-c-8 pb-40 max-w-2xl mx-auto">
@@ -514,15 +586,12 @@ export default function Search() {
                 </Card>
             </main>
 
-            <TabBar value={tabValue} onChange={handleTabChange} tabs={tabs} />
+            <TabBar value="search" onChange={handleTabChange} tabs={tabs} />
 
             <AuthModal
                 open={authOpen}
                 onOpenChange={setAuthOpen}
-                onSuccess={(data) => {
-                    login(data);
-                    setAuthOpen(false);
-                }}
+                onSuccess={handleAuthSuccess}
             />
         </div>
     );

@@ -4,10 +4,14 @@ import {
     House, Car, Train, Bus, MapPin, SuitcaseRolling, Shield,
     Footprints, Clock, Timer, Rocket,
     WarningCircle, ArrowSquareOut, CheckCircle, NavigationArrow,
+    Airplane as AirplanePhosphor, MagnifyingGlass, Gear,
 } from '@phosphor-icons/react';
 import { cn } from '@/lib/utils';
 import TopBar from '@/components/design-system/TopBar';
+import TabBar from '@/components/design-system/TabBar';
 import Button from '@/components/design-system/Button';
+import AuthModal from '@/components/engine/AuthModal';
+import useAuthGatedTabs from '@/hooks/useAuthGatedTabs';
 import {
     buildUberUrl, buildLyftUrl,
     loadRideshareProvider, saveRideshareProvider,
@@ -253,12 +257,12 @@ export default function ResultsView({
     isAuthenticated, display_name,
     apiError, setApiError,
     onEditSetup, onReady,
-    onSignIn,
     isTracked, onTrack,
     homeAddress,
     editMode, editIsDraft, editError, isUpdating, onUpdateTrip,
 }) {
     const { isPro } = useAuth();
+    const { handleTabChange, authOpen, setAuthOpen, handleAuthSuccess } = useAuthGatedTabs();
     const [submitting, setSubmitting] = useState(false);
 
     useEffect(() => {
@@ -309,9 +313,14 @@ export default function ResultsView({
                 await onUpdateTrip();
             } else if (editMode) {
                 await onUpdateTrip?.();
-            } else if (!isAuthenticated) {
-                onSignIn?.();
             } else {
+                // onTrack === Engine.handleTrackTrip — branches on
+                // isAuthenticated internally. For unauth it sets
+                // pendingTrackAfterAuth=true and opens the AuthModal so
+                // AuthModal.onSuccess can auto-fire the POST /track.
+                // Calling onSignIn here directly skipped that ref setup,
+                // producing the "sign in → see paywall, not Active Trip"
+                // regression from the Task 7.5 ResultsView rewrite.
                 await onTrack?.();
             }
         } finally {
@@ -333,8 +342,29 @@ export default function ResultsView({
 
     const signedInName = firstName(display_name);
 
+    const tabs = [
+        {
+            value: 'search',
+            label: 'Search',
+            icon: <MagnifyingGlass size={22} weight="regular" />,
+            iconActive: <MagnifyingGlass size={22} weight="bold" />,
+        },
+        {
+            value: 'trip',
+            label: 'My Trip',
+            icon: <AirplanePhosphor size={22} weight="regular" />,
+            iconActive: <AirplanePhosphor size={22} weight="bold" />,
+        },
+        {
+            value: 'settings',
+            label: 'Settings',
+            icon: <Gear size={22} weight="regular" />,
+            iconActive: <Gear size={22} weight="bold" />,
+        },
+    ];
+
     return (
-        <div className="w-full max-w-[860px] mx-auto -mx-4">
+        <div className="w-full max-w-[860px] mx-auto -mx-4 pb-28">
             <TopBar title="Results" onBack={onEditSetup} />
 
             {selectedFlight && subtitleParts.length > 0 && (
@@ -465,6 +495,14 @@ export default function ResultsView({
                     </>
                 )}
             </div>
+
+            <TabBar onChange={handleTabChange} tabs={tabs} />
+
+            <AuthModal
+                open={authOpen}
+                onOpenChange={setAuthOpen}
+                onSuccess={handleAuthSuccess}
+            />
         </div>
     );
 }

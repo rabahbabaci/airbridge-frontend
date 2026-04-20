@@ -160,7 +160,31 @@ export default function Engine() {
     }, []);
 
     // ── Edit mode hydration from Trips page navigation ──────────────────────
+    // Trips passes the list-response trip shape via router state. That shape
+    // can be partial — notably, /v1/trips/active-list does not reliably
+    // include preferences_json, so Setup fields like bag_count, transport,
+    // security, etc. fall back to defaults. After the synchronous hydration
+    // from router state, fetch GET /v1/trips/{id} to pull the full trip
+    // (including the authoritative preferences_json) and re-hydrate.
     const editTripRef = useRef(location.state?.editTrip);
+    const hydratePrefsJson = (source) => {
+        if (!source) return;
+        try {
+            const prefs = typeof source === 'string' ? JSON.parse(source) : source;
+            if (prefs.transport_mode) setTransport(prefs.transport_mode);
+            if (prefs.bag_count != null) setBagCount(prefs.bag_count);
+            if (prefs.traveling_with_children != null) setWithChildren(prefs.traveling_with_children);
+            if (prefs.has_boarding_pass != null) setHasBoardingPass(prefs.has_boarding_pass);
+            if (prefs.gate_time_minutes != null) setGateTime(prefs.gate_time_minutes);
+            if (prefs.security_access) {
+                setHasPrecheck(prefs.security_access === 'precheck' || prefs.security_access === 'clear_precheck');
+                setHasClear(prefs.security_access === 'clear' || prefs.security_access === 'clear_precheck');
+                setHasPriorityLane(prefs.security_access === 'priority_lane');
+            }
+        } catch (e) {
+            console.error('Failed to parse edit trip preferences:', e);
+        }
+    };
     useEffect(() => {
         const trip = editTripRef.current;
         if (!trip) return;
@@ -169,27 +193,9 @@ export default function Engine() {
         if (trip.flight_number) setFlightNumber(trip.flight_number);
         if (trip.departure_date) setDepartureDate(trip.departure_date);
 
-        // Hydrate Step 3 fields from trip data
+        // Hydrate Step 3 fields from router-state trip (may be partial)
         if (trip.home_address) setStartingAddress(trip.home_address);
-        if (trip.preferences_json) {
-            try {
-                const prefs = typeof trip.preferences_json === 'string'
-                    ? JSON.parse(trip.preferences_json)
-                    : trip.preferences_json;
-                if (prefs.transport_mode) setTransport(prefs.transport_mode);
-                if (prefs.bag_count != null) setBagCount(prefs.bag_count);
-                if (prefs.traveling_with_children != null) setWithChildren(prefs.traveling_with_children);
-                if (prefs.has_boarding_pass != null) setHasBoardingPass(prefs.has_boarding_pass);
-                if (prefs.gate_time_minutes != null) setGateTime(prefs.gate_time_minutes);
-                if (prefs.security_access) {
-                    setHasPrecheck(prefs.security_access === 'precheck' || prefs.security_access === 'clear_precheck');
-                    setHasClear(prefs.security_access === 'clear' || prefs.security_access === 'clear_precheck');
-                    setHasPriorityLane(prefs.security_access === 'priority_lane');
-                }
-            } catch (e) {
-                console.error('Failed to parse edit trip preferences:', e);
-            }
-        }
+        hydratePrefsJson(trip.preferences_json);
 
         setEditMode(true);
         setEditTripId(trip.trip_id);
@@ -201,6 +207,54 @@ export default function Engine() {
         // edit UX is re-built on top of Search.
         setStep(3);
         setDir(1);
+
+        // Supplementary fetches. Two things happen here:
+        //   1. GET /v1/trips/{id} → authoritative trip record (preferences).
+        //   2. GET /v1/flights/{n}/{date} → live flight metadata so Results
+        //      can render the pill cluster + Boarding/Departs cards. The
+        //      trip record only stores flight_number + selected_departure_utc;
+        //      terminal, gate, departure_time, delays are time-varying and
+        //      live under /v1/flights. Same pattern the viewTrip flow uses.
+        if (!token || !trip.trip_id) return;
+        let cancelled = false;
+        (async () => {
+            let authoritative = trip;
+            try {
+                const res = await fetch(`${API_BASE}/v1/trips/${trip.trip_id}`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (res.ok && !cancelled) {
+                    authoritative = await res.json();
+                    if (cancelled) return;
+                    if (authoritative.home_address) setStartingAddress(authoritative.home_address);
+                    if (authoritative.flight_number) setFlightNumber(authoritative.flight_number);
+                    if (authoritative.departure_date) setDepartureDate(authoritative.departure_date);
+                    hydratePrefsJson(authoritative.preferences_json);
+                }
+            } catch (err) {
+                console.error('Failed to fetch full trip for edit:', err);
+            }
+
+            const fn = authoritative.flight_number;
+            const dd = authoritative.departure_date;
+            const selectedUtc = authoritative.selected_departure_utc;
+            if (!fn || !dd || cancelled) return;
+            try {
+                const flightRes = await fetch(
+                    `${API_BASE}/v1/flights/${encodeURIComponent(fn)}/${dd}`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+                if (!flightRes.ok || cancelled) return;
+                const flightData = await flightRes.json();
+                const flights = mapFlights(flightData.flights || []);
+                const matched = flights.find(f => f.departure_time_utc === selectedUtc) || flights[0];
+                if (matched && !cancelled) setSelectedFlight(matched);
+            } catch (err) {
+                console.error('Failed to fetch flight metadata for edit:', err);
+            }
+        })();
+        return () => { cancelled = true; };
+        // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
     // ── View mode hydration from Trips page or app-open routing ─────────────
@@ -1041,13 +1095,6 @@ export default function Engine() {
                         transport={transport}
                         isAuthenticated={isAuthenticated}
                         display_name={display_name}
-                        onNewTrip={() => {
-                            setActiveTripData(null);
-                            setActiveTripRec(null);
-                            resetTripState();
-                            clearEngineStep();
-                            navigate('/', { replace: true });
-                        }}
                         onEdit={() => {
                             // State is already hydrated from active trip load
                             setActiveTripData(null);
@@ -1142,7 +1189,6 @@ export default function Engine() {
                         onEditSetup={handleEditSetup}
                         onReset={handleReset}
                         onReady={() => setJourneyReady(true)}
-                        onSignIn={() => setAuthOpen(true)}
                         isTracked={isTracked}
                         onTrack={handleTrackTrip}
                         securityLabel={

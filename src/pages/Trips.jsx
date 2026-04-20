@@ -365,15 +365,14 @@ export default function Trips() {
                             <span className="font-bold text-lg text-foreground">AirBridge</span>
                         </Link>
                         <nav className="hidden md:flex items-center gap-1 text-sm">
-                            <Link to={createPageUrl('Engine')} className="text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg transition-colors">Search</Link>
+                            <Link to="/search" className="text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg transition-colors">Search</Link>
                             <span className="text-foreground font-semibold px-3 py-1.5 bg-secondary rounded-lg">My Trip</span>
                             <Link to={createPageUrl('Settings')} className="text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg transition-colors">Settings</Link>
                         </nav>
                     </div>
                     {showTabs && (
                         <Link
-                            to={createPageUrl('Engine')}
-                            state={{ newTrip: true }}
+                            to="/search"
                             className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground hover:bg-primary/90 transition-colors"
                             title="New trip"
                         >
@@ -431,8 +430,7 @@ export default function Trips() {
                         <p className="text-sm font-semibold text-foreground mb-1">No trips yet</p>
                         <p className="text-xs text-muted-foreground mb-4">Your tracked trips will appear here.</p>
                         <Link
-                            to={createPageUrl('Engine')}
-                            state={{ newTrip: true }}
+                            to="/search"
                             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
                         >
                             <Plus className="w-4 h-4" />
@@ -497,7 +495,7 @@ export default function Trips() {
                                         <p className="text-sm font-semibold text-foreground mb-1">No active trips</p>
                                         <p className="text-xs text-muted-foreground mb-4">Your tracked trips will appear here.</p>
                                         <Link
-                                            to={createPageUrl('Engine')}
+                                            to="/search"
                                             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
                                         >
                                             <Plus className="w-4 h-4" />
