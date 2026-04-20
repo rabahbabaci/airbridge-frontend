@@ -11,7 +11,7 @@ import { siUber, siLyft, siWaze, siGooglemaps } from 'simple-icons';
 // Sizing contract: every icon ships a square viewBox 0 0 24 24 and
 // accepts a `size` prop in px.
 
-function SimpleIconGlyph({ icon, size }) {
+function SimpleIconGlyph({ icon, size, color }) {
     return (
         <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -20,7 +20,7 @@ function SimpleIconGlyph({ icon, size }) {
             viewBox="0 0 24 24"
             width={size}
             height={size}
-            fill={`#${icon.hex}`}
+            fill={color || `#${icon.hex}`}
         >
             <title>{icon.title}</title>
             <path d={icon.path} />
@@ -28,16 +28,16 @@ function SimpleIconGlyph({ icon, size }) {
     );
 }
 
-export function UberIcon({ size = 24 }) {
-    return <SimpleIconGlyph icon={siUber} size={size} />;
+export function UberIcon({ size = 24, color }) {
+    return <SimpleIconGlyph icon={siUber} size={size} color={color} />;
 }
 
-export function LyftIcon({ size = 24 }) {
-    return <SimpleIconGlyph icon={siLyft} size={size} />;
+export function LyftIcon({ size = 24, color }) {
+    return <SimpleIconGlyph icon={siLyft} size={size} color={color} />;
 }
 
-export function WazeIcon({ size = 24 }) {
-    return <SimpleIconGlyph icon={siWaze} size={size} />;
+export function WazeIcon({ size = 24, color }) {
+    return <SimpleIconGlyph icon={siWaze} size={size} color={color} />;
 }
 
 // simple-icons ships Google Maps as a monochrome Google-blue pin. The real

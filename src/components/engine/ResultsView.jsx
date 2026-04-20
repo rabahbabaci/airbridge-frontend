@@ -404,7 +404,7 @@ export default function ResultsView({
     ];
 
     return (
-        <div className="w-full max-w-[860px] mx-auto -mx-4 pb-28">
+        <div className="w-full max-w-[1024px] mx-auto -mx-4 pb-28">
             <TopBar title="Results" onBack={onEditSetup} />
 
             {selectedFlight && subtitleParts.length > 0 && (
@@ -455,59 +455,64 @@ export default function ResultsView({
                             )}
 
                             {/* Desktop / tablet — horizontal timeline.
-                               Connector line is positioned at y=48px to
-                               thread through the icon chip centres
-                               (container has pt-c-6=24px, chips are h-12=48px
-                               so chip centre = 24 + 24 = 48px). Transit pills
-                               ride the same y-coord so their opaque
-                               background "breaks" the line where they overlay. */}
+                               Uses a flex-segments approach: each phase
+                               column renders its own left + right connector
+                               half. Adjacent halves abut at the column
+                               boundary to form one continuous line — no
+                               parent-level absolute maths required, which
+                               has failed three times with percentage-based
+                               positioning. Pills ride the boundary at z-20
+                               with their own opaque tile so the line appears
+                               to pass behind them. */}
                             <div className="hidden md:block">
-                                <div className="relative pt-c-6">
-                                    {/* Continuous connector — threads through
-                                       icon centres. First/last columns have
-                                       their chips at column-centre x; the
-                                       flex layout keeps edges fixed, so the
-                                       line runs from first-icon-centre to
-                                       last-icon-centre via 50%-column insets. */}
-                                    {timelineSteps.length > 1 && (() => {
-                                        const stepWidth = 100 / timelineSteps.length;
+                                <div className="flex items-start">
+                                    {timelineSteps.map((step, idx) => {
+                                        const isFirst = idx === 0;
+                                        const isLast = idx === timelineSteps.length - 1;
+                                        const outgoingLabel = !isLast ? connectorLabel(idx) : null;
                                         return (
-                                            <div
-                                                className="absolute h-0.5 bg-c-brand-primary/30 z-0"
-                                                style={{
-                                                    top: '48px',
-                                                    left: `${stepWidth / 2}%`,
-                                                    right: `${stepWidth / 2}%`,
-                                                }}
-                                                aria-hidden="true"
-                                            />
-                                        );
-                                    })()}
-                                    {timelineSteps.length > 1 && (() => {
-                                        const stepWidth = 100 / timelineSteps.length;
-                                        return timelineSteps.slice(0, -1).map((_, idx) => {
-                                            const leftPercent = stepWidth * idx + stepWidth;
-                                            const label = connectorLabel(idx);
-                                            if (!label) return null;
-                                            return (
-                                                <div
-                                                    key={`dur-${idx}`}
-                                                    className="absolute z-20"
-                                                    style={{ top: '48px', left: `${leftPercent}%`, transform: 'translate(-50%, -50%)' }}
-                                                >
-                                                    <div className="bg-c-ground-elevated px-c-3 py-c-1 rounded-c-sm border border-c-border-hairline shadow-c-sm flex items-center justify-center">
-                                                        <span className="c-type-caption font-bold text-c-brand-primary whitespace-nowrap leading-none">{label}</span>
-                                                    </div>
-                                                </div>
-                                            );
-                                        });
-                                    })()}
-                                    <div className="relative z-10 flex justify-between">
-                                        {timelineSteps.map((step, idx) => (
-                                            <div key={idx} className="flex flex-col items-center text-center" style={{ width: `${100 / timelineSteps.length}%` }}>
-                                                <div className={cn('w-12 h-12 rounded-c-md flex items-center justify-center mb-c-3 shadow-c-sm', step.bg)}>
+                                            <div key={idx} className="relative flex-1 min-w-0 flex flex-col items-center text-center">
+                                                {/* Left half of the connector (from column's
+                                                   left edge to the icon centre). Skip on the
+                                                   first column. Chip is h-12 = 48px, top 0, so
+                                                   icon centre y = 24px. Line top = 23px places
+                                                   the 2px line centred on the icon. */}
+                                                {!isFirst && (
+                                                    <div
+                                                        aria-hidden="true"
+                                                        className="absolute z-0 h-0.5 bg-c-brand-primary/30"
+                                                        style={{ top: '23px', left: '0', right: '50%' }}
+                                                    />
+                                                )}
+                                                {/* Right half of the connector (icon centre
+                                                   to column's right edge). Skip on the last. */}
+                                                {!isLast && (
+                                                    <div
+                                                        aria-hidden="true"
+                                                        className="absolute z-0 h-0.5 bg-c-brand-primary/30"
+                                                        style={{ top: '23px', left: '50%', right: '0' }}
+                                                    />
+                                                )}
+                                                {/* Icon chip — sits above the line via z-10
+                                                   and an opaque tinted background. */}
+                                                <div className={cn('relative z-10 w-12 h-12 rounded-c-md flex items-center justify-center mb-c-3 shadow-c-sm', step.bg)}>
                                                     <step.Icon size={22} weight="regular" className={step.iconColor} />
                                                 </div>
+                                                {/* Pill floating on the outgoing connector —
+                                                   centred horizontally on the column's right
+                                                   boundary, vertically on the icon-centre line. */}
+                                                {outgoingLabel && (
+                                                    <div
+                                                        className="absolute z-20"
+                                                        style={{ top: '24px', left: '100%', transform: 'translate(-50%, -50%)' }}
+                                                    >
+                                                        <div className="bg-c-ground-elevated px-c-3 py-0.5 rounded-c-sm border border-c-border-hairline shadow-c-sm flex items-center justify-center">
+                                                            <span className="font-bold text-c-brand-primary whitespace-nowrap leading-none" style={{ fontSize: '10px' }}>
+                                                                {outgoingLabel}
+                                                            </span>
+                                                        </div>
+                                                    </div>
+                                                )}
                                                 <p className="c-type-body font-bold text-c-text-primary tabular-nums">{step.time}</p>
                                                 <p className="c-type-footnote text-c-text-secondary font-medium mt-c-1">{step.shortLabel}</p>
                                                 {step.subtitle && (
@@ -521,8 +526,8 @@ export default function ResultsView({
                                                     </span>
                                                 )}
                                             </div>
-                                        ))}
-                                    </div>
+                                        );
+                                    })}
                                 </div>
                             </div>
 
@@ -743,20 +748,48 @@ function LauncherIcons({ transport, recommendation, selectedFlight }) {
         transit: isTransit,
     };
 
-    // Build the launcher list per transport mode. Transit omits Waze
-    // (driving only). All launchers now render as branded chips for visual
-    // consistency across modes — Uber/Lyft's colored marks already read as
-    // brand containers, but placing them on the hero card without structural
-    // containment made the hero feel uneven next to drive-mode's white chips.
-    let launchers = [];
+    // Rideshare chips are brand-coloured containers (Uber black, Lyft pink)
+    // with a white wordmark filling the chip — same silhouette you'd see
+    // as an iOS home-screen app icon. Drive / transit chips stay as white
+    // containers with a short caps label since their brand marks ship in
+    // colour palettes that need a neutral frame.
     if (isRideshare) {
         const uberHref = homeCoords ? buildUberUrl(rideshareCoords) : null;
         const lyftHref = homeCoords ? buildLyftUrl(rideshareCoords) : null;
-        launchers = [
-            uberHref && { href: uberHref, Icon: UberIcon, label: 'Open in Uber', short: 'Uber' },
-            lyftHref && { href: lyftHref, Icon: LyftIcon, label: 'Open in Lyft', short: 'Lyft' },
+        const rideshareChips = [
+            uberHref && {
+                href: uberHref, Icon: UberIcon, label: 'Open in Uber',
+                bg: '#000000', iconColor: '#FFFFFF',
+            },
+            lyftHref && {
+                href: lyftHref, Icon: LyftIcon, label: 'Open in Lyft',
+                bg: '#FF00BF', iconColor: '#FFFFFF',
+            },
         ].filter(Boolean);
-    } else if (isDriving) {
+        if (rideshareChips.length === 0) return null;
+        return (
+            <div className="ml-auto flex items-center gap-c-2">
+                {rideshareChips.map(({ href, Icon, label, bg, iconColor }) => (
+                    <a
+                        key={label}
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={label}
+                        title={label}
+                        className="inline-flex items-center justify-center h-11 px-c-4 rounded-c-md shadow-c-sm hover:opacity-90 active:scale-95 transition-all"
+                        style={{ backgroundColor: bg }}
+                    >
+                        <Icon size={30} color={iconColor} />
+                    </a>
+                ))}
+            </div>
+        );
+    }
+
+    // Drive / Transit launchers — white chip + icon + short caps label.
+    let launchers = [];
+    if (isDriving) {
         launchers = [
             { href: buildAppleMapsUrl(navCoords), Icon: AppleMapsIcon, label: 'Open in Apple Maps', short: 'Maps' },
             { href: buildGoogleMapsUrl(navCoords), Icon: GoogleMapsIcon, label: 'Open in Google Maps', short: 'Google' },
@@ -771,10 +804,6 @@ function LauncherIcons({ transport, recommendation, selectedFlight }) {
 
     if (launchers.length === 0) return null;
 
-    // Uniform chip treatment for every launcher — white rounded container
-    // with a hairline border, icon on top (20px) and caps label below in
-    // tight tracking. Chip content stacks vertically so icon + label fit
-    // inside a compact 44pt-tall tap target.
     return (
         <div className="ml-auto flex items-center gap-c-2">
             {launchers.map(({ href, Icon, label, short }) => (
