@@ -7,12 +7,16 @@ import { useAuth } from '@/lib/AuthContext';
 import { API_BASE } from '@/config';
 import { isNative } from '@/utils/platform';
 import PaywallModal from '@/components/PaywallModal';
+import TabBar from '@/components/design-system/TabBar';
+import AuthModal from '@/components/engine/AuthModal';
+import useAuthGatedTabs from '@/hooks/useAuthGatedTabs';
 import {
     ArrowLeft, Plane, Car, Train, Bus, ShieldCheck,
     Smartphone, Baby, Clock, LogOut, Mail, User,
     Map, Navigation, ExternalLink, Bell, CreditCard, Info,
     Settings as SettingsIcon, Check, AlertCircle, FileText, History,
 } from 'lucide-react';
+import { Airplane, MagnifyingGlass, Gear } from '@phosphor-icons/react';
 
 const TRANSPORT_OPTIONS = [
     { id: 'rideshare', label: 'Rideshare', icon: Car },
@@ -77,6 +81,28 @@ export default function Settings() {
     const navigate = useNavigate();
     const { token, isAuthenticated, display_name, auth_provider, logout, trip_count, subStatus, isPro, refreshSubscriptionStatus } = useAuth();
     const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+    const { handleTabChange, authOpen, setAuthOpen, handleAuthSuccess } = useAuthGatedTabs('settings');
+
+    const tabs = [
+        {
+            value: 'search',
+            label: 'Search',
+            icon: <MagnifyingGlass size={22} weight="regular" />,
+            iconActive: <MagnifyingGlass size={22} weight="bold" />,
+        },
+        {
+            value: 'trip',
+            label: 'My Trip',
+            icon: <Airplane size={22} weight="regular" />,
+            iconActive: <Airplane size={22} weight="bold" />,
+        },
+        {
+            value: 'settings',
+            label: 'Settings',
+            icon: <Gear size={22} weight="regular" />,
+            iconActive: <Gear size={22} weight="bold" />,
+        },
+    ];
 
     // Redirect if not authenticated
     useEffect(() => {
@@ -312,23 +338,17 @@ export default function Settings() {
     if (!isAuthenticated) return null;
 
     return (
-        <div className="min-h-screen bg-secondary/50 font-sans antialiased">
-            {/* Header */}
+        <div className="min-h-screen bg-secondary/50 font-sans antialiased pb-28">
+            {/* Header — logomark left, save status right. Tab switching
+               lives in the DS TabBar at the bottom. */}
             <header className="bg-card border-b border-border sticky top-0 z-50">
                 <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
-                    <div className="flex items-center gap-4 sm:gap-6">
-                        <Link to={createPageUrl('Home')} className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                                <Plane className="w-4 h-4 text-primary-foreground" />
-                            </div>
-                            <span className="font-bold text-lg text-foreground">AirBridge</span>
-                        </Link>
-                        <nav className="hidden md:flex items-center gap-1 text-sm">
-                            <Link to="/search" className="text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg transition-colors">Search</Link>
-                            <Link to={createPageUrl('Trips')} className="text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg transition-colors">My Trip</Link>
-                            <span className="text-foreground font-semibold px-3 py-1.5 bg-secondary rounded-lg">Settings</span>
-                        </nav>
-                    </div>
+                    <Link to="/search" className="inline-flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                            <Plane className="w-4 h-4 text-primary-foreground" />
+                        </div>
+                        <span className="font-bold text-lg text-foreground">AirBridge</span>
+                    </Link>
                     <div className="flex items-center gap-2">
                         {saveStatus === 'saving' && (
                             <span className="text-xs text-muted-foreground">Saving...</span>
@@ -345,27 +365,9 @@ export default function Settings() {
 
             {/* Content */}
             <div className="max-w-2xl mx-auto px-4 py-8">
-                {/* Page title */}
-                <div className="flex items-center gap-3 mb-6">
-                    <button
-                        type="button"
-                        onClick={() => {
-                            // Prefer actual back navigation when there's history;
-                            // otherwise land on the home surface (`/`).
-                            if (window.history.length > 1) navigate(-1);
-                            else navigate('/');
-                        }}
-                        aria-label="Back"
-                        className="w-9 h-9 rounded-xl border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 transition-all">
-                        <ArrowLeft className="w-4 h-4" />
-                    </button>
-                    <div className="flex-1">
-                        <h1 className="text-2xl font-black text-foreground tracking-tight">Settings</h1>
-                        <p className="text-sm text-muted-foreground">Manage your account and preferences</p>
-                    </div>
-                    <Link to={createPageUrl('Home')} className="md:hidden w-9 h-9 rounded-xl border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 transition-all" title="Home">
-                        <Plane className="w-4 h-4" />
-                    </Link>
+                <div className="mb-6">
+                    <h1 className="text-2xl font-black text-foreground tracking-tight">Settings</h1>
+                    <p className="text-sm text-muted-foreground">Manage your account and preferences</p>
                 </div>
 
                 {loadingProfile ? (
@@ -767,6 +769,14 @@ export default function Settings() {
                 open={paywallOpen}
                 onOpenChange={setPaywallOpen}
                 token={token}
+            />
+
+            <TabBar value="settings" onChange={handleTabChange} tabs={tabs} />
+
+            <AuthModal
+                open={authOpen}
+                onOpenChange={setAuthOpen}
+                onSuccess={handleAuthSuccess}
             />
         </div>
     );
