@@ -208,23 +208,49 @@ export default function Engine() {
         setStep(3);
         setDir(1);
 
-        // Supplementary fetch: re-hydrate from the authoritative trip record.
+        // Supplementary fetches. Two things happen here:
+        //   1. GET /v1/trips/{id} → authoritative trip record (preferences).
+        //   2. GET /v1/flights/{n}/{date} → live flight metadata so Results
+        //      can render the pill cluster + Boarding/Departs cards. The
+        //      trip record only stores flight_number + selected_departure_utc;
+        //      terminal, gate, departure_time, delays are time-varying and
+        //      live under /v1/flights. Same pattern the viewTrip flow uses.
         if (!token || !trip.trip_id) return;
         let cancelled = false;
         (async () => {
+            let authoritative = trip;
             try {
                 const res = await fetch(`${API_BASE}/v1/trips/${trip.trip_id}`, {
                     headers: { Authorization: `Bearer ${token}` },
                 });
-                if (!res.ok || cancelled) return;
-                const full = await res.json();
-                if (cancelled) return;
-                if (full.home_address) setStartingAddress(full.home_address);
-                if (full.flight_number) setFlightNumber(full.flight_number);
-                if (full.departure_date) setDepartureDate(full.departure_date);
-                hydratePrefsJson(full.preferences_json);
+                if (res.ok && !cancelled) {
+                    authoritative = await res.json();
+                    if (cancelled) return;
+                    if (authoritative.home_address) setStartingAddress(authoritative.home_address);
+                    if (authoritative.flight_number) setFlightNumber(authoritative.flight_number);
+                    if (authoritative.departure_date) setDepartureDate(authoritative.departure_date);
+                    hydratePrefsJson(authoritative.preferences_json);
+                }
             } catch (err) {
                 console.error('Failed to fetch full trip for edit:', err);
+            }
+
+            const fn = authoritative.flight_number;
+            const dd = authoritative.departure_date;
+            const selectedUtc = authoritative.selected_departure_utc;
+            if (!fn || !dd || cancelled) return;
+            try {
+                const flightRes = await fetch(
+                    `${API_BASE}/v1/flights/${encodeURIComponent(fn)}/${dd}`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+                if (!flightRes.ok || cancelled) return;
+                const flightData = await flightRes.json();
+                const flights = mapFlights(flightData.flights || []);
+                const matched = flights.find(f => f.departure_time_utc === selectedUtc) || flights[0];
+                if (matched && !cancelled) setSelectedFlight(matched);
+            } catch (err) {
+                console.error('Failed to fetch flight metadata for edit:', err);
             }
         })();
         return () => { cancelled = true; };
