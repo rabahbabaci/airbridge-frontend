@@ -1041,13 +1041,6 @@ export default function Engine() {
                         transport={transport}
                         isAuthenticated={isAuthenticated}
                         display_name={display_name}
-                        onNewTrip={() => {
-                            setActiveTripData(null);
-                            setActiveTripRec(null);
-                            resetTripState();
-                            clearEngineStep();
-                            navigate('/', { replace: true });
-                        }}
                         onEdit={() => {
                             // State is already hydrated from active trip load
                             setActiveTripData(null);

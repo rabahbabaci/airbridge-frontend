@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Check, CheckCircle2, Circle, RefreshCw, Plus, Settings as SettingsIcon, PartyPopper, Pencil } from 'lucide-react';
+import { Check, CheckCircle2, Circle, RefreshCw, Settings as SettingsIcon, PartyPopper, Pencil } from 'lucide-react';
+import { Airplane, MagnifyingGlass, Gear } from '@phosphor-icons/react';
 
 import { formatCountdownText, formatLocalTime } from '@/utils/format';
 import { useAuth } from '@/lib/AuthContext';
 import { API_BASE } from '@/config';
 import { createPageUrl } from '@/utils';
+import TabBar from '@/components/design-system/TabBar';
 import JourneyVisualization from './JourneyVisualization';
 import ActionCards from './ActionCards';
 import UntrackConfirmModal from './UntrackConfirmModal';
@@ -58,7 +60,7 @@ function urgencyClasses(level) {
 export default function ActiveTripView({
     trip, recommendation, selectedFlight, transport,
     isAuthenticated, display_name,
-    onNewTrip, onRefresh, onEdit,
+    onRefresh, onEdit,
 }) {
     const { token, updateTripCount } = useAuth();
     const navigate = useNavigate();
@@ -200,8 +202,35 @@ export default function ActiveTripView({
     const showFlightStatus = effectiveStatus !== 'complete';
     const showCompleteCard = effectiveStatus === 'complete';
 
+    const tabs = [
+        {
+            value: 'search',
+            label: 'Search',
+            icon: <MagnifyingGlass size={22} weight="regular" />,
+            iconActive: <MagnifyingGlass size={22} weight="bold" />,
+        },
+        {
+            value: 'trip',
+            label: 'My Trip',
+            icon: <Airplane size={22} weight="regular" />,
+            iconActive: <Airplane size={22} weight="bold" />,
+        },
+        {
+            value: 'settings',
+            label: 'Settings',
+            icon: <Gear size={22} weight="regular" />,
+            iconActive: <Gear size={22} weight="bold" />,
+        },
+    ];
+
+    const handleTabChange = (value) => {
+        if (value === 'search') navigate('/search');
+        else if (value === 'settings') navigate(createPageUrl('Settings'));
+        // 'trip' → no-op, we're already on it
+    };
+
     return (
-        <motion.div key="active_trip" {...pageTransition} className="min-h-[calc(100vh-57px)] bg-secondary/50">
+        <motion.div key="active_trip" {...pageTransition} className="min-h-[calc(100vh-57px)] bg-secondary/50 pb-28">
 
             {/* ── 1. HERO COUNTDOWN ── */}
             <div className={`border-b ${urgencyClasses(effectiveStatus === 'active' ? urgency : 'calm')} transition-colors duration-500`}>
@@ -364,13 +393,6 @@ export default function ActiveTripView({
                             </>
                         )}
                     </button>
-                    <button
-                        onClick={onNewTrip}
-                        className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition-colors"
-                    >
-                        <Plus className="w-3.5 h-3.5" />
-                        New Trip
-                    </button>
                 </div>
 
                 {/* In-progress trips: untrack link */}
@@ -390,6 +412,8 @@ export default function ActiveTripView({
                 onConfirm={handleUntrack}
                 loading={untracking}
             />
+
+            <TabBar value="trip" onChange={handleTabChange} tabs={tabs} />
         </motion.div>
     );
 }
