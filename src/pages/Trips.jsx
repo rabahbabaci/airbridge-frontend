@@ -370,16 +370,14 @@ export default function Trips() {
                             <Link to={createPageUrl('Settings')} className="text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg transition-colors">Settings</Link>
                         </nav>
                     </div>
-                    {showTabs && (
-                        <Link
-                            to={createPageUrl('Engine')}
-                            state={{ newTrip: true }}
-                            className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground hover:bg-primary/90 transition-colors"
-                            title="New trip"
-                        >
-                            <Plus className="w-4 h-4" />
-                        </Link>
-                    )}
+                    <Link
+                        to="/search"
+                        aria-label="New trip"
+                        title="New trip"
+                        className="w-11 h-11 rounded-lg bg-primary flex items-center justify-center text-primary-foreground hover:bg-primary/90 transition-colors"
+                    >
+                        <Plus className="w-4 h-4" />
+                    </Link>
                 </div>
             </header>
 
