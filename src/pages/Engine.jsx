@@ -21,6 +21,7 @@ import { postEvent } from '@/utils/events';
 import { clearSearchState } from '@/pages/Search';
 import { clearSetupState } from '@/components/engine/StepDepartureSetup';
 import { clearRideshareProvider } from '@/utils/rideshareLinks';
+import { loadEngineStep, saveEngineStep, clearEngineStep } from '@/utils/engineStep';
 
 // ── Animations ──────────────────────────────────────────────────────────────
 const pageTransition = {
@@ -310,6 +311,46 @@ export default function Engine() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // ── Rehydrate mid-flow position across refresh ───────────────────────
+    // If sessionStorage holds an airbridge_engine_step snapshot AND no
+    // higher-priority entry context exists (edit/view/fresh-from-Search/
+    // explicit-newTrip), revive the user at step 3 (Setup) or step 4
+    // (Results). Masquerades as a fromSearch handoff so the active-trip
+    // check and the /Engine-→-/ redirect effects treat this as a valid
+    // entry context and stand down.
+    useEffect(() => {
+        if (editTripRef.current || viewTripRef.current || fromSearchRef.current) return;
+        if (location.state?.newTrip) return;
+
+        const saved = loadEngineStep();
+        if (!saved) return;
+
+        setSelectedFlight(saved.selectedFlight);
+        if (saved.flightOptions?.length) setFlightOptions(saved.flightOptions);
+        if (saved.flightNumber) setFlightNumber(saved.flightNumber);
+        if (saved.departureDate) setDepartureDate(saved.departureDate);
+        if (saved.currentTripId) setCurrentTripId(saved.currentTripId);
+        if (saved.recommendation) {
+            setRecommendation(saved.recommendation);
+            setJourneyReady(true);
+        }
+
+        // Synthetic fromSearch marker — the useEffect pattern below
+        // (active-trip check, /-redirect) treats any truthy value on
+        // fromSearchRef as "user has context; don't redirect."
+        fromSearchRef.current = { syntheticHydration: true };
+
+        if (saved.step === 4 && saved.recommendation) {
+            setStep(3);
+            setViewMode('results');
+        } else if (saved.step === 3) {
+            setStep(3);
+            setViewMode('setup');
+        }
+        setCheckingActiveTrip(false);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     // Check for active trip on mount, then hydrate preferences from trip or profile
     useEffect(() => {
         // Skip active trip check when in edit, view, or explicit new-trip mode
@@ -487,6 +528,45 @@ export default function Engine() {
         if (viewMode === 'active_trip') return; // active trip loaded
         navigate('/', { replace: true });
     }, [checkingActiveTrip, viewMode, navigate]);
+
+    // ── Persist mid-flow position for refresh recovery ───────────────────
+    // Writes an airbridge_engine_step snapshot whenever the user is in
+    // the normal Search → Setup → Results flow. Skipped for edit and
+    // view modes (those have their own router-state entry) and for the
+    // active_trip / initial flight-selection views. Cleared in the
+    // reset, track, and new-trip paths below.
+    useEffect(() => {
+        if (editMode || editTripRef.current || viewTripRef.current) return;
+        if (checkingActiveTrip) return;
+
+        const isSetup = viewMode === 'setup' && step === 3 && selectedFlight;
+        const isResults = viewMode === 'results' && recommendation && selectedFlight;
+
+        if (isResults) {
+            saveEngineStep({
+                step: 4,
+                selectedFlight,
+                flightOptions,
+                flightNumber,
+                departureDate,
+                currentTripId,
+                recommendation,
+            });
+        } else if (isSetup) {
+            saveEngineStep({
+                step: 3,
+                selectedFlight,
+                flightOptions,
+                flightNumber,
+                departureDate,
+                currentTripId: null,
+                recommendation: null,
+            });
+        }
+    }, [
+        viewMode, step, selectedFlight, flightOptions, flightNumber,
+        departureDate, currentTripId, recommendation, editMode, checkingActiveTrip,
+    ]);
 
     // Set up push notification listeners (native only)
     useEffect(() => {
@@ -719,6 +799,7 @@ export default function Engine() {
 
     const handleReset = () => {
         resetTripState();
+        clearEngineStep();
         navigate('/', { replace: true });
     };
 
@@ -747,6 +828,7 @@ export default function Engine() {
                 setIsTracked(true);
                 clearSearchState();
                 clearRideshareProvider();
+                clearEngineStep();
                 if (data.trip_count != null) updateTripCount(data.trip_count);
 
                 // Show push priming on native after tracking
@@ -873,6 +955,7 @@ export default function Engine() {
                         const trackData = await trackRes.json();
                         clearSearchState();
                         clearRideshareProvider();
+                        clearEngineStep();
                         if (trackData.trip_count != null) updateTripCount(trackData.trip_count);
 
                         if (isNative() && shouldShowPushPriming(trackData.trip_count)) {
@@ -962,6 +1045,7 @@ export default function Engine() {
                             setActiveTripData(null);
                             setActiveTripRec(null);
                             resetTripState();
+                            clearEngineStep();
                             navigate('/', { replace: true });
                         }}
                         onEdit={() => {
@@ -1095,6 +1179,7 @@ export default function Engine() {
                                 setIsTracked(true);
                                 clearSearchState();
                                 clearRideshareProvider();
+                                clearEngineStep();
                                 if (trackData.trip_count != null) updateTripCount(trackData.trip_count);
 
                                 // Show push priming on native after first tracked trip
