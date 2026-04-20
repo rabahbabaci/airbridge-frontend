@@ -1135,7 +1135,6 @@ export default function Engine() {
                         onEditSetup={handleEditSetup}
                         onReset={handleReset}
                         onReady={() => setJourneyReady(true)}
-                        onSignIn={() => setAuthOpen(true)}
                         isTracked={isTracked}
                         onTrack={handleTrackTrip}
                         securityLabel={

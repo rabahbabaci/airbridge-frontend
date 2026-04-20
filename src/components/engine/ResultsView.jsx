@@ -257,7 +257,6 @@ export default function ResultsView({
     isAuthenticated, display_name,
     apiError, setApiError,
     onEditSetup, onReady,
-    onSignIn,
     isTracked, onTrack,
     homeAddress,
     editMode, editIsDraft, editError, isUpdating, onUpdateTrip,
@@ -314,9 +313,14 @@ export default function ResultsView({
                 await onUpdateTrip();
             } else if (editMode) {
                 await onUpdateTrip?.();
-            } else if (!isAuthenticated) {
-                onSignIn?.();
             } else {
+                // onTrack === Engine.handleTrackTrip — branches on
+                // isAuthenticated internally. For unauth it sets
+                // pendingTrackAfterAuth=true and opens the AuthModal so
+                // AuthModal.onSuccess can auto-fire the POST /track.
+                // Calling onSignIn here directly skipped that ref setup,
+                // producing the "sign in → see paywall, not Active Trip"
+                // regression from the Task 7.5 ResultsView rewrite.
                 await onTrack?.();
             }
         } finally {
