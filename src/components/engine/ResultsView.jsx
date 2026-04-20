@@ -716,9 +716,12 @@ function LauncherIcons({ transport, recommendation, selectedFlight }) {
         transit: isTransit,
     };
 
-    // Build the launcher list per transport mode. Transit omits Waze (driving
-    // only) — Apple Maps transit coverage is spotty, but we still surface it
-    // so users can pick; Google Maps is the primary transit provider.
+    // Build the launcher list per transport mode. Transit omits Waze
+    // (driving only). Rideshare picker icons are themselves coloured brand
+    // containers (Uber black square, Lyft pink square) so they render as
+    // bare icons. Drive / transit map apps ship low-contrast marks that
+    // fade into the hero's tinted background without visual containment —
+    // those get wrapped in a branded chip with a short label.
     let launchers = [];
     if (isRideshare) {
         const uberHref = homeCoords ? buildUberUrl(rideshareCoords) : null;
@@ -729,22 +732,47 @@ function LauncherIcons({ transport, recommendation, selectedFlight }) {
         ].filter(Boolean);
     } else if (isDriving) {
         launchers = [
-            { href: buildAppleMapsUrl(navCoords), Icon: AppleMapsIcon, label: 'Open in Apple Maps' },
-            { href: buildGoogleMapsUrl(navCoords), Icon: GoogleMapsIcon, label: 'Open in Google Maps' },
-            { href: buildWazeUrl(navCoords), Icon: WazeIcon, label: 'Open in Waze' },
+            { href: buildAppleMapsUrl(navCoords), Icon: AppleMapsIcon, label: 'Open in Apple Maps', short: 'Maps' },
+            { href: buildGoogleMapsUrl(navCoords), Icon: GoogleMapsIcon, label: 'Open in Google Maps', short: 'Google' },
+            { href: buildWazeUrl(navCoords), Icon: WazeIcon, label: 'Open in Waze', short: 'Waze' },
         ];
     } else if (isTransit) {
         launchers = [
-            { href: buildAppleMapsUrl(navCoords), Icon: AppleMapsIcon, label: 'Open in Apple Maps' },
-            { href: buildGoogleMapsUrl(navCoords), Icon: GoogleMapsIcon, label: 'Open in Google Maps' },
+            { href: buildAppleMapsUrl(navCoords), Icon: AppleMapsIcon, label: 'Open in Apple Maps', short: 'Maps' },
+            { href: buildGoogleMapsUrl(navCoords), Icon: GoogleMapsIcon, label: 'Open in Google Maps', short: 'Google' },
         ];
     }
 
     if (launchers.length === 0) return null;
 
+    // Rideshare: bare icons — Uber/Lyft marks are already branded containers.
+    if (isRideshare) {
+        return (
+            <div className="ml-auto flex items-center gap-c-2">
+                {launchers.map(({ href, Icon, label }) => (
+                    <a
+                        key={label}
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={label}
+                        title={label}
+                        className="inline-flex items-center justify-center w-8 h-8 rounded-c-sm hover:opacity-80 active:scale-95 transition-all"
+                    >
+                        <Icon size={28} />
+                    </a>
+                ))}
+            </div>
+        );
+    }
+
+    // Drive / transit: branded chips. The chip's white rounded container
+    // provides the visual containment the bare map marks lack, and the
+    // short brand label disambiguates between Apple Maps ("Maps") and
+    // Google Maps ("Google") sitting next to each other.
     return (
         <div className="ml-auto flex items-center gap-c-2">
-            {launchers.map(({ href, Icon, label }) => (
+            {launchers.map(({ href, Icon, label, short }) => (
                 <a
                     key={label}
                     href={href}
@@ -752,9 +780,10 @@ function LauncherIcons({ transport, recommendation, selectedFlight }) {
                     rel="noopener noreferrer"
                     aria-label={label}
                     title={label}
-                    className="inline-flex items-center justify-center w-8 h-8 rounded-c-sm hover:opacity-80 active:scale-95 transition-all"
+                    className="inline-flex items-center gap-c-1 h-11 px-c-3 rounded-c-md bg-c-ground-elevated border border-c-border-hairline shadow-c-sm hover:bg-c-ground-sunken active:scale-95 transition-all"
                 >
-                    <Icon size={28} />
+                    <Icon size={20} />
+                    <span className="c-type-caption text-c-text-secondary font-semibold">{short}</span>
                 </a>
             ))}
         </div>
