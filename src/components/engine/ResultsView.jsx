@@ -530,34 +530,43 @@ export default function ResultsView({
                                 </div>
                             </div>
 
-                            {/* Mobile — vertical timeline */}
-                            <div className="md:hidden space-y-0">
-                                {timelineSteps.map((step, idx) => (
-                                    <div key={idx}>
-                                        <div className="flex items-start gap-c-4">
-                                            <div className="flex flex-col items-center">
-                                                <div className={cn('w-10 h-10 rounded-c-md flex items-center justify-center shrink-0', step.bg)}>
+                            {/* Mobile — clean vertical list. One row per
+                               phase: icon circle on the left, name +
+                               sub-detail in the middle, time stamp on the
+                               right. A thin vertical line threads between
+                               icons. No transit pills — the between-phase
+                               durations are implicit in the time stamps. */}
+                            <div className="md:hidden">
+                                {timelineSteps.map((step, idx) => {
+                                    const isLast = idx === timelineSteps.length - 1;
+                                    return (
+                                        <div key={idx} className="relative flex items-start gap-c-4 pb-c-5 last:pb-0">
+                                            {/* Icon + connector stub. The line
+                                               extends from the icon's bottom
+                                               through the row's pb-c-5 into
+                                               the next icon. */}
+                                            <div className="relative flex flex-col items-center shrink-0">
+                                                <div className={cn('relative z-10 w-10 h-10 rounded-c-pill flex items-center justify-center', step.bg)}>
                                                     <step.Icon size={18} weight="regular" className={step.iconColor} />
                                                 </div>
-                                                {idx < timelineSteps.length - 1 && (
-                                                    <div className="relative w-0.5 h-10 bg-c-brand-primary/30 my-c-1">
-                                                        {connectorLabel(idx) && (
-                                                            <span className="absolute left-4 top-1/2 -translate-y-1/2 c-type-caption font-bold text-c-brand-primary bg-c-ground px-c-2 py-0.5 rounded-c-xs border border-c-border-hairline shadow-c-sm whitespace-nowrap">
-                                                                {connectorLabel(idx)}
-                                                            </span>
-                                                        )}
-                                                    </div>
+                                                {!isLast && (
+                                                    <div
+                                                        aria-hidden="true"
+                                                        className="absolute left-1/2 -translate-x-1/2"
+                                                        style={{
+                                                            top: '40px',
+                                                            bottom: '-20px',
+                                                            width: '2px',
+                                                            backgroundColor: 'rgb(79 63 211 / 0.3)',
+                                                        }}
+                                                    />
                                                 )}
                                             </div>
-                                            <div className="pb-c-4 pt-c-1">
-                                                <div className="flex items-center gap-c-2">
-                                                    <p className="c-type-body font-bold text-c-text-primary">{step.shortLabel}</p>
-                                                    <span className="c-type-caption font-bold text-c-brand-primary bg-c-brand-primary-surface px-c-2 py-0.5 rounded-c-sm tabular-nums">
-                                                        {step.time}
-                                                    </span>
-                                                </div>
+                                            {/* Name + sub-detail, left-aligned. */}
+                                            <div className="flex-1 min-w-0 pt-c-1">
+                                                <p className="c-type-body font-bold text-c-text-primary">{step.shortLabel}</p>
                                                 {step.subtitle && (
-                                                    <p className="c-type-footnote text-c-brand-primary font-medium mt-c-1">{step.subtitle}</p>
+                                                    <p className="c-type-footnote text-c-text-tertiary mt-0.5">{step.subtitle}</p>
                                                 )}
                                                 {step.securityBadge && (
                                                     <span className="c-type-caption font-medium text-c-confidence bg-c-confidence-surface px-c-2 py-0.5 rounded-c-xs mt-c-1 inline-block">
@@ -565,9 +574,11 @@ export default function ResultsView({
                                                     </span>
                                                 )}
                                             </div>
+                                            {/* Time stamp, right-aligned. */}
+                                            <p className="shrink-0 c-type-body font-bold text-c-text-primary tabular-nums pt-c-1">{step.time}</p>
                                         </div>
-                                    </div>
-                                ))}
+                                    );
+                                })}
                             </div>
                         </section>
 
@@ -779,7 +790,7 @@ function LauncherIcons({ transport, recommendation, selectedFlight }) {
         ].filter(Boolean);
         if (rideshareChips.length === 0) return null;
         return (
-            <div className="ml-auto flex flex-col items-end gap-c-1">
+            <div className="w-full md:w-auto md:ml-auto flex flex-col items-start md:items-end gap-c-1 min-w-0">
                 {contextLabel && (
                     <span
                         className="text-c-text-secondary font-semibold uppercase"
@@ -788,7 +799,7 @@ function LauncherIcons({ transport, recommendation, selectedFlight }) {
                         {contextLabel}
                     </span>
                 )}
-                <div className="flex items-center gap-c-2">
+                <div className="flex flex-wrap items-center gap-c-2">
                     {rideshareChips.map(({ href, Icon, label, bg, iconColor }) => (
                         <a
                             key={label}
@@ -835,7 +846,7 @@ function LauncherIcons({ transport, recommendation, selectedFlight }) {
                     {contextLabel}
                 </span>
             )}
-            <div className="flex items-center gap-c-2">
+            <div className="flex flex-wrap items-center gap-c-2">
                 {launchers.map(({ href, Icon, label, short }) => (
                     <a
                         key={label}
