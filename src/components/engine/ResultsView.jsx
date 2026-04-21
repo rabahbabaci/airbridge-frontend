@@ -444,14 +444,14 @@ export default function ResultsView({
                            timeline — so the hero can stay short and the
                            chips don't fight the pill row for horizontal
                            space. Desktop keeps the in-hero layout. */}
-                        <div className="md:hidden">
+                        <section className="md:hidden rounded-c-lg bg-c-ground-elevated border border-c-border-hairline px-c-6 py-c-5">
                             <LauncherIcons
                                 transport={transport}
                                 recommendation={recommendation}
                                 selectedFlight={selectedFlight}
                                 layout="strip"
                             />
-                        </div>
+                        </section>
 
                         {/* ── Journey timeline (restored from main) ───────
                            Shape ported from the main-branch JourneyVisualization
@@ -834,7 +834,7 @@ function LauncherIcons({ transport, recommendation, selectedFlight, layout = 'he
         ));
         if (isStrip) {
             return (
-                <div className="py-c-4 flex flex-col items-start gap-c-2">
+                <div className="flex flex-col items-start gap-c-3">
                     {contextLabel && (
                         <span
                             className="text-c-text-tertiary font-semibold uppercase"
