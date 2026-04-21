@@ -363,7 +363,7 @@ function PhaseMap({ theme, homeCoords, airportCoords: airCoords, transport, heig
     return (
         <div
             className="relative w-full overflow-hidden transition-colors duration-[600ms]"
-            style={{ height: `${height}px`, backgroundColor: isDark ? '#0B1220' : '#F8F6F1' }}
+            style={{ height: `${height}px`, backgroundColor: isDark ? '#0B1220' : '#FCFAF6' }}
         >
             {GOOGLE_MAPS_API_KEY && (homeCoords || airCoords) ? (
                 <div ref={containerRef} className="absolute inset-0" />

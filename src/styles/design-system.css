@@ -89,10 +89,10 @@
   --c-warning-surface: #FDF4E3;
 
   /* Grounds (§3.1) */
-  --c-ground: #F8F6F1;
+  --c-ground: #FCFAF6;
   --c-ground-elevated: #FFFFFF;
   --c-ground-raised: #FFFFFF;
-  --c-ground-sunken: #F0EDE6;
+  --c-ground-sunken: #F4F1EB;
 
   /* Text (§3.1) */
   --c-text-primary: #0A0F1C;
