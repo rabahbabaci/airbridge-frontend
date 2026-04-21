@@ -522,14 +522,15 @@ function CountdownSlots({ parsed }) {
     );
 }
 
-// Hero countdown font-size clamps between a readable floor and the
-// spec'd 72px ceiling. At mobile widths (375–414px) 9vw resolves to
-// 34–37px — comfortably fits "8h 45m 41s" on one line. At md:+ the
-// clamp tops out at 72px giving the display hero presence. Both the
-// "Leave in" label and the countdown digits share this style so
-// they read as visually co-equal; only the colour differentiates.
+// Hero countdown font-size clamps between a mobile floor that still
+// reads as hero (44px) and the brief-spec'd 72px ceiling. On the
+// mobile stacked layout each line ("Leave in" + the digits) renders
+// at 44px — comfortable on iPhone widths because the two halves
+// wrap to separate lines. md:+ sits at 72px for full display
+// presence. Both the "Leave in" label and the countdown share this
+// style so they read as visually co-equal; only colour differentiates.
 const HERO_FONT_STYLE = {
-    fontSize: 'clamp(36px, 9vw, 72px)',
+    fontSize: 'clamp(44px, 9vw, 72px)',
     lineHeight: 1,
     fontWeight: 800,
     letterSpacing: '-0.02em',
@@ -1315,13 +1316,18 @@ export default function ActiveTripView({
                 </div>
             )}
 
-            {/* Hero card — floating glass/elevated surface overlapping the map bottom. */}
+            {/* Hero card — floating glass/elevated surface overlapping
+               the map bottom. Mobile gets extra top padding so the
+               centred "Leave in" / countdown stack doesn't sit flush
+               against the card edge; desktop stays at the compact 24px
+               padding all round. */}
             <section
                 className={cn(
                     'relative z-10 mx-c-4 md:mx-auto md:max-w-5xl rounded-c-lg shadow-c-md transition-colors duration-[600ms]',
+                    'px-c-6 pb-c-6 pt-c-8 md:p-c-6',
                     theme === 'dark' ? 'bg-c-ground-elevated border border-white/5' : 'bg-c-ground-elevated border border-c-border-hairline'
                 )}
-                style={{ marginTop: mapHidden ? 80 : `-${Math.round(mapHeight * 0.17)}px`, padding: '24px' }}
+                style={{ marginTop: mapHidden ? 80 : `-${Math.round(mapHeight * 0.17)}px` }}
             >
                 <PhaseContent
                     phase={phase}
