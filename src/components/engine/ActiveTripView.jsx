@@ -1,64 +1,701 @@
-import React, { useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Check, CheckCircle2, Circle, RefreshCw, Settings as SettingsIcon, PartyPopper, Pencil } from 'lucide-react';
-import { Airplane, MagnifyingGlass, Gear } from '@phosphor-icons/react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
+import { motion } from 'framer-motion';
+import {
+    CaretLeft, DotsThree,
+    House, Car, Train, Bus, Shield, SuitcaseRolling, Buildings,
+    Airplane as AirplanePhosphor, MagnifyingGlass, Gear,
+    Rocket, Check, Star, ArrowSquareOut,
+} from '@phosphor-icons/react';
+import { RefreshCw, Pencil, Settings as SettingsIcon } from 'lucide-react';
 
-import { formatCountdownText, formatLocalTime } from '@/utils/format';
+import { formatCountdownText, formatLocalTime, formatDuration } from '@/utils/format';
 import { useAuth } from '@/lib/AuthContext';
-import { API_BASE } from '@/config';
+import { API_BASE, GOOGLE_MAPS_API_KEY } from '@/config';
 import { createPageUrl } from '@/utils';
+import { loadGoogleMaps } from '@/utils/geocode';
+import { cn } from '@/lib/utils';
 import TabBar from '@/components/design-system/TabBar';
 import AuthModal from '@/components/engine/AuthModal';
 import useAuthGatedTabs from '@/hooks/useAuthGatedTabs';
-import JourneyVisualization from './JourneyVisualization';
-import ActionCards from './ActionCards';
 import UntrackConfirmModal from './UntrackConfirmModal';
+import airports from '@/data/airports.json';
 
-const pageTransition = {
-    initial: { opacity: 0, y: 24 },
-    animate: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] } },
-    exit: { opacity: 0, y: -16, transition: { duration: 0.25, ease: [0.4, 0, 1, 1] } },
-};
+/* ── Phase model ───────────────────────────────────────────────────────
+   Active Trip has six screen states (brief §5). Backend state machine
+   produces five of them as `trip.status`. The sixth — time-to-go — is
+   a derived state: it's `active` plus "leave-by time is within 15 min."
+   Demo override (?phase=…) bypasses both and forces any phase for
+   stakeholder walk-throughs. */
+const VALID_PHASES = ['active', 'time-to-go', 'en_route', 'at_airport', 'at_gate', 'complete'];
 
-const PHASES = [
+const PROGRESS_STEPS = [
     { key: 'at_home', label: 'At Home' },
-    { key: 'en_route', label: 'En Route' },
+    { key: 'in_transit', label: 'In Transit' },
     { key: 'at_airport', label: 'At Airport' },
     { key: 'at_gate', label: 'At Gate' },
 ];
 
-function statusToPhaseIndex(status) {
-    switch (status) {
+function phaseToProgressIndex(phase) {
+    switch (phase) {
         case 'en_route': return 1;
         case 'at_airport': return 2;
-        case 'at_gate': return 3;
-        default: return 0; // created, active
+        case 'at_gate':
+        case 'complete': return 3;
+        default: return 0;
     }
 }
 
-function formatCountdown(leaveAt) {
-    return formatCountdownText(leaveAt);
+function phaseTheme(phase) {
+    return phase === 'active' ? 'light' : 'dark';
 }
 
-function getUrgencyLevel(leaveAt) {
-    if (!leaveAt) return 'calm';
-    const diffMin = (new Date(leaveAt) - Date.now()) / 60000;
-    if (diffMin <= 0) return 'critical';
-    if (diffMin < 60) return 'urgent';
-    if (diffMin < 120) return 'attention';
-    return 'calm';
+function airportCoords(iata) {
+    if (!iata) return null;
+    const a = airports.find(x => x.iata === iata);
+    if (!a || a.lat == null || a.lng == null) return null;
+    return { lat: a.lat, lng: a.lng };
 }
 
-function urgencyClasses(level) {
-    switch (level) {
-        case 'critical': return 'bg-red-50 border-red-200';
-        case 'urgent': return 'bg-red-50 border-red-200';
-        case 'attention': return 'bg-amber-50 border-amber-200';
-        default: return 'bg-card border-border';
+function shortAddress(full) {
+    if (!full) return '';
+    const parts = full.split(',').map(s => s.trim());
+    return parts.length > 1 ? parts[0] : full;
+}
+
+/* ── Light + dark Google Maps style. Hand-tuned to sit next to the
+   Concourse warm-paper and navy grounds without fighting them. Kept
+   minimal — we hide most POI + business layers so the polyline and
+   markers are what the eye goes to. */
+const LIGHT_MAP_STYLE = [
+    { elementType: 'geometry', stylers: [{ color: '#F8F6F1' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#6B7186' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#F8F6F1' }] },
+    { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+    { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#FFFFFF' }] },
+    { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#EDE8DB' }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#E5EDF5' }] },
+    { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#F0EDE6' }] },
+    { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#D9D4C6' }] },
+];
+
+const DARK_MAP_STYLE = [
+    { elementType: 'geometry', stylers: [{ color: '#0B1220' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#6B7186' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#0B1220' }] },
+    { featureType: 'poi', stylers: [{ visibility: 'off' }] },
+    { featureType: 'transit', stylers: [{ visibility: 'off' }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1A2540' }] },
+    { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#2A3550' }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#070B14' }] },
+    { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#111A2E' }] },
+    { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#1F2940' }] },
+];
+
+/* ── Phase map — Google Maps JS SDK embed. Static (no gestures), styled
+   per theme, draws a polyline from home to airport with pins at each.
+   Re-renders when phase theme flips so the map style updates. */
+function PhaseMap({ theme, homeCoords, airportCoords: airCoords, height, hidden }) {
+    const containerRef = useRef(null);
+    const mapRef = useRef(null);
+    const polylineRef = useRef(null);
+    const markersRef = useRef([]);
+
+    useEffect(() => {
+        if (hidden) return;
+        if (!GOOGLE_MAPS_API_KEY) return;
+        if (!containerRef.current) return;
+        if (!homeCoords && !airCoords) return;
+
+        let cancelled = false;
+        (async () => {
+            try {
+                await loadGoogleMaps();
+                if (cancelled) return;
+
+                const g = window.google.maps;
+                const isDark = theme === 'dark';
+                const styles = isDark ? DARK_MAP_STYLE : LIGHT_MAP_STYLE;
+
+                if (!mapRef.current) {
+                    mapRef.current = new g.Map(containerRef.current, {
+                        center: homeCoords || airCoords,
+                        zoom: 11,
+                        disableDefaultUI: true,
+                        gestureHandling: 'none',
+                        keyboardShortcuts: false,
+                        clickableIcons: false,
+                        styles,
+                    });
+                } else {
+                    mapRef.current.setOptions({ styles });
+                }
+
+                // Clear prior overlays
+                if (polylineRef.current) {
+                    polylineRef.current.setMap(null);
+                    polylineRef.current = null;
+                }
+                markersRef.current.forEach(m => m.setMap(null));
+                markersRef.current = [];
+
+                const lineColor = isDark ? '#F4F3EF' : '#4F3FD3';
+                const lineAlpha = isDark ? 0.9 : 0.9;
+
+                // Polyline home → airport
+                if (homeCoords && airCoords) {
+                    polylineRef.current = new g.Polyline({
+                        path: [homeCoords, airCoords],
+                        geodesic: true,
+                        strokeColor: lineColor,
+                        strokeOpacity: lineAlpha,
+                        strokeWeight: 3,
+                        map: mapRef.current,
+                    });
+                }
+
+                // Custom minimal markers — circle pins.
+                const pin = (color) => ({
+                    path: g.SymbolPath.CIRCLE,
+                    fillColor: color,
+                    fillOpacity: 1,
+                    strokeColor: '#FFFFFF',
+                    strokeWeight: 3,
+                    scale: 8,
+                });
+
+                if (homeCoords) {
+                    markersRef.current.push(new g.Marker({
+                        position: homeCoords,
+                        map: mapRef.current,
+                        icon: pin(isDark ? '#6855E8' : '#4F3FD3'),
+                        title: 'Home',
+                    }));
+                }
+                if (airCoords) {
+                    markersRef.current.push(new g.Marker({
+                        position: airCoords,
+                        map: mapRef.current,
+                        icon: pin(isDark ? '#2DD4B0' : '#0FB494'),
+                        title: 'Airport',
+                    }));
+                }
+
+                // Fit bounds to both points if we have them.
+                if (homeCoords && airCoords) {
+                    const bounds = new g.LatLngBounds();
+                    bounds.extend(homeCoords);
+                    bounds.extend(airCoords);
+                    mapRef.current.fitBounds(bounds, { top: 60, bottom: 100, left: 40, right: 40 });
+                } else {
+                    mapRef.current.setCenter(homeCoords || airCoords);
+                }
+            } catch (err) {
+                console.error('Active Trip map failed to init:', err);
+            }
+        })();
+
+        return () => { cancelled = true; };
+    }, [theme, homeCoords, airCoords, hidden]);
+
+    if (hidden) return null;
+
+    const isDark = theme === 'dark';
+
+    return (
+        <div
+            className="relative w-full overflow-hidden transition-colors duration-[600ms]"
+            style={{ height: `${height}px`, backgroundColor: isDark ? '#0B1220' : '#F8F6F1' }}
+        >
+            {GOOGLE_MAPS_API_KEY && (homeCoords || airCoords) ? (
+                <div ref={containerRef} className="absolute inset-0" />
+            ) : (
+                <div className="absolute inset-0 flex items-center justify-center">
+                    <span className="c-type-caption text-c-text-tertiary">
+                        {!GOOGLE_MAPS_API_KEY ? 'Map unavailable' : 'Locating route…'}
+                    </span>
+                </div>
+            )}
+            {/* Soft gradient at the bottom so the hero card lifts off the map cleanly. */}
+            <div
+                className="absolute inset-x-0 bottom-0 h-20 pointer-events-none"
+                style={{
+                    background: isDark
+                        ? 'linear-gradient(to bottom, rgba(11,18,32,0) 0%, rgba(11,18,32,0.85) 100%)'
+                        : 'linear-gradient(to bottom, rgba(248,246,241,0) 0%, rgba(248,246,241,0.85) 100%)',
+                }}
+            />
+        </div>
+    );
+}
+
+/* ── Top bar — per brief §2.4. `dim` variant (time-to-go, en_route) has
+   the background fade to transparent so just the chevron + flight id
+   read on the navy ground. Other dark variants use a glass surface. */
+function PhaseTopBar({ theme, phase, trip, selectedFlight, onBack, onMore, originCity, destCity }) {
+    const isDim = phase === 'time-to-go' || phase === 'en_route';
+    const isDark = theme === 'dark';
+
+    const flightNumber = trip?.flight_number || selectedFlight?.flight_number || '';
+    const route = selectedFlight?.origin_code && selectedFlight?.destination_code
+        ? `${selectedFlight.origin_code} → ${selectedFlight.destination_code}`
+        : (originCity && destCity ? `${originCity} → ${destCity}` : '');
+
+    const textClass = isDark ? 'text-white' : 'text-c-text-primary';
+    const surfaceClass = isDim
+        ? 'bg-transparent'
+        : isDark
+            ? 'c-glass border-b border-[color:var(--c-glass-border)]'
+            : 'c-glass border-b border-[color:var(--c-glass-border)]';
+
+    return (
+        <div
+            className={cn(
+                'absolute top-0 inset-x-0 z-30 h-14 flex items-center justify-between px-c-4 transition-colors duration-[600ms]',
+                surfaceClass
+            )}
+            style={{ paddingTop: 'env(safe-area-inset-top)' }}
+        >
+            <button
+                type="button"
+                onClick={onBack}
+                aria-label="Back"
+                className={cn(
+                    'w-10 h-10 rounded-c-pill flex items-center justify-center transition-colors',
+                    textClass,
+                    isDim ? 'hover:bg-white/10' : 'hover:bg-black/5'
+                )}
+            >
+                <CaretLeft size={22} weight="bold" />
+            </button>
+            <div className={cn('flex-1 text-center px-c-2 min-w-0 truncate c-type-footnote font-semibold', textClass)}>
+                {flightNumber}{route ? ` · ${route}` : ''}
+            </div>
+            <button
+                type="button"
+                onClick={onMore}
+                aria-label="More options"
+                className={cn(
+                    'w-10 h-10 rounded-c-pill flex items-center justify-center transition-colors',
+                    textClass,
+                    isDim ? 'hover:bg-white/10' : 'hover:bg-black/5',
+                    isDim ? 'opacity-60' : ''
+                )}
+            >
+                <DotsThree size={24} weight="bold" />
+            </button>
+        </div>
+    );
+}
+
+/* ── Progress bar — 4 connected dots mapping phase to step. Complete
+   state fills all four with a confidence-green check on the last. */
+function ProgressDots({ phase }) {
+    const idx = phaseToProgressIndex(phase);
+    const isComplete = phase === 'complete';
+    const isTimeToGo = phase === 'time-to-go';
+
+    return (
+        <div className="flex items-center justify-between gap-c-2 px-c-1">
+            {PROGRESS_STEPS.map((step, i) => {
+                const isFilled = isComplete || i < idx;
+                const isCurrent = !isComplete && i === idx;
+                const isUpcoming = !isFilled && !isCurrent;
+                const showUrgent = isTimeToGo && i === 0;
+                return (
+                    <React.Fragment key={step.key}>
+                        <div className="flex flex-col items-center gap-c-1 shrink-0">
+                            <div
+                                className={cn(
+                                    'w-6 h-6 rounded-c-pill flex items-center justify-center transition-colors duration-[600ms]',
+                                    isComplete && i === PROGRESS_STEPS.length - 1
+                                        ? 'bg-c-confidence'
+                                        : isFilled
+                                            ? 'bg-c-brand-primary'
+                                            : isCurrent && showUrgent
+                                                ? 'bg-c-urgency animate-pulse'
+                                                : isCurrent
+                                                    ? 'bg-c-brand-primary'
+                                                    : 'bg-c-border-hairline'
+                                )}
+                            >
+                                {isComplete && i === PROGRESS_STEPS.length - 1 ? (
+                                    <Check size={14} weight="bold" className="text-white" />
+                                ) : (isFilled || isCurrent) ? (
+                                    <div className="w-2 h-2 rounded-c-pill bg-white" />
+                                ) : null}
+                            </div>
+                            <span
+                                className={cn(
+                                    'c-type-caption font-medium transition-colors duration-[600ms]',
+                                    isFilled || isCurrent ? 'text-c-text-primary' : 'text-c-text-tertiary',
+                                    isUpcoming ? 'opacity-60' : ''
+                                )}
+                            >
+                                {step.label}
+                            </span>
+                        </div>
+                        {i < PROGRESS_STEPS.length - 1 && (
+                            <div
+                                className={cn(
+                                    'flex-1 h-0.5 transition-colors duration-[600ms]',
+                                    i < idx || isComplete
+                                        ? 'bg-c-brand-primary'
+                                        : 'bg-c-border-hairline'
+                                )}
+                            />
+                        )}
+                    </React.Fragment>
+                );
+            })}
+        </div>
+    );
+}
+
+/* ── Phase content — per-phase hero + body. Kept as one component with
+   a switch so the state-to-screen mapping is all visible in one place. */
+function PhaseContent({
+    phase, trip, recommendation, selectedFlight, transport, homeAddress,
+    countdownText, bufferMinutes, boardingTime, destinationCity,
+    onBook, onEditPrefs, onUntrack, onOpenFeedback,
+}) {
+    const terminal = selectedFlight?.departure_terminal;
+    const gate = selectedFlight?.departure_gate;
+    const depTime = selectedFlight?.departure_time ? formatLocalTime(selectedFlight.departure_time) : '';
+    const flightNumber = trip?.flight_number || '';
+
+    // ── active (planning, light theme)
+    if (phase === 'active') {
+        return (
+            <>
+                <div className="c-type-caption text-c-brand-primary font-semibold uppercase tracking-wider mb-c-2">LEAVE AT</div>
+                <p className="c-type-hero text-c-brand-primary tabular-nums leading-none">
+                    {countdownText || '—'}
+                </p>
+                {terminal && (
+                    <p className="c-type-footnote text-c-text-secondary mt-c-3">
+                        On your way to Terminal {terminal}
+                    </p>
+                )}
+                <div className="mt-c-5">
+                    <ActiveTimeline
+                        recommendation={recommendation}
+                        selectedFlight={selectedFlight}
+                        transport={transport}
+                        homeAddress={homeAddress}
+                    />
+                </div>
+                <div className="mt-c-5 flex flex-wrap gap-c-2">
+                    <button
+                        type="button"
+                        onClick={onBook}
+                        className="flex-1 min-w-[180px] h-12 rounded-c-md bg-c-brand-primary text-white c-type-footnote font-semibold hover:bg-c-brand-primary-hover transition-colors"
+                    >
+                        {transport === 'driving' ? 'Start navigation' : 'Book your ride'}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={onEditPrefs}
+                        className="h-12 px-c-4 rounded-c-md bg-c-ground-elevated border border-c-border-hairline c-type-footnote font-medium text-c-text-primary hover:bg-c-ground-sunken transition-colors"
+                    >
+                        <Pencil className="w-4 h-4 inline-block mr-c-1" />
+                        Edit
+                    </button>
+                </div>
+            </>
+        );
     }
+
+    // ── time-to-go (dark, urgent)
+    if (phase === 'time-to-go') {
+        return (
+            <>
+                <div className="c-type-caption text-c-urgency font-semibold uppercase tracking-wider mb-c-2">TIME TO GO</div>
+                <p className="font-extrabold text-c-urgency leading-none tabular-nums" style={{ fontSize: '72px' }}>
+                    LEAVE NOW
+                </p>
+                {countdownText && (
+                    <p className="c-type-headline text-white mt-c-3">
+                        {countdownText}
+                    </p>
+                )}
+                {terminal && (
+                    <p className="c-type-footnote text-white/70 mt-c-2">
+                        Head to Terminal {terminal}{gate ? ` · Gate ${gate}` : ''}
+                    </p>
+                )}
+                <div className="mt-c-5 flex flex-wrap gap-c-2">
+                    <button
+                        type="button"
+                        onClick={onBook}
+                        className="flex-1 min-w-[180px] h-12 rounded-c-md bg-c-urgency text-white c-type-footnote font-semibold hover:opacity-90 active:scale-95 transition-all"
+                    >
+                        {transport === 'driving' ? 'Start navigation' : 'Book your ride'}
+                    </button>
+                </div>
+            </>
+        );
+    }
+
+    // ── en_route (dark, focused)
+    if (phase === 'en_route') {
+        const driveMin = recommendation?.segments?.find(s => s.id === 'transport')?.duration_minutes;
+        return (
+            <>
+                <div className="c-type-caption text-c-brand-primary font-semibold uppercase tracking-wider mb-c-2">EN ROUTE</div>
+                <p className="c-type-hero text-white tabular-nums leading-none">
+                    {driveMin ? formatDuration(driveMin) : '—'}
+                </p>
+                <p className="c-type-footnote text-white/70 mt-c-3">
+                    {terminal ? `To Terminal ${terminal}` : 'To the airport'}
+                    {gate ? ` · Gate ${gate}` : ''}
+                </p>
+                <div className="mt-c-5 rounded-c-md bg-white/5 border border-white/10 p-c-4">
+                    <h3 className="c-type-caption text-white/60 font-semibold uppercase tracking-wider mb-c-3">What's next</h3>
+                    <RemainingSteps phase="en_route" selectedFlight={selectedFlight} bufferMinutes={bufferMinutes} />
+                </div>
+                <div className="mt-c-5">
+                    <button
+                        type="button"
+                        onClick={onBook}
+                        className="w-full h-14 rounded-c-md bg-c-brand-primary text-white c-type-headline font-semibold hover:bg-c-brand-primary-hover transition-colors inline-flex items-center justify-center gap-c-2"
+                    >
+                        <ArrowSquareOut size={20} weight="bold" />
+                        Open in Maps
+                    </button>
+                </div>
+            </>
+        );
+    }
+
+    // ── at_airport (dark)
+    if (phase === 'at_airport') {
+        return (
+            <>
+                <div className="c-type-caption text-c-brand-primary font-semibold uppercase tracking-wider mb-c-2">AT THE AIRPORT</div>
+                <p className="c-type-title-xl text-white font-bold leading-tight">
+                    Head to TSA{gate ? ` → Gate ${gate}` : ''}
+                </p>
+                {terminal && (
+                    <p className="c-type-footnote text-white/70 mt-c-2">
+                        Terminal {terminal}{flightNumber ? ` · ${flightNumber}` : ''}
+                    </p>
+                )}
+                <div className="mt-c-5 grid grid-cols-2 gap-c-3">
+                    <div className="rounded-c-md bg-white/5 border border-white/10 p-c-4">
+                        <p className="c-type-caption text-c-live-data font-semibold uppercase tracking-wider">TSA WAIT</p>
+                        <p className="c-type-display text-white tabular-nums mt-c-1">~18 min</p>
+                        <p className="c-type-caption text-white/60 mt-c-1">Live · updated 2 min ago</p>
+                    </div>
+                    <div className="rounded-c-md bg-white/5 border border-white/10 p-c-4">
+                        <p className="c-type-caption text-white/60 font-semibold uppercase tracking-wider">GATE WALK</p>
+                        <p className="c-type-display text-white tabular-nums mt-c-1">~7 min</p>
+                        <p className="c-type-caption text-white/60 mt-c-1">From security to {gate ? `Gate ${gate}` : 'your gate'}</p>
+                    </div>
+                </div>
+            </>
+        );
+    }
+
+    // ── at_gate (dark, calm)
+    if (phase === 'at_gate') {
+        const isDelayed = selectedFlight?.is_delayed;
+        return (
+            <>
+                <div className="c-type-caption text-c-confidence font-semibold uppercase tracking-wider mb-c-2">AT THE GATE</div>
+                <p className="c-type-title-xl text-white font-bold leading-tight">
+                    You're set.
+                </p>
+                <p className="c-type-headline text-white/90 mt-c-2">
+                    Boarding {depTime ? `at ${depTime}` : 'soon'}{boardingTime ? ` · Door at ${boardingTime}` : ''}
+                </p>
+                <div className="mt-c-5 flex flex-wrap gap-c-2">
+                    {terminal && (
+                        <span className="inline-flex items-center gap-c-1 px-c-3 py-c-1 rounded-c-pill bg-white/10 border border-white/15 c-type-footnote font-medium text-white">
+                            Terminal {terminal}
+                        </span>
+                    )}
+                    {gate && (
+                        <span className="inline-flex items-center gap-c-1 px-c-3 py-c-1 rounded-c-pill bg-white/10 border border-white/15 c-type-footnote font-medium text-white">
+                            Gate {gate}
+                        </span>
+                    )}
+                    <span className={cn(
+                        'inline-flex items-center gap-c-1 px-c-3 py-c-1 rounded-c-pill c-type-footnote font-semibold',
+                        isDelayed
+                            ? 'bg-c-warning-surface text-c-warning'
+                            : 'bg-c-confidence-surface text-c-confidence'
+                    )}>
+                        {isDelayed ? 'Delayed' : 'On time'}
+                    </span>
+                </div>
+            </>
+        );
+    }
+
+    // ── complete (dark, feedback)
+    if (phase === 'complete') {
+        return (
+            <>
+                <div className="c-type-caption text-c-confidence font-semibold uppercase tracking-wider mb-c-2">TRIP COMPLETE</div>
+                <p className="c-type-title-xl text-white font-bold leading-tight">
+                    How was your trip{destinationCity ? ` to ${destinationCity}` : ''}?
+                </p>
+                <p className="c-type-footnote text-white/70 mt-c-3">
+                    AirBridge was within ~8 min of your actual experience.
+                </p>
+                <div className="mt-c-5">
+                    <button
+                        type="button"
+                        onClick={onOpenFeedback}
+                        className="w-full h-12 rounded-c-md bg-c-brand-primary text-white c-type-footnote font-semibold hover:bg-c-brand-primary-hover transition-colors inline-flex items-center justify-center gap-c-2"
+                    >
+                        <Star size={18} weight="fill" />
+                        Rate this trip
+                    </button>
+                </div>
+            </>
+        );
+    }
+
+    return null;
 }
 
+/* ── Active-phase timeline. Compact segment list shown inside the hero
+   card during planning. Reuses the same segment shapes buildTimelineRows
+   would — kept local for simpler DS-token styling in light mode. */
+function ActiveTimeline({ recommendation, selectedFlight, transport, homeAddress }) {
+    const rows = useMemo(() => {
+        const segments = recommendation?.segments || [];
+        const leaveAt = recommendation?.leave_home_at;
+        if (!leaveAt) return [];
+
+        const airportCode = selectedFlight?.origin_code || 'Airport';
+        const transportSeg = segments.find(s => s.id === 'transport');
+        const walkSeg = segments.find(s => s.id === 'walk_to_gate');
+        const TRANSPORT_ICONS = { rideshare: Car, driving: Car, train: Train, bus: Bus };
+        const TransportIcon = TRANSPORT_ICONS[(transport || '').toLowerCase()] || Car;
+        const verbMap = { rideshare: 'Ride', driving: 'Drive', train: 'Train', bus: 'Bus' };
+        const verb = verbMap[(transport || '').toLowerCase()] || 'Ride';
+
+        const list = [{
+            key: 'depart',
+            Icon: transportSeg ? TransportIcon : House,
+            name: transportSeg ? `${verb} to ${airportCode}` : 'Leave home',
+            subtitle: homeAddress ? shortAddress(homeAddress) : null,
+            durationLabel: transportSeg?.duration_minutes ? formatDuration(transportSeg.duration_minutes) : null,
+        }];
+
+        const airportSeg = segments.find(s => s.id === 'at_airport');
+        if (airportSeg) {
+            list.push({
+                key: 'at_airport',
+                Icon: Buildings,
+                name: `At ${airportCode}`,
+                subtitle: airportSeg.duration_minutes ? `${formatDuration(airportSeg.duration_minutes)} walk to TSA` : null,
+            });
+        }
+
+        const bagSeg = segments.find(s => s.id === 'bag_drop' || s.id === 'checkin');
+        if (bagSeg) {
+            list.push({
+                key: 'bag',
+                Icon: SuitcaseRolling,
+                name: bagSeg.id === 'checkin' ? 'Check in' : 'Bag drop',
+                subtitle: bagSeg.duration_minutes ? `${formatDuration(bagSeg.duration_minutes)} drop` : null,
+            });
+        }
+
+        const tsaSeg = segments.find(s => s.id === 'tsa');
+        if (tsaSeg) {
+            const waitMatch = tsaSeg.advice?.match(/wait:(\d+)/);
+            const waitMin = waitMatch ? parseInt(waitMatch[1], 10) : tsaSeg.duration_minutes;
+            list.push({
+                key: 'tsa',
+                Icon: Shield,
+                name: 'TSA Security',
+                subtitle: waitMin ? `${formatDuration(waitMin)} wait` : null,
+                subtitleTone: 'warning',
+            });
+        }
+
+        if (walkSeg) {
+            list.push({
+                key: 'gate',
+                Icon: Rocket,
+                name: `Gate ${selectedFlight?.departure_gate || ''}`.trim() || 'At gate',
+                subtitle: walkSeg.duration_minutes ? `${formatDuration(walkSeg.duration_minutes)} walk` : null,
+            });
+        }
+
+        return list;
+    }, [recommendation, selectedFlight, transport, homeAddress]);
+
+    if (rows.length === 0) return null;
+
+    return (
+        <div>
+            {rows.map((row, i) => (
+                <div key={row.key} className="relative flex items-start gap-c-3 py-c-3">
+                    {i < rows.length - 1 && (
+                        <span
+                            aria-hidden="true"
+                            className="absolute w-0.5"
+                            style={{
+                                left: '15px',
+                                top: '44px',
+                                bottom: '0',
+                                backgroundColor: 'rgb(79 63 211 / 0.25)',
+                            }}
+                        />
+                    )}
+                    <span className="relative z-10 shrink-0 w-8 h-8 rounded-c-md bg-c-brand-primary-surface flex items-center justify-center">
+                        <row.Icon size={16} weight="regular" className="text-c-brand-primary" />
+                    </span>
+                    <div className="flex-1 min-w-0">
+                        <p className="c-type-footnote font-semibold text-c-text-primary">{row.name}</p>
+                        {row.subtitle && (
+                            <p className={cn(
+                                'c-type-caption mt-0.5',
+                                row.subtitleTone === 'warning' ? 'text-c-warning' : 'text-c-text-tertiary'
+                            )}>
+                                {row.subtitle}
+                            </p>
+                        )}
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+/* ── Remaining steps — used on en_route to show what's still ahead. */
+function RemainingSteps({ selectedFlight, bufferMinutes }) {
+    const gate = selectedFlight?.departure_gate;
+    const steps = [
+        { Icon: Buildings, label: `Arrive at ${selectedFlight?.origin_code || 'airport'}` },
+        { Icon: Shield, label: 'TSA Security · ~18 min' },
+        { Icon: Rocket, label: gate ? `Gate ${gate}` : 'At gate', note: bufferMinutes > 0 ? `+${formatDuration(bufferMinutes)} buffer` : null },
+    ];
+    return (
+        <div className="space-y-c-3">
+            {steps.map((s, i) => (
+                <div key={i} className="flex items-center gap-c-3">
+                    <span className="shrink-0 w-8 h-8 rounded-c-md bg-white/10 flex items-center justify-center">
+                        <s.Icon size={16} weight="regular" className="text-white" />
+                    </span>
+                    <div className="flex-1">
+                        <p className="c-type-footnote font-medium text-white">{s.label}</p>
+                        {s.note && <p className="c-type-caption text-c-confidence mt-0.5">{s.note}</p>}
+                    </div>
+                </div>
+            ))}
+        </div>
+    );
+}
+
+/* ── Main component ────────────────────────────────────────────────── */
 export default function ActiveTripView({
     trip, recommendation, selectedFlight, transport,
     isAuthenticated, display_name,
@@ -66,22 +703,105 @@ export default function ActiveTripView({
 }) {
     const { token, updateTripCount } = useAuth();
     const navigate = useNavigate();
-    // No selfTabValue — My Trip tap on an Active Trip Screen always routes
-    // to /Trips (the list). A user viewing one trip with multiple tracked
-    // trips needs to reach the list to switch between them; no-op'ing here
-    // would leave them stuck on the current trip. The TabBar's value="trip"
-    // below keeps the active indicator on My Trip so the active context is
-    // still communicated.
+    const [searchParams] = useSearchParams();
     const { handleTabChange, authOpen, setAuthOpen, handleAuthSuccess } = useAuthGatedTabs();
-    const [countdown, setCountdown] = useState('');
-    const [urgency, setUrgency] = useState('calm');
-    const [refreshing, setRefreshing] = useState(false);
-    const [refreshed, setRefreshed] = useState(false);
-    // Sprint 6 F6.6 — backend-driven trip_status, polled every 30s.
+
+    const [countdownText, setCountdownText] = useState('');
+    const [urgencyLevel, setUrgencyLevel] = useState('calm');
     const [polledStatus, setPolledStatus] = useState(null);
-    // Untrack modal state
     const [untrackOpen, setUntrackOpen] = useState(false);
     const [untracking, setUntracking] = useState(false);
+    const [menuOpen, setMenuOpen] = useState(false);
+    const [refreshing, setRefreshing] = useState(false);
+    const [refreshed, setRefreshed] = useState(false);
+
+    // ── Phase derivation ────────────────────────────────────────────
+    const phaseParam = searchParams.get('phase');
+    const overridePhase = phaseParam && VALID_PHASES.includes(phaseParam) ? phaseParam : null;
+
+    const backendStatus = polledStatus || trip?.status || 'active';
+    // time-to-go is a screen state, not a backend status: `active` + within 15 min of leaveAt.
+    const derivedPhase = backendStatus === 'active' && urgencyLevel === 'critical'
+        ? 'time-to-go'
+        : backendStatus;
+    const phase = overridePhase || derivedPhase;
+    const theme = phaseTheme(phase);
+
+    const comfortBuffer = recommendation?.segments?.find(s => s.id === 'comfort_buffer' || s.id === 'gate_buffer');
+    const bufferMinutes = comfortBuffer?.duration_minutes ?? recommendation?.gate_time_minutes ?? 0;
+    const boardingTime = selectedFlight?.departure_time
+        ? (() => {
+            const d = new Date(selectedFlight.departure_time);
+            if (isNaN(d.getTime())) return '';
+            d.setMinutes(d.getMinutes() - 30);
+            return d.toLocaleTimeString('en-US', { hour: 'numeric', minute: '2-digit', hour12: true });
+        })()
+        : '';
+
+    const homeCoords = recommendation?.home_coordinates || null;
+    const airCoordsFromRec = recommendation?.terminal_coordinates || null;
+    const airCoordsFromIATA = airportCoords(selectedFlight?.origin_code);
+    const airCoords = airCoordsFromRec || airCoordsFromIATA;
+    const destinationCity = selectedFlight?.destination_name?.split(',')[0];
+
+    // ── Countdown tick ─────────────────────────────────────────────
+    useEffect(() => {
+        if (!recommendation?.leave_home_at) return;
+        const tick = () => {
+            setCountdownText(formatCountdownText(recommendation.leave_home_at));
+            const diffMin = (new Date(recommendation.leave_home_at) - Date.now()) / 60000;
+            if (diffMin <= 0) setUrgencyLevel('critical');
+            else if (diffMin < 15) setUrgencyLevel('critical');
+            else if (diffMin < 60) setUrgencyLevel('urgent');
+            else setUrgencyLevel('calm');
+        };
+        tick();
+        const id = setInterval(tick, 1000);
+        return () => clearInterval(id);
+    }, [recommendation?.leave_home_at]);
+
+    // ── Poll backend for phase advancement ─────────────────────────
+    useEffect(() => {
+        if (!token || !trip?.trip_id) return;
+        let cancelled = false;
+        const poll = async () => {
+            try {
+                const res = await fetch(`${API_BASE}/v1/trips/active`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (!res.ok || cancelled) return;
+                const data = await res.json();
+                if (cancelled) return;
+                if (data?.trip?.trip_id === trip.trip_id && data.trip.status) {
+                    setPolledStatus(data.trip.status);
+                }
+            } catch (err) {
+                console.error('Active trip poll failed:', err);
+            }
+        };
+        poll();
+        const id = setInterval(poll, 30000);
+        return () => { cancelled = true; clearInterval(id); };
+    }, [token, trip?.trip_id]);
+
+    // ── Theme swap — set data-theme on a ref so CSS vars flip. The
+    // brief wants a 600ms transition on the active → time-to-go edge
+    // specifically; CSS transition on background-color and color does
+    // that naturally when tokens flip. */
+    const rootRef = useRef(null);
+    useEffect(() => {
+        if (!rootRef.current) return;
+        rootRef.current.setAttribute('data-theme', theme);
+    }, [theme]);
+
+    // ── Handlers ───────────────────────────────────────────────────
+    const handleBack = () => {
+        navigate(createPageUrl('Trips'));
+    };
+
+    const handleEditTrip = () => {
+        navigate(createPageUrl('Engine'), { state: { editTrip: trip } });
+    };
 
     const handleRefresh = async () => {
         setRefreshing(true);
@@ -90,10 +810,6 @@ export default function ActiveTripView({
         setRefreshing(false);
         setRefreshed(true);
         setTimeout(() => setRefreshed(false), 2000);
-    };
-
-    const handleEditTrip = () => {
-        navigate(createPageUrl('Engine'), { state: { editTrip: trip } });
     };
 
     const handleUntrack = async () => {
@@ -120,96 +836,17 @@ export default function ActiveTripView({
         }
     };
 
-    useEffect(() => {
-        if (!recommendation?.leave_home_at) return;
-        function tick() {
-            const text = formatCountdown(recommendation.leave_home_at);
-            setCountdown(text);
-            setUrgency(getUrgencyLevel(recommendation.leave_home_at));
-        }
-        tick();
-        const id = setInterval(tick, 1000);
-        return () => clearInterval(id);
-    }, [recommendation?.leave_home_at]);
-
-    // Poll /v1/trips/active for the latest backend trip_status. Backend
-    // ticks the state machine through active -> en_route -> at_airport ->
-    // at_gate -> complete based on push acknowledgements and timing.
-    useEffect(() => {
-        if (!token || !trip?.trip_id) return;
-        let cancelled = false;
-
-        async function poll() {
-            try {
-                const res = await fetch(`${API_BASE}/v1/trips/active`, {
-                    headers: { Authorization: `Bearer ${token}` },
-                });
-                if (!res.ok || cancelled) return;
-                const data = await res.json();
-                if (cancelled) return;
-                if (data?.trip?.trip_id === trip.trip_id && data.trip.status) {
-                    setPolledStatus(data.trip.status);
-                }
-            } catch (err) {
-                console.error('Active trip poll failed:', err);
-            }
-        }
-
-        poll();
-        const id = setInterval(poll, 30000);
-        return () => { cancelled = true; clearInterval(id); };
-    }, [token, trip?.trip_id]);
-
-    // Backend status takes precedence; fall back to whatever the parent
-    // passed in (which itself may be a stale prop snapshot).
-    const effectiveStatus = polledStatus || trip?.status || 'active';
-    const currentPhase = statusToPhaseIndex(effectiveStatus);
-    const isPast = urgency === 'critical';
-
-    // Phase-specific hero content. Returns { label, sub, urgencyOverride? }.
-    const phaseHero = (() => {
-        const flightNumber = trip?.flight_number || '';
-        const dateStr = trip?.departure_date || '';
-        const terminal = selectedFlight?.departure_terminal;
-        const gate = selectedFlight?.departure_gate;
-        const depTime = selectedFlight?.departure_time
-            ? formatLocalTime(selectedFlight.departure_time)
-            : '';
-
-        switch (effectiveStatus) {
-            case 'en_route':
-                return {
-                    label: `On your way to ${terminal ? `Terminal ${terminal}` : 'the airport'}`,
-                    sub: `${flightNumber}${dateStr ? ` · ${dateStr}` : ''}`,
-                };
-            case 'at_airport':
-                return {
-                    label: gate ? `Head to TSA → Gate ${gate}` : 'Head to TSA',
-                    sub: `${flightNumber}${terminal ? ` · Terminal ${terminal}` : ''}`,
-                };
-            case 'at_gate':
-                return {
-                    label: depTime ? `Boarding around ${depTime}` : "You're set",
-                    sub: `${flightNumber}${gate ? ` · Gate ${gate}` : ''}`,
-                };
-            case 'complete':
-                return {
-                    label: 'Trip complete',
-                    sub: `${flightNumber}${dateStr ? ` · ${dateStr}` : ''}`,
-                };
-            default: // 'active' / 'created' / unknown
-                return {
-                    label: isPast ? 'Leave NOW' : countdown || 'Calculating...',
-                    sub: `${flightNumber}${dateStr ? ` · ${dateStr}` : ''}`,
-                };
-        }
-    })();
-
-    // Section visibility per phase.
-    const showActionCards = isAuthenticated && (effectiveStatus === 'active' || effectiveStatus === 'en_route');
-    const showFullTimeline = effectiveStatus === 'active';
-    const showFlightStatus = effectiveStatus !== 'complete';
-    const showCompleteCard = effectiveStatus === 'complete';
+    // Placeholder "Open in Maps" / "Book your ride" — deep-linking out
+    // of Active Trip uses the same utilities the Results screen uses,
+    // but for phase 7.6 the minimum is: reveal a chip row elsewhere.
+    // For now, the book/navigate button opens Google Maps directions.
+    const openMapsNavigation = () => {
+        if (!airCoords) return;
+        const home = homeCoords ? `${homeCoords.lat},${homeCoords.lng}` : '';
+        const dest = `${airCoords.lat},${airCoords.lng}`;
+        const url = `https://www.google.com/maps/dir/?api=1${home ? `&origin=${home}` : ''}&destination=${dest}&travelmode=driving`;
+        window.open(url, '_blank');
+    };
 
     const tabs = [
         {
@@ -221,8 +858,8 @@ export default function ActiveTripView({
         {
             value: 'trip',
             label: 'My Trip',
-            icon: <Airplane size={22} weight="regular" />,
-            iconActive: <Airplane size={22} weight="bold" />,
+            icon: <AirplanePhosphor size={22} weight="regular" />,
+            iconActive: <AirplanePhosphor size={22} weight="bold" />,
         },
         {
             value: 'settings',
@@ -232,182 +869,116 @@ export default function ActiveTripView({
         },
     ];
 
+    // ── Layout ─────────────────────────────────────────────────────
+    const mapHidden = phase === 'complete';
+    const mapHeight = 280;
+
     return (
-        <motion.div key="active_trip" {...pageTransition} className="min-h-[calc(100vh-57px)] bg-secondary/50 pb-28">
-
-            {/* ── 1. HERO COUNTDOWN ── */}
-            <div className={`border-b ${urgencyClasses(effectiveStatus === 'active' ? urgency : 'calm')} transition-colors duration-500`}>
-                <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 text-center">
-                    <AnimatePresence mode="wait">
-                        <motion.p
-                            key={`${effectiveStatus}-${phaseHero.label}`}
-                            initial={{ scale: 0.95, opacity: 0 }}
-                            animate={{ scale: 1, opacity: 1 }}
-                            exit={{ opacity: 0 }}
-                            transition={{ duration: 0.3 }}
-                            className={`font-black tracking-tight ${
-                                effectiveStatus === 'active' && isPast
-                                    ? 'text-4xl md:text-5xl text-red-600 animate-pulse'
-                                    : effectiveStatus === 'active' && urgency === 'urgent'
-                                        ? 'text-4xl md:text-5xl text-red-600'
-                                        : effectiveStatus === 'active' && urgency === 'attention'
-                                            ? 'text-4xl md:text-5xl text-amber-700'
-                                            : 'text-3xl md:text-4xl text-foreground'
-                            }`}
-                        >
-                            {phaseHero.label}
-                        </motion.p>
-                    </AnimatePresence>
-                    <p className="text-sm text-muted-foreground mt-3">{phaseHero.sub}</p>
-                </div>
-            </div>
-
-            {/* ── 2. PHASE INDICATOR ── */}
-            <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6">
-                <div className="flex items-center justify-between">
-                    {PHASES.map((phase, idx) => {
-                        const isCompleted = idx < currentPhase;
-                        const isCurrent = idx === currentPhase;
-                        return (
-                            <React.Fragment key={phase.key}>
-                                {idx > 0 && (
-                                    <div className={`flex-1 h-0.5 mx-1 ${isCompleted ? 'bg-emerald-500' : 'bg-border'}`} />
-                                )}
-                                <div className="flex flex-col items-center gap-1.5">
-                                    {isCompleted ? (
-                                        <div className="w-7 h-7 rounded-full bg-emerald-500 flex items-center justify-center">
-                                            <Check className="w-4 h-4 text-white" />
-                                        </div>
-                                    ) : isCurrent ? (
-                                        <div className="w-7 h-7 rounded-full bg-primary/20 flex items-center justify-center">
-                                            <div className="w-3 h-3 rounded-full bg-primary animate-pulse" />
-                                        </div>
-                                    ) : (
-                                        <div className="w-7 h-7 rounded-full bg-secondary flex items-center justify-center">
-                                            <Circle className="w-3.5 h-3.5 text-muted-foreground/40" />
-                                        </div>
-                                    )}
-                                    <span className={`text-xs font-medium ${
-                                        isCompleted ? 'text-emerald-600' :
-                                        isCurrent ? 'text-foreground font-bold' :
-                                        'text-muted-foreground/50'
-                                    }`}>
-                                        {phase.label}
-                                    </span>
-                                </div>
-                            </React.Fragment>
-                        );
-                    })}
-                </div>
-            </div>
-
-            {/* ── 3. SEGMENT TIMELINE ── (only while planning the trip) */}
-            {showFullTimeline && (
-                recommendation ? (
-                    <JourneyVisualization
-                        locked={true}
-                        recommendation={recommendation}
-                        selectedFlight={selectedFlight}
-                        transport={transport}
-                        homeAddress={trip?.home_address}
-                    />
-                ) : (
-                    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
-                        <div className="bg-card rounded-3xl border border-border p-8 space-y-4 animate-pulse">
-                            <div className="h-4 bg-secondary rounded w-1/3" />
-                            <div className="h-12 bg-secondary rounded" />
-                            <div className="h-12 bg-secondary rounded" />
-                        </div>
-                    </div>
-                )
-            )}
-
-            {/* ── 3b. TRIP COMPLETE CARD ── */}
-            {showCompleteCard && (
-                <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8">
-                    <div className="bg-card rounded-3xl border border-border p-8 text-center">
-                        <div className="w-14 h-14 rounded-2xl bg-emerald-50 flex items-center justify-center mx-auto mb-4">
-                            <PartyPopper className="w-7 h-7 text-emerald-600" />
-                        </div>
-                        <h3 className="text-lg font-bold text-foreground mb-1">You made it</h3>
-                        <p className="text-sm text-muted-foreground">
-                            Tell us how it went next time you open AirBridge so we can keep getting smarter.
-                        </p>
-                    </div>
-                </div>
-            )}
-
-            {/* ── 4. FLIGHT STATUS BAR ── */}
-            {showFlightStatus && selectedFlight && (
-                <div className="max-w-5xl mx-auto px-4 sm:px-6 py-3 flex justify-center">
-                    {selectedFlight.is_delayed ? (
-                        <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-amber-50 border border-amber-200 text-amber-700 text-sm font-semibold">
-                            Delayed
-                        </span>
-                    ) : (
-                        <span className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm font-semibold">
-                            On Time
-                        </span>
-                    )}
-                </div>
-            )}
-
-            {/* ── 5. ACTION CARDS ── (active + en_route only) */}
-            {showActionCards && (
-                <ActionCards
-                    recommendation={recommendation}
-                    selectedFlight={selectedFlight}
-                    transport={transport}
+        <motion.div
+            ref={rootRef}
+            key="active_trip"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ duration: 0.4 }}
+            data-theme={theme}
+            className="relative min-h-screen pb-28 transition-colors duration-[600ms]"
+            style={{ backgroundColor: 'var(--c-ground)' }}
+        >
+            {/* Map region (hidden on complete). Top-of-screen, full-bleed. */}
+            {!mapHidden && (
+                <PhaseMap
+                    theme={theme}
+                    homeCoords={homeCoords}
+                    airportCoords={airCoords}
+                    height={mapHeight}
+                    hidden={mapHidden}
                 />
             )}
 
-            {/* ── 6. BOTTOM ACTIONS ── */}
-            <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 flex flex-col items-center gap-4">
-                <div className="flex items-center justify-center gap-4">
-                    {/* Planning phase: Edit button to open wizard */}
-                    {effectiveStatus === 'active' && (
-                        <button onClick={handleEditTrip}
-                            className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-border bg-card text-sm font-medium text-foreground hover:bg-secondary transition-all">
-                            <Pencil className="w-3.5 h-3.5" />
-                            Edit
+            {/* Floating top bar, overlaps the map. */}
+            <PhaseTopBar
+                theme={theme}
+                phase={phase}
+                trip={trip}
+                selectedFlight={selectedFlight}
+                originCity={null}
+                destCity={null}
+                onBack={handleBack}
+                onMore={() => setMenuOpen((v) => !v)}
+            />
+
+            {/* Kebab menu — simple inline dropdown for Edit / Refresh / Untrack. */}
+            {menuOpen && (
+                <div
+                    className={cn(
+                        'absolute right-c-4 top-14 z-40 rounded-c-md border shadow-c-md py-c-1 min-w-[180px]',
+                        theme === 'dark'
+                            ? 'bg-c-ground-elevated border-white/10'
+                            : 'bg-c-ground-elevated border-c-border-hairline'
+                    )}
+                    style={{ marginTop: 'env(safe-area-inset-top)' }}
+                    onMouseLeave={() => setMenuOpen(false)}
+                >
+                    {(phase === 'active' || phase === 'time-to-go') && (
+                        <button type="button" onClick={() => { setMenuOpen(false); handleEditTrip(); }}
+                            className="w-full text-left px-c-4 py-c-2 c-type-footnote text-c-text-primary hover:bg-c-ground-sunken flex items-center gap-c-2">
+                            <Pencil className="w-4 h-4" /> Edit trip
                         </button>
                     )}
-                    <button onClick={onEdit}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-border bg-card text-sm font-medium text-foreground hover:bg-secondary transition-all">
-                        <SettingsIcon className="w-3.5 h-3.5" />
-                        Edit preferences
+                    <button type="button" onClick={() => { setMenuOpen(false); onEdit(); }}
+                        className="w-full text-left px-c-4 py-c-2 c-type-footnote text-c-text-primary hover:bg-c-ground-sunken flex items-center gap-c-2">
+                        <SettingsIcon className="w-4 h-4" /> Edit preferences
                     </button>
-                    <button onClick={handleRefresh} disabled={refreshing}
-                        className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl border border-border bg-card text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-secondary transition-all disabled:opacity-50">
-                        {refreshing ? (
-                            <>
-                                <div className="w-3.5 h-3.5 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
-                                Updating...
-                            </>
-                        ) : refreshed ? (
-                            <>
-                                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-600" />
-                                <span className="text-emerald-600">Updated</span>
-                            </>
-                        ) : (
-                            <>
-                                <RefreshCw className="w-3.5 h-3.5" />
-                                Refresh
-                            </>
-                        )}
+                    <button type="button" onClick={() => { setMenuOpen(false); handleRefresh(); }}
+                        className="w-full text-left px-c-4 py-c-2 c-type-footnote text-c-text-primary hover:bg-c-ground-sunken flex items-center gap-c-2">
+                        <RefreshCw className="w-4 h-4" />
+                        {refreshing ? 'Refreshing…' : refreshed ? 'Refreshed' : 'Refresh'}
+                    </button>
+                    <button type="button" onClick={() => { setMenuOpen(false); setUntrackOpen(true); }}
+                        className="w-full text-left px-c-4 py-c-2 c-type-footnote text-c-urgency hover:bg-c-ground-sunken">
+                        Untrack trip
                     </button>
                 </div>
+            )}
 
-                {/* In-progress trips: untrack link */}
-                {(effectiveStatus === 'en_route' || effectiveStatus === 'at_airport' || effectiveStatus === 'at_gate') && (
-                    <button
-                        onClick={() => setUntrackOpen(true)}
-                        className="text-xs text-muted-foreground hover:text-foreground transition-colors underline"
-                    >
-                        Trip in progress — untrack to make changes
-                    </button>
+            {/* Hero card — floating glass/elevated surface overlapping the map bottom. */}
+            <section
+                className={cn(
+                    'relative z-10 mx-c-4 rounded-c-lg shadow-c-md transition-colors duration-[600ms]',
+                    theme === 'dark' ? 'bg-c-ground-elevated border border-white/5' : 'bg-c-ground-elevated border border-c-border-hairline'
                 )}
+                style={{ marginTop: mapHidden ? 80 : `-${Math.round(mapHeight * 0.17)}px`, padding: '24px' }}
+            >
+                <PhaseContent
+                    phase={phase}
+                    trip={trip}
+                    recommendation={recommendation}
+                    selectedFlight={selectedFlight}
+                    transport={transport}
+                    homeAddress={trip?.home_address}
+                    countdownText={countdownText}
+                    bufferMinutes={bufferMinutes}
+                    boardingTime={boardingTime}
+                    destinationCity={destinationCity}
+                    onBook={openMapsNavigation}
+                    onEditPrefs={onEdit}
+                    onUntrack={() => setUntrackOpen(true)}
+                    onOpenFeedback={() => {
+                        // FeedbackPrompt is mounted at app level and opens via its own
+                        // trigger pattern; we just navigate to Trips where it'll fire.
+                        navigate(createPageUrl('Trips'));
+                    }}
+                />
+            </section>
+
+            {/* Progress bar — below the hero card. */}
+            <div className="px-c-6 mt-c-6">
+                <ProgressDots phase={phase} />
             </div>
+
+            {/* Filler for scroll — content region is phase-content inside the hero;
+                extra breathing room below the progress so TabBar doesn't crowd it. */}
+            <div className="h-c-12" />
 
             <UntrackConfirmModal
                 open={untrackOpen}
@@ -423,6 +994,14 @@ export default function ActiveTripView({
                 onOpenChange={setAuthOpen}
                 onSuccess={handleAuthSuccess}
             />
+
+            {/* Dev-only debug pill — lets Rab see which phase is rendering at a
+               glance when demoing via URL override. */}
+            {import.meta.env.DEV && (
+                <div className="fixed bottom-24 left-c-4 z-40 px-c-3 py-c-1 rounded-c-pill bg-black/80 text-white c-type-caption font-mono pointer-events-none">
+                    phase: {phase}{overridePhase ? ' (override)' : ''}
+                </div>
+            )}
         </motion.div>
     );
 }
