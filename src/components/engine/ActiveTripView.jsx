@@ -339,12 +339,12 @@ function PhaseMap({ theme, homeCoords, airportCoords: airCoords, transport, heig
                 if (boundsSource) {
                     const bounds = new g.LatLngBounds();
                     boundsSource.forEach(pt => bounds.extend(pt));
-                    mapRef.current.fitBounds(bounds, { top: 60, bottom: 100, left: 40, right: 40 });
+                    mapRef.current.fitBounds(bounds, { top: 32, bottom: 72, left: 20, right: 20 });
                 } else if (homeCoords && airCoords) {
                     const bounds = new g.LatLngBounds();
                     bounds.extend(homeCoords);
                     bounds.extend(airCoords);
-                    mapRef.current.fitBounds(bounds, { top: 60, bottom: 100, left: 40, right: 40 });
+                    mapRef.current.fitBounds(bounds, { top: 32, bottom: 72, left: 20, right: 20 });
                 } else {
                     mapRef.current.setCenter(homeCoords || airCoords);
                 }
@@ -434,7 +434,7 @@ function PhaseTopBar({ theme, phase, trip, selectedFlight, onBack, onMore, origi
                    px-14 reserves space for the side buttons so truncation
                    bounds inside the remaining middle column. */}
                 <div className={cn(
-                    'absolute inset-0 flex items-center justify-center px-14 c-type-footnote font-semibold pointer-events-none',
+                    'absolute inset-0 flex items-center justify-center px-14 c-type-body font-semibold pointer-events-none',
                     textClass
                 )}>
                     <div className="flex items-center gap-c-1 min-w-0 max-w-full">
@@ -522,39 +522,126 @@ function CountdownSlots({ parsed }) {
     );
 }
 
-// Hero countdown font-size clamps between a mobile floor that still
-// reads as hero (44px) and the brief-spec'd 72px ceiling. On the
-// mobile stacked layout each line ("Leave in" + the digits) renders
-// at 44px — comfortable on iPhone widths because the two halves
-// wrap to separate lines. md:+ sits at 72px for full display
-// presence. Both the "Leave in" label and the countdown share this
-// style so they read as visually co-equal; only colour differentiates.
-const HERO_FONT_STYLE = {
-    fontSize: 'clamp(44px, 9vw, 72px)',
+// Hero countdown sizing. Desktop uses the DS --c-type-hero (56px);
+// the countdown can swell slightly on very-wide viewports via clamp
+// without exceeding --c-type-hero-xl (72px). Mobile drops to
+// --c-type-display (36px) so the ticking digits still dominate
+// without wrapping.
+const COUNTDOWN_FONT_STYLE = {
+    fontSize: 'clamp(var(--c-type-display-size), 9vw, var(--c-type-hero-xl-size))',
     lineHeight: 1,
-    fontWeight: 800,
+    fontWeight: 700,
+    letterSpacing: '-0.02em',
+};
+
+// "Leave in" label. Desktop sits co-equal with the countdown — same
+// hero-scale, differentiated by colour (text-primary vs brand). Mobile
+// steps down to --c-type-title (22px) so the label reads as label-ish
+// and leaves room for the countdown to read as the value.
+const LABEL_DESKTOP_STYLE = {
+    fontSize: 'clamp(var(--c-type-display-size), 9vw, var(--c-type-hero-xl-size))',
+    lineHeight: 1,
+    fontWeight: 700,
     letterSpacing: '-0.02em',
 };
 
 function LeaveInHero({ parsed, tone = 'brand' }) {
     // tone 'brand' → light-theme purple countdown. tone 'urgent' → red
-    // in the time-to-go variant. Label stays text-primary so the two
-    // sit as weighty equals — colour on the countdown is what draws
-    // the eye to the value.
+    // in the time-to-go variant.
     const valueColor = tone === 'urgent' ? 'text-c-urgency' : 'text-c-brand-primary';
-    const labelColor = 'text-c-text-primary';
     return (
-        <div className="flex flex-col items-center text-center md:flex-row md:items-baseline md:text-left md:gap-c-3">
-            <span
-                className={cn('inline-flex items-center gap-c-2', labelColor)}
-                style={HERO_FONT_STYLE}
-            >
-                <LivePulseDot />
-                Leave in
-            </span>
-            <span className={cn('tabular-nums', valueColor)} style={HERO_FONT_STYLE}>
-                <CountdownSlots parsed={parsed} />
-            </span>
+        <>
+            {/* Mobile (<md): label left, countdown right-filling & centred
+               visually in the remaining space. Label steps down to
+               --c-type-title so hierarchy reads; countdown stays at the
+               clamp'd hero size. */}
+            <div className="md:hidden flex items-baseline gap-c-3">
+                <span className="c-type-title text-c-text-primary shrink-0">Leave in</span>
+                <span
+                    className={cn('tabular-nums flex-1 text-center', valueColor)}
+                    style={COUNTDOWN_FONT_STYLE}
+                >
+                    <CountdownSlots parsed={parsed} />
+                </span>
+            </div>
+            {/* Desktop (md:+): both at hero scale, inline, comfortable
+               c-8 gap between the label and the digits. Baseline-
+               aligned so the descenders in "Leave in" line up with the
+               digit baselines. */}
+            <div className="hidden md:flex items-baseline gap-c-8">
+                <span
+                    className="text-c-text-primary shrink-0"
+                    style={LABEL_DESKTOP_STYLE}
+                >
+                    Leave in
+                </span>
+                <span
+                    className={cn('tabular-nums', valueColor)}
+                    style={COUNTDOWN_FONT_STYLE}
+                >
+                    <CountdownSlots parsed={parsed} />
+                </span>
+            </div>
+        </>
+    );
+}
+
+/* ── Trip context strip — horizontal metadata row above the
+   countdown. Pulls date + boarding + departure + gate out of the
+   trip data and surfaces them at footnote weight. The Edit link on
+   the right replaces the previous bottom-row Edit button.
+   Defensive null handling everywhere: each segment self-hides when
+   its source data is missing, so the strip gracefully degrades to
+   fewer segments on a partial trip record. */
+function TripContextStrip({ trip, selectedFlight, boardingTime, onEdit }) {
+    const departureDate = trip?.departure_date || '';
+    const dateLabel = (() => {
+        if (!departureDate) return null;
+        const [y, m, d] = departureDate.split('-').map(Number);
+        if (!y || !m || !d) return null;
+        return new Date(y, m - 1, d).toLocaleDateString('en-US', {
+            weekday: 'short', month: 'short', day: 'numeric',
+        });
+    })();
+    const departTimeLabel = selectedFlight?.departure_time
+        ? formatLocalTime(selectedFlight.departure_time)
+        : null;
+    const gate = selectedFlight?.departure_gate || null;
+
+    const segments = [
+        dateLabel ? { label: dateLabel, strong: false } : null,
+        boardingTime ? { label: 'Boarding ', strongLabel: boardingTime } : null,
+        departTimeLabel ? { label: 'Departs ', strongLabel: departTimeLabel } : null,
+        gate ? { label: 'Gate ', strongLabel: gate } : null,
+    ].filter(Boolean);
+
+    if (segments.length === 0 && !onEdit) return null;
+
+    return (
+        <div className="flex items-center gap-c-3 c-type-footnote text-c-text-secondary">
+            <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-c-2 gap-y-c-1">
+                {segments.map((seg, i) => (
+                    <React.Fragment key={i}>
+                        {i > 0 && <span className="text-c-text-tertiary">·</span>}
+                        <span>
+                            {seg.label}
+                            {seg.strongLabel && (
+                                <span className="font-semibold text-c-text-primary">{seg.strongLabel}</span>
+                            )}
+                        </span>
+                    </React.Fragment>
+                ))}
+            </div>
+            {onEdit && (
+                <button
+                    type="button"
+                    onClick={onEdit}
+                    className="shrink-0 inline-flex items-center gap-c-1 text-c-brand-primary c-type-footnote font-semibold hover:text-c-brand-primary-hover transition-colors"
+                >
+                    <Pencil className="w-3.5 h-3.5" />
+                    Edit
+                </button>
+            )}
         </div>
     );
 }
@@ -564,20 +651,31 @@ function LeaveInHero({ parsed, tone = 'brand' }) {
 function PhaseContent({
     phase, trip, recommendation, selectedFlight, transport, homeAddress,
     countdownParsed, bufferMinutes, boardingTime, destinationCity,
-    onBook, onEditPrefs, onUntrack, onOpenFeedback,
+    onBook, onEditPrefs, onEditTrip, onOpenFeedback,
 }) {
     const terminal = selectedFlight?.departure_terminal;
     const gate = selectedFlight?.departure_gate;
     const depTime = selectedFlight?.departure_time ? formatLocalTime(selectedFlight.departure_time) : '';
     const flightNumber = trip?.flight_number || '';
 
-    // ── active (planning, light theme)
+    // ── active (planning, light theme). Vertical rhythm: trip context
+    // → c-6 → Leave-in hero → c-4 → "On your way to" → c-8 → timeline
+    // → c-8 → primary CTA (now full-width). Uses the DS spacing scale
+    // end-to-end.
     if (phase === 'active') {
         return (
             <>
-                <LeaveInHero parsed={countdownParsed} tone="brand" />
+                <TripContextStrip
+                    trip={trip}
+                    selectedFlight={selectedFlight}
+                    boardingTime={boardingTime}
+                    onEdit={onEditTrip}
+                />
+                <div className="mt-c-6">
+                    <LeaveInHero parsed={countdownParsed} tone="brand" />
+                </div>
                 {terminal && (
-                    <p className="c-type-footnote text-c-text-secondary mt-c-3">
+                    <p className="c-type-footnote text-c-text-secondary mt-c-4">
                         On your way to{' '}
                         <span className="font-semibold text-c-text-primary">Terminal {terminal}</span>
                     </p>
@@ -592,21 +690,13 @@ function PhaseContent({
                         bufferMinutes={bufferMinutes}
                     />
                 </div>
-                <div className="mt-c-8 flex flex-wrap gap-c-2">
+                <div className="mt-c-8">
                     <button
                         type="button"
                         onClick={onBook}
-                        className="flex-1 min-w-[180px] h-12 rounded-c-md bg-c-brand-primary text-white c-type-footnote font-semibold hover:bg-c-brand-primary-hover transition-colors"
+                        className="w-full h-12 rounded-c-md bg-c-brand-primary text-white c-type-footnote font-semibold hover:bg-c-brand-primary-hover transition-colors"
                     >
                         {transport === 'driving' ? 'Start navigation' : 'Book your ride'}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={onEditPrefs}
-                        className="h-12 px-c-4 rounded-c-md bg-c-ground-elevated border border-c-border-hairline c-type-footnote font-medium text-c-text-primary hover:bg-c-ground-sunken transition-colors"
-                    >
-                        <Pencil className="w-4 h-4 inline-block mr-c-1" />
-                        Edit
                     </button>
                 </div>
             </>
@@ -944,7 +1034,7 @@ function ActiveTimeline({ phase, recommendation, selectedFlight, transport, home
                             </p>
                         )}
                         {row.connectorPillAfter && (
-                            <span className="inline-flex items-center mt-c-1 px-c-2 py-0.5 rounded-c-pill bg-c-ground-elevated border border-c-brand-primary/30 c-type-caption text-c-text-primary font-medium whitespace-nowrap">
+                            <span className="inline-flex items-center mt-c-1 px-c-2 py-0.5 rounded-c-pill bg-c-ground-elevated border border-c-brand-primary/30 c-type-caption text-c-text-primary font-bold whitespace-nowrap">
                                 {row.connectorPillAfter}
                             </span>
                         )}
@@ -988,7 +1078,7 @@ function ActiveTimeline({ phase, recommendation, selectedFlight, transport, home
                         </span>
                         {!isLast && row.connectorPillAfter && (
                             <span
-                                className="absolute z-20 inline-flex items-center px-c-2 py-0.5 rounded-c-pill bg-c-ground-elevated border border-c-brand-primary/30 c-type-caption text-c-text-primary font-medium whitespace-nowrap"
+                                className="absolute z-20 inline-flex items-center px-c-2 py-0.5 rounded-c-pill bg-c-ground-elevated border border-c-brand-primary/30 c-type-caption text-c-text-primary font-bold whitespace-nowrap"
                                 style={{ top: `${CHIP_HALF}px`, left: '100%', transform: 'translate(-50%, -50%)' }}
                             >
                                 {row.connectorPillAfter}
@@ -1294,20 +1384,18 @@ export default function ActiveTripView({
                     style={{ marginTop: 'env(safe-area-inset-top)' }}
                     onMouseLeave={() => setMenuOpen(false)}
                 >
-                    {(phase === 'active' || phase === 'time-to-go') && (
-                        <button type="button" onClick={() => { setMenuOpen(false); handleEditTrip(); }}
-                            className="w-full text-left px-c-4 py-c-2 c-type-footnote text-c-text-primary hover:bg-c-ground-sunken flex items-center gap-c-2">
-                            <Pencil className="w-4 h-4" /> Edit trip
-                        </button>
-                    )}
-                    <button type="button" onClick={() => { setMenuOpen(false); onEdit(); }}
-                        className="w-full text-left px-c-4 py-c-2 c-type-footnote text-c-text-primary hover:bg-c-ground-sunken flex items-center gap-c-2">
-                        <SettingsIcon className="w-4 h-4" /> Edit preferences
-                    </button>
+                    {/* Edit trip removed — now lives on the visible
+                       TripContextStrip. Kebab retains the less-visible
+                       actions: refresh, view details (preferences),
+                       untrack. */}
                     <button type="button" onClick={() => { setMenuOpen(false); handleRefresh(); }}
                         className="w-full text-left px-c-4 py-c-2 c-type-footnote text-c-text-primary hover:bg-c-ground-sunken flex items-center gap-c-2">
                         <RefreshCw className="w-4 h-4" />
-                        {refreshing ? 'Refreshing…' : refreshed ? 'Refreshed' : 'Refresh'}
+                        {refreshing ? 'Refreshing…' : refreshed ? 'Refreshed' : 'Refresh trip'}
+                    </button>
+                    <button type="button" onClick={() => { setMenuOpen(false); onEdit(); }}
+                        className="w-full text-left px-c-4 py-c-2 c-type-footnote text-c-text-primary hover:bg-c-ground-sunken flex items-center gap-c-2">
+                        <SettingsIcon className="w-4 h-4" /> View trip details
                     </button>
                     <button type="button" onClick={() => { setMenuOpen(false); setUntrackOpen(true); }}
                         className="w-full text-left px-c-4 py-c-2 c-type-footnote text-c-urgency hover:bg-c-ground-sunken">
@@ -1342,6 +1430,7 @@ export default function ActiveTripView({
                     destinationCity={destinationCity}
                     onBook={openMapsNavigation}
                     onEditPrefs={onEdit}
+                    onEditTrip={handleEditTrip}
                     onUntrack={() => setUntrackOpen(true)}
                     onOpenFeedback={() => {
                         // FeedbackPrompt is mounted at app level and opens via its own
@@ -1375,14 +1464,12 @@ export default function ActiveTripView({
                 onSuccess={handleAuthSuccess}
             />
 
-            {/* Dev-only debug pill — fixed top-right under the safe-area
-               inset + enough top offset to clear the top bar but stay
-               above the map. Small / unobtrusive; pointer-events none so
-               it never eats taps on the kebab. */}
+            {/* Dev-only debug pill — fixed bottom-left, DS tokens for
+               colour + type so it doesn't read as a foreign element.
+               Pointer-events none so it never eats taps on TabBar. */}
             {import.meta.env.DEV && (
                 <div
-                    className="fixed right-2 z-40 px-2 py-0.5 rounded-c-pill bg-black/75 text-white font-mono pointer-events-none uppercase tracking-wider"
-                    style={{ top: 'calc(env(safe-area-inset-top) + 4px)', fontSize: '10px' }}
+                    className="fixed bottom-c-4 left-c-4 z-40 px-c-2 py-c-1 rounded-c-pill bg-c-ground-sunken text-c-text-tertiary c-type-caption font-mono pointer-events-none uppercase"
                 >
                     {phase}{overridePhase ? ' · override' : ''}
                 </div>
