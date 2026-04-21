@@ -44,11 +44,12 @@ export function formatCountdownText(leaveAtISO) {
     return `Leave on ${dateStr} at ${timeStr}`;
 }
 
-// Second-resolution variant for Active Trip's hero countdown. When
-// < 1 hour remains, secondhand motion communicates urgency in a way
-// a minute-resolution readout can't. Falls back to the plain
-// formatCountdownText when the user is >= 1 hour out (or >= 1 day, in
-// which case we show the date instead).
+// Second-resolution variant for Active Trip's hero countdown. Seconds
+// are always rendered now (ticking "live" signal). Format adapts to
+// magnitude: "Xh Ym Zs" / "Xm Ys" / "Xs". When leaveAt is >= 24 hours
+// out we still delegate to formatCountdownText so the "Leave on
+// {date}" form takes over — ticking seconds across a multi-day gap
+// would be noise, not urgency.
 export function formatCountdownTextWithSeconds(leaveAtISO) {
     const diffMs = new Date(leaveAtISO) - Date.now();
     if (diffMs <= 0) return null;
@@ -60,6 +61,14 @@ export function formatCountdownTextWithSeconds(leaveAtISO) {
         const s = totalSec % 60;
         return `Leave in ${m}m ${s}s`;
     }
+    const h = Math.floor(totalMin / 60);
+    if (h < 24) {
+        const m = totalMin % 60;
+        const s = totalSec % 60;
+        return `Leave in ${h}h ${m}m ${s}s`;
+    }
+    // >= 24h: defer to the plain formatter which switches to "Leave on
+    // {date}" — a ticking seconds readout across days is noise.
     return formatCountdownText(leaveAtISO);
 }
 

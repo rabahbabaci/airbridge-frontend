@@ -476,7 +476,6 @@ function PhaseContent({
     if (phase === 'active') {
         return (
             <>
-                <div className="c-type-caption text-c-brand-primary font-semibold uppercase tracking-wider mb-c-2">LEAVE AT</div>
                 <p className="c-type-hero text-c-brand-primary tabular-nums leading-none">
                     {countdownText || '—'}
                 </p>
@@ -486,15 +485,17 @@ function PhaseContent({
                         <span className="font-semibold text-c-text-primary">Terminal {terminal}</span>
                     </p>
                 )}
-                <div className="mt-c-5">
+                <div className="mt-c-8">
                     <ActiveTimeline
+                        phase={phase}
                         recommendation={recommendation}
                         selectedFlight={selectedFlight}
                         transport={transport}
                         homeAddress={homeAddress}
+                        bufferMinutes={bufferMinutes}
                     />
                 </div>
-                <div className="mt-c-5 flex flex-wrap gap-c-2">
+                <div className="mt-c-8 flex flex-wrap gap-c-2">
                     <button
                         type="button"
                         onClick={onBook}
@@ -519,7 +520,6 @@ function PhaseContent({
     if (phase === 'time-to-go') {
         return (
             <>
-                <div className="c-type-caption text-c-urgency font-semibold uppercase tracking-wider mb-c-2">TIME TO GO</div>
                 <p className="font-extrabold text-c-urgency leading-none tabular-nums" style={{ fontSize: '72px' }}>
                     LEAVE NOW
                 </p>
