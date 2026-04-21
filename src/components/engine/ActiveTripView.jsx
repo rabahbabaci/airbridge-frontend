@@ -96,11 +96,90 @@ const DARK_MAP_STYLE = [
 /* ── Phase map — Google Maps JS SDK embed. Static (no gestures), styled
    per theme, draws a polyline from home to airport with pins at each.
    Re-renders when phase theme flips so the map style updates. */
-function PhaseMap({ theme, homeCoords, airportCoords: airCoords, height, hidden }) {
+// Module-level cache for Directions API responses. Keyed on
+// origin + destination + travelMode. One route per trip is typical;
+// theme flips and phase changes don't trigger a refetch.
+const directionsCache = new Map();
+
+function transportToTravelMode(transport, googleMaps) {
+    const t = (transport || '').toLowerCase();
+    if (!googleMaps) return null;
+    if (t === 'train' || t === 'bus' || t === 'transit') return googleMaps.TravelMode.TRANSIT;
+    // rideshare, driving, default
+    return googleMaps.TravelMode.DRIVING;
+}
+
+function directionsCacheKey(homeCoords, airCoords, transport) {
+    if (!homeCoords || !airCoords) return null;
+    const t = (transport || '').toLowerCase();
+    return `${homeCoords.lat.toFixed(5)},${homeCoords.lng.toFixed(5)}:${airCoords.lat.toFixed(5)},${airCoords.lng.toFixed(5)}:${t}`;
+}
+
+function PhaseMap({ theme, homeCoords, airportCoords: airCoords, transport, height, hidden }) {
     const containerRef = useRef(null);
     const mapRef = useRef(null);
     const polylineRef = useRef(null);
     const markersRef = useRef([]);
+
+    // Fetched driving / transit polyline from Google Directions API.
+    // `null` while loading or after a failure — the render uses the
+    // straight-line fallback in both cases.
+    const [routePath, setRoutePath] = useState(null);
+
+    // ── Fetch directions once per (origin, destination, transport).
+    // Cached across mounts in the module-level directionsCache so
+    // switching phases via URL param (which can remount the screen)
+    // doesn't burn a fresh Directions call. */
+    useEffect(() => {
+        if (hidden) return;
+        if (!GOOGLE_MAPS_API_KEY) return;
+        if (!homeCoords || !airCoords) return;
+
+        const cacheKey = directionsCacheKey(homeCoords, airCoords, transport);
+        if (cacheKey && directionsCache.has(cacheKey)) {
+            setRoutePath(directionsCache.get(cacheKey));
+            return;
+        }
+
+        let cancelled = false;
+        (async () => {
+            try {
+                await loadGoogleMaps();
+                if (cancelled) return;
+
+                const g = window.google.maps;
+                const travelMode = transportToTravelMode(transport, g);
+
+                const service = new g.DirectionsService();
+                service.route(
+                    {
+                        origin: homeCoords,
+                        destination: airCoords,
+                        travelMode,
+                    },
+                    (result, status) => {
+                        if (cancelled) return;
+                        if (status === 'OK' && result?.routes?.[0]?.overview_path) {
+                            const path = result.routes[0].overview_path.map(p => ({
+                                lat: p.lat(),
+                                lng: p.lng(),
+                            }));
+                            if (cacheKey) directionsCache.set(cacheKey, path);
+                            setRoutePath(path);
+                        } else {
+                            // Leaves routePath as null so the render falls back
+                            // to the home→airport straight geodesic line.
+                            console.warn('Directions lookup failed:', status);
+                        }
+                    }
+                );
+            } catch (err) {
+                console.error('Directions init failed:', err);
+            }
+        })();
+
+        return () => { cancelled = true; };
+    }, [homeCoords, airCoords, transport, hidden]);
 
     useEffect(() => {
         if (hidden) return;
@@ -141,16 +220,21 @@ function PhaseMap({ theme, homeCoords, airportCoords: airCoords, height, hidden 
                 markersRef.current = [];
 
                 const lineColor = isDark ? '#F4F3EF' : '#4F3FD3';
-                const lineAlpha = isDark ? 0.9 : 0.9;
 
-                // Polyline home → airport
-                if (homeCoords && airCoords) {
+                // Prefer the real routed polyline from Directions; fall back
+                // to a geodesic straight line when the API is unavailable or
+                // still loading.
+                const path = routePath && routePath.length > 0
+                    ? routePath
+                    : (homeCoords && airCoords ? [homeCoords, airCoords] : null);
+
+                if (path) {
                     polylineRef.current = new g.Polyline({
-                        path: [homeCoords, airCoords],
-                        geodesic: true,
+                        path,
+                        geodesic: !routePath,
                         strokeColor: lineColor,
-                        strokeOpacity: lineAlpha,
-                        strokeWeight: 3,
+                        strokeOpacity: 0.9,
+                        strokeWeight: 5,
                         map: mapRef.current,
                     });
                 }
@@ -182,8 +266,14 @@ function PhaseMap({ theme, homeCoords, airportCoords: airCoords, height, hidden 
                     }));
                 }
 
-                // Fit bounds to both points if we have them.
-                if (homeCoords && airCoords) {
+                // Fit bounds to the route path when available so the zoom
+                // level respects the actual drive, not just the endpoints.
+                const boundsSource = routePath && routePath.length > 0 ? routePath : null;
+                if (boundsSource) {
+                    const bounds = new g.LatLngBounds();
+                    boundsSource.forEach(pt => bounds.extend(pt));
+                    mapRef.current.fitBounds(bounds, { top: 60, bottom: 100, left: 40, right: 40 });
+                } else if (homeCoords && airCoords) {
                     const bounds = new g.LatLngBounds();
                     bounds.extend(homeCoords);
                     bounds.extend(airCoords);
@@ -197,7 +287,7 @@ function PhaseMap({ theme, homeCoords, airportCoords: airCoords, height, hidden 
         })();
 
         return () => { cancelled = true; };
-    }, [theme, homeCoords, airCoords, hidden]);
+    }, [theme, homeCoords, airCoords, hidden, routePath]);
 
     if (hidden) return null;
 
@@ -575,40 +665,55 @@ function ActiveTimeline({ recommendation, selectedFlight, transport, homeAddress
         const airportCode = selectedFlight?.origin_code || 'Airport';
         const transportSeg = segments.find(s => s.id === 'transport');
         const walkSeg = segments.find(s => s.id === 'walk_to_gate');
+        const airportSeg = segments.find(s => s.id === 'at_airport');
+        const bagSeg = segments.find(s => s.id === 'bag_drop' || s.id === 'checkin');
+        const tsaSeg = segments.find(s => s.id === 'tsa');
         const TRANSPORT_ICONS = { rideshare: Car, driving: Car, train: Train, bus: Bus };
         const TransportIcon = TRANSPORT_ICONS[(transport || '').toLowerCase()] || Car;
         const verbMap = { rideshare: 'Ride', driving: 'Drive', train: 'Train', bus: 'Bus' };
         const verb = verbMap[(transport || '').toLowerCase()] || 'Ride';
 
-        const list = [{
+        // `connectorPillAfter` — duration riding the horizontal connector
+        // line between this row's icon and the next. Only for meaningful
+        // in-transit time (drive, airport walk, gate walk). Skip for
+        // service phases (bag drop, TSA) — their duration is time AT the
+        // phase, not between phases.
+        const list = [];
+
+        list.push({
             key: 'depart',
             Icon: transportSeg ? TransportIcon : House,
             name: transportSeg ? `${verb} to ${airportCode}` : 'Leave home',
             subtitle: homeAddress ? shortAddress(homeAddress) : null,
-            durationLabel: transportSeg?.duration_minutes ? formatDuration(transportSeg.duration_minutes) : null,
-        }];
+            subtitleTone: 'neutral',
+            connectorPillAfter: transportSeg?.duration_minutes ? formatDuration(transportSeg.duration_minutes) : null,
+        });
 
-        const airportSeg = segments.find(s => s.id === 'at_airport');
         if (airportSeg) {
             list.push({
                 key: 'at_airport',
                 Icon: Buildings,
                 name: `At ${airportCode}`,
-                subtitle: airportSeg.duration_minutes ? `${formatDuration(airportSeg.duration_minutes)} walk to TSA` : null,
+                subtitle: null,
+                subtitleTone: 'neutral',
+                // at_airport's duration is walking-to-concourse time —
+                // surface on the outgoing connector instead of as a row
+                // sub-detail.
+                connectorPillAfter: airportSeg.duration_minutes ? `${formatDuration(airportSeg.duration_minutes)} walk` : null,
             });
         }
 
-        const bagSeg = segments.find(s => s.id === 'bag_drop' || s.id === 'checkin');
         if (bagSeg) {
             list.push({
                 key: 'bag',
                 Icon: SuitcaseRolling,
                 name: bagSeg.id === 'checkin' ? 'Check in' : 'Bag drop',
                 subtitle: bagSeg.duration_minutes ? `${formatDuration(bagSeg.duration_minutes)} drop` : null,
+                subtitleTone: 'neutral',
+                connectorPillAfter: null,
             });
         }
 
-        const tsaSeg = segments.find(s => s.id === 'tsa');
         if (tsaSeg) {
             const waitMatch = tsaSeg.advice?.match(/wait:(\d+)/);
             const waitMin = waitMatch ? parseInt(waitMatch[1], 10) : tsaSeg.duration_minutes;
@@ -618,6 +723,8 @@ function ActiveTimeline({ recommendation, selectedFlight, transport, homeAddress
                 name: 'TSA Security',
                 subtitle: waitMin ? `${formatDuration(waitMin)} wait` : null,
                 subtitleTone: 'warning',
+                isLiveData: true, // TSA wait gets the live-data pulsing amber dot
+                connectorPillAfter: walkSeg?.duration_minutes ? `${formatDuration(walkSeg.duration_minutes)} walk` : null,
             });
         }
 
@@ -626,7 +733,9 @@ function ActiveTimeline({ recommendation, selectedFlight, transport, homeAddress
                 key: 'gate',
                 Icon: Rocket,
                 name: `Gate ${selectedFlight?.departure_gate || ''}`.trim() || 'At gate',
-                subtitle: walkSeg.duration_minutes ? `${formatDuration(walkSeg.duration_minutes)} walk` : null,
+                subtitle: null,
+                subtitleTone: 'neutral',
+                connectorPillAfter: null,
             });
         }
 
@@ -635,8 +744,13 @@ function ActiveTimeline({ recommendation, selectedFlight, transport, homeAddress
 
     if (rows.length === 0) return null;
 
-    return (
-        <div>
+    const subtitleClass = (tone) => tone === 'warning' ? 'text-c-warning'
+        : tone === 'confidence' ? 'text-c-confidence'
+        : 'text-c-text-tertiary';
+
+    // ── Vertical layout (mobile, < md). Same as before. */
+    const vertical = (
+        <div className="md:hidden">
             {rows.map((row, i) => (
                 <div key={row.key} className="relative flex items-start gap-c-3 py-c-3">
                     {i < rows.length - 1 && (
@@ -657,19 +771,92 @@ function ActiveTimeline({ recommendation, selectedFlight, transport, homeAddress
                     <div className="flex-1 min-w-0">
                         <p className="c-type-footnote font-semibold text-c-text-primary">{row.name}</p>
                         {row.subtitle && (
-                            <p className={cn(
-                                'c-type-caption mt-0.5',
-                                row.subtitleTone === 'warning' ? 'text-c-warning'
-                                    : row.subtitleTone === 'confidence' ? 'text-c-confidence'
-                                    : 'text-c-text-tertiary'
-                            )}>
+                            <p className={cn('c-type-caption mt-0.5 inline-flex items-center gap-c-1', subtitleClass(row.subtitleTone))}>
+                                {row.isLiveData && <LivePulseDot />}
                                 {row.subtitle}
                             </p>
+                        )}
+                        {row.connectorPillAfter && (
+                            <span className="inline-flex items-center mt-c-1 px-c-2 py-0.5 rounded-c-pill bg-c-ground-elevated border border-c-brand-primary/30 c-type-caption text-c-text-primary font-medium whitespace-nowrap">
+                                {row.connectorPillAfter}
+                            </span>
                         )}
                     </div>
                 </div>
             ))}
         </div>
+    );
+
+    // ── Horizontal layout (tablet / desktop, md:+). Flex-segments
+    // approach mirroring the Results timeline: each column renders its
+    // own left + right connector halves, adjacent halves abut at the
+    // column boundary to form one continuous line. Transit pills ride
+    // the column boundaries at the icon centre-y. */
+    const horizontal = (
+        <div className="hidden md:flex items-start">
+            {rows.map((row, idx) => {
+                const isFirst = idx === 0;
+                const isLast = idx === rows.length - 1;
+                return (
+                    <div key={row.key} className="relative flex-1 min-w-0 flex flex-col items-center text-center px-c-1">
+                        {!isFirst && (
+                            <span
+                                aria-hidden="true"
+                                className="absolute h-0.5"
+                                style={{ top: '15px', left: '0', right: '50%', backgroundColor: 'rgb(79 63 211 / 0.25)' }}
+                            />
+                        )}
+                        {!isLast && (
+                            <span
+                                aria-hidden="true"
+                                className="absolute h-0.5"
+                                style={{ top: '15px', left: '50%', right: '0', backgroundColor: 'rgb(79 63 211 / 0.25)' }}
+                            />
+                        )}
+                        <span className="relative z-10 shrink-0 w-8 h-8 rounded-c-md bg-c-brand-primary-surface flex items-center justify-center">
+                            <row.Icon size={16} weight="regular" className="text-c-brand-primary" />
+                        </span>
+                        {!isLast && row.connectorPillAfter && (
+                            <span
+                                className="absolute z-20 inline-flex items-center px-c-2 py-0.5 rounded-c-pill bg-c-ground-elevated border border-c-brand-primary/30 c-type-caption text-c-text-primary font-medium whitespace-nowrap"
+                                style={{ top: '16px', left: '100%', transform: 'translate(-50%, -50%)' }}
+                            >
+                                {row.connectorPillAfter}
+                            </span>
+                        )}
+                        <p className="mt-c-2 c-type-caption font-semibold text-c-text-primary leading-tight">
+                            {row.name}
+                        </p>
+                        {row.subtitle && (
+                            <p className={cn('c-type-caption mt-0.5 inline-flex items-center gap-c-1 leading-tight', subtitleClass(row.subtitleTone))}>
+                                {row.isLiveData && <LivePulseDot />}
+                                {row.subtitle}
+                            </p>
+                        )}
+                    </div>
+                );
+            })}
+        </div>
+    );
+
+    return (
+        <>
+            {vertical}
+            {horizontal}
+        </>
+    );
+}
+
+/* ── Small pulsing amber dot — rendered next to values the backend
+   reports as live-updating (TSA wait times, traffic-adjusted leave-by).
+   2s breathing cycle at 0.5→1→0.5 opacity with a slight scale bump. */
+function LivePulseDot() {
+    return (
+        <span
+            aria-hidden="true"
+            className="inline-block w-1.5 h-1.5 rounded-c-pill animate-live-pulse"
+            style={{ backgroundColor: 'var(--c-live-data)' }}
+        />
     );
 }
 
@@ -897,6 +1084,7 @@ export default function ActiveTripView({
                     theme={theme}
                     homeCoords={homeCoords}
                     airportCoords={airCoords}
+                    transport={transport}
                     height={mapHeight}
                     hidden={mapHidden}
                 />
