@@ -1,10 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Browser } from '@capacitor/browser';
 import { createPageUrl } from '@/utils';
 import { useAuth } from '@/lib/AuthContext';
 import { API_BASE } from '@/config';
-import { isNative } from '@/utils/platform';
 import PaywallModal from '@/components/PaywallModal';
 import AuthModal from '@/components/engine/AuthModal';
 import useAuthGatedTabs from '@/hooks/useAuthGatedTabs';
@@ -18,7 +16,7 @@ import Sheet from '@/components/design-system/Sheet';
 import Switch from '@/components/design-system/Switch';
 import pkg from '../../package.json';
 import {
-    Airplane, MagnifyingGlass, Gear, CaretRight, User, Envelope,
+    Airplane, MagnifyingGlass, Gear, User, Envelope,
     Shield, ShieldCheck, SuitcaseRolling, Baby, Bell, Info,
     Car, SteeringWheel, Train, MapTrifold, NavigationArrow, Compass,
     SignOut, Check, Trash, ClockCounterClockwise, ChatCircle,
@@ -288,51 +286,12 @@ export default function Settings() {
     const debounceRef = useRef(null);
 
     // ── Subscription management ────────────────────────────────────────
+    // "Manage subscription" CTA (Stripe Customer Portal) is temporarily
+    // removed from the Pro variant pending portal configuration on Stripe's
+    // side. Backend /v1/subscriptions/portal endpoint stays live for when
+    // we re-enable. Sprint 8 backlog restores it.
     const [paywallOpen, setPaywallOpen] = useState(false);
-    const [openingPortal, setOpeningPortal] = useState(false);
-    const [portalError, setPortalError] = useState(null);
     const [signOutOpen, setSignOutOpen] = useState(false);
-
-    const handleManageSubscription = useCallback(async () => {
-        if (!token || openingPortal) return;
-        setOpeningPortal(true);
-        setPortalError(null);
-        try {
-            const res = await fetch(`${API_BASE}/v1/subscriptions/portal`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-            });
-            // Backend differentiates:
-            //   404 {detail: "no_stripe_customer"} → user has no (or stale)
-            //       Stripe customer; show the specific message
-            //   504                                 → timeout; ask to retry
-            //   other non-2xx                      → generic retry message
-            if (res.status === 404) {
-                const body = await res.json().catch(() => ({}));
-                if (body?.detail === 'no_stripe_customer') {
-                    setPortalError(body.message || 'No active Stripe subscription found for this account.');
-                    return;
-                }
-            }
-            if (res.status === 504) {
-                setPortalError('Stripe is taking too long. Please try again.');
-                return;
-            }
-            if (!res.ok) throw new Error(`Portal failed (${res.status})`);
-            const data = await res.json();
-            if (!data.portal_url) throw new Error('Missing portal URL');
-            if (isNative()) {
-                await Browser.open({ url: data.portal_url });
-            } else {
-                window.open(data.portal_url, '_blank');
-            }
-        } catch (err) {
-            console.error('Failed to open billing portal:', err);
-            setPortalError("Couldn't open the billing portal. Please try again.");
-        } finally {
-            setOpeningPortal(false);
-        }
-    }, [token, openingPortal]);
 
     const tripCount = trip_count ?? 0;
     const isSubActive = subStatus?.subscription_status === 'active';
@@ -582,9 +541,6 @@ export default function Settings() {
                             trialRemaining={trialRemaining}
                             subStatus={subStatus}
                             onUpgrade={() => setPaywallOpen(true)}
-                            onManage={handleManageSubscription}
-                            openingPortal={openingPortal}
-                            portalError={portalError}
                         />
 
                         {/* ── DEFAULT PREFERENCES ── */}
@@ -811,7 +767,7 @@ export default function Settings() {
 
 function SubscriptionCard({
     loadingSub, isTrialActive, isTrialExpired, isSubscribed,
-    trialRemaining, subStatus, onUpgrade, onManage, openingPortal, portalError,
+    trialRemaining, subStatus, onUpgrade,
 }) {
     if (loadingSub) {
         return (
@@ -898,18 +854,9 @@ function SubscriptionCard({
                     </div>
                     <StatusPill tone="confidence" dot>Active</StatusPill>
                 </div>
-                <button
-                    type="button"
-                    onClick={onManage}
-                    disabled={openingPortal}
-                    className="mt-c-4 inline-flex items-center gap-c-1 c-type-footnote font-semibold text-c-brand-primary hover:text-c-brand-primary-hover disabled:opacity-60 transition-colors"
-                >
-                    {openingPortal ? 'Opening…' : 'Manage subscription'}
-                    <CaretRight size={12} weight="bold" />
-                </button>
-                {portalError && (
-                    <p className="c-type-footnote text-c-urgency mt-c-2">{portalError}</p>
-                )}
+                <p className="c-type-footnote text-c-text-tertiary mt-c-3">
+                    Manage your subscription in the Stripe billing portal — coming soon
+                </p>
             </Card>
         );
     }
