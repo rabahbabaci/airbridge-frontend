@@ -518,41 +518,33 @@ function CountdownSlots({ parsed }) {
 // Hero countdown font-size clamps between a readable floor and the
 // spec'd 72px ceiling. At mobile widths (375–414px) 9vw resolves to
 // 34–37px — comfortably fits "8h 45m 41s" on one line. At md:+ the
-// clamp tops out at 72px giving the display hero presence.
+// clamp tops out at 72px giving the display hero presence. Both the
+// "Leave in" label and the countdown digits share this style so
+// they read as visually co-equal; only the colour differentiates.
 const HERO_FONT_STYLE = {
     fontSize: 'clamp(36px, 9vw, 72px)',
     lineHeight: 1,
-    fontWeight: 800, // heavier than the label to anchor the eye here
+    fontWeight: 800,
     letterSpacing: '-0.02em',
-};
-
-// "Leave in" label — visually subordinate to the countdown. Mobile
-// floors at 16px (matches c-type-headline), desktop peaks at 32px so
-// the label is ~44% of the countdown hero (typographic hierarchy, not
-// equal weight).
-const LEAVE_IN_LABEL_STYLE = {
-    fontSize: 'clamp(16px, 4vw, 32px)',
-    lineHeight: 1.2,
-    fontWeight: 600,
-    letterSpacing: '-0.01em',
 };
 
 function LeaveInHero({ parsed, tone = 'brand' }) {
     // tone 'brand' → light-theme purple countdown. tone 'urgent' → red
-    // in the time-to-go variant. Label always reads text-secondary so
-    // it recedes behind the value.
-    const heroColor = tone === 'urgent' ? 'text-c-urgency' : 'text-c-brand-primary';
-    const labelColor = 'text-c-text-secondary';
+    // in the time-to-go variant. Label stays text-primary so the two
+    // sit as weighty equals — colour on the countdown is what draws
+    // the eye to the value.
+    const valueColor = tone === 'urgent' ? 'text-c-urgency' : 'text-c-brand-primary';
+    const labelColor = 'text-c-text-primary';
     return (
-        <div className="flex flex-col md:flex-row md:items-baseline md:gap-c-3">
+        <div className="flex flex-col items-center text-center md:flex-row md:items-baseline md:text-left md:gap-c-3">
             <span
                 className={cn('inline-flex items-center gap-c-2', labelColor)}
-                style={LEAVE_IN_LABEL_STYLE}
+                style={HERO_FONT_STYLE}
             >
                 <LivePulseDot />
                 Leave in
             </span>
-            <span className={cn('tabular-nums', heroColor)} style={HERO_FONT_STYLE}>
+            <span className={cn('tabular-nums', valueColor)} style={HERO_FONT_STYLE}>
                 <CountdownSlots parsed={parsed} />
             </span>
         </div>
