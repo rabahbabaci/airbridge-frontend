@@ -159,13 +159,20 @@ export default function Engine() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
-    // ── Edit mode hydration from Trips page navigation ──────────────────────
-    // Trips passes the list-response trip shape via router state. That shape
-    // can be partial — notably, /v1/trips/active-list does not reliably
-    // include preferences_json, so Setup fields like bag_count, transport,
-    // security, etc. fall back to defaults. After the synchronous hydration
-    // from router state, fetch GET /v1/trips/{id} to pull the full trip
-    // (including the authoritative preferences_json) and re-hydrate.
+    // ── Edit mode hydration ─────────────────────────────────────────────
+    // Two callers exercise this same hydration:
+    //   1. Deep-link from Trips — user taps Edit on a draft card,
+    //      React Router puts the trip on location.state.editTrip and
+    //      Engine mounts. The mount-time useEffect below picks it up.
+    //   2. In-flight from Active Trip — user taps Edit on the trip
+    //      context strip. Engine is already mounted (viewMode='active_trip');
+    //      navigating to the same route wouldn't re-trigger the mount
+    //      useEffect, so ActiveTripView calls enterEditModeForTrip
+    //      directly via the onEnterEditMode prop.
+    //
+    // The function also flips Engine from its current viewMode into
+    // 'setup' (step 3 — Departure Setup), clearing any Active Trip
+    // render state. Idempotent; safe to call mid-render from a button.
     const editTripRef = useRef(location.state?.editTrip);
     const hydratePrefsJson = (source) => {
         if (!source) return;
@@ -185,37 +192,44 @@ export default function Engine() {
             console.error('Failed to parse edit trip preferences:', e);
         }
     };
-    useEffect(() => {
-        const trip = editTripRef.current;
-        if (!trip) return;
+    // Hydrate + flip viewMode. Returns a cleanup that cancels any
+    // in-flight fetches (matters for the mount useEffect; button-
+    // callers discard the return value since they don't own a lifecycle).
+    const enterEditModeForTrip = (trip) => {
+        if (!trip) return () => {};
 
-        // Hydrate Step 1 fields
+        // Synchronous field hydration from the router-state / passed shape
+        // (may be partial — the async fetch below re-hydrates with the
+        // authoritative trip record).
         if (trip.flight_number) setFlightNumber(trip.flight_number);
         if (trip.departure_date) setDepartureDate(trip.departure_date);
-
-        // Hydrate Step 3 fields from router-state trip (may be partial)
         if (trip.home_address) setStartingAddress(trip.home_address);
         hydratePrefsJson(trip.preferences_json);
 
+        // Edit-mode state flags.
         setEditMode(true);
         setEditTripId(trip.trip_id);
         setEditTripStatus(trip.status);
         setCurrentTripId(trip.trip_id);
         setCheckingActiveTrip(false);
-        // StepEntry was removed; edit mode lands directly on Setup (step 3).
-        // Flight-number / date edits are temporarily unavailable until the
-        // edit UX is re-built on top of Search.
+        // StepEntry was retired; edit mode lands directly on Setup (step 3).
         setStep(3);
         setDir(1);
 
-        // Supplementary fetches. Two things happen here:
-        //   1. GET /v1/trips/{id} → authoritative trip record (preferences).
-        //   2. GET /v1/flights/{n}/{date} → live flight metadata so Results
-        //      can render the pill cluster + Boarding/Departs cards. The
-        //      trip record only stores flight_number + selected_departure_utc;
-        //      terminal, gate, departure_time, delays are time-varying and
-        //      live under /v1/flights. Same pattern the viewTrip flow uses.
-        if (!token || !trip.trip_id) return;
+        // Flip Engine out of any Active Trip render state. No-op when the
+        // caller already has viewMode='setup' (deep-link case); essential
+        // when called mid-flight from ActiveTripView.
+        setActiveTripData(null);
+        setActiveTripRec(null);
+        setLocked(false);
+        setViewMode('setup');
+
+        // Async: pull the authoritative trip + live flight metadata so
+        // Setup / Results have everything they need. Same pattern the
+        // viewTrip flow uses. `cancelled` shuts down stale setState if
+        // the caller owns a lifecycle (mount useEffect); button callers
+        // discard the cleanup and rely on the component staying mounted.
+        if (!token || !trip.trip_id) return () => {};
         let cancelled = false;
         (async () => {
             let authoritative = trip;
@@ -254,6 +268,9 @@ export default function Engine() {
             }
         })();
         return () => { cancelled = true; };
+    };
+    useEffect(() => {
+        return enterEditModeForTrip(editTripRef.current);
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
@@ -1141,6 +1158,7 @@ export default function Engine() {
                             setDir(1);
                             setLocked(false);
                         }}
+                        onEnterEditMode={enterEditModeForTrip}
                         onRefresh={async () => {
                             if (!activeTripData) return;
                             try {

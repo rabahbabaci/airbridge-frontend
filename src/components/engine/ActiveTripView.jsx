@@ -664,7 +664,7 @@ function TripContextStrip({ trip, selectedFlight, boardingTime, editState = 'non
 function PhaseContent({
     phase, trip, recommendation, selectedFlight, transport, homeAddress,
     countdownParsed, bufferMinutes, boardingTime, destinationCity,
-    onBook, onEditPrefs, onEditTrip, onOpenFeedback,
+    onBook, onEditPrefs, onEditTrip, onUntrack, onOpenFeedback,
 }) {
     const terminal = selectedFlight?.departure_terminal;
     const gate = selectedFlight?.departure_gate;
@@ -1207,7 +1207,7 @@ function RemainingSteps({ selectedFlight, bufferMinutes }) {
 export default function ActiveTripView({
     trip, recommendation, selectedFlight, transport,
     isAuthenticated, display_name,
-    onRefresh, onEdit,
+    onRefresh, onEdit, onEnterEditMode,
 }) {
     const { token, updateTripCount } = useAuth();
     const navigate = useNavigate();
@@ -1310,8 +1310,14 @@ export default function ActiveTripView({
         navigate(createPageUrl('Trips'));
     };
 
+    // Engine owns the edit-mode hydration logic; we just hand it the
+    // current trip and let it flip its own viewMode + populate fields.
+    // Going via navigate('/Engine', { state: { editTrip } }) wouldn't
+    // work here — we're already on /Engine, so the one-shot mount
+    // useEffect that consumes location.state never re-runs. The
+    // onEnterEditMode prop plumbs the extracted hydration function.
     const handleEditTrip = () => {
-        navigate(createPageUrl('Engine'), { state: { editTrip: trip } });
+        if (onEnterEditMode) onEnterEditMode(trip);
     };
 
     const handleRefresh = async () => {
