@@ -404,7 +404,7 @@ export default function ResultsView({
     ];
 
     return (
-        <div className="w-full max-w-[896px] mx-auto -mx-4 pb-28">
+        <div className="w-full max-w-[960px] mx-auto -mx-4 pb-28">
             <TopBar title="Results" onBack={onEditSetup} />
 
             {selectedFlight && subtitleParts.length > 0 && (
