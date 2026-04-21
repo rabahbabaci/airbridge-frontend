@@ -12,7 +12,6 @@ import TopBar from '@/components/design-system/TopBar';
 import TabBar from '@/components/design-system/TabBar';
 import Card from '@/components/design-system/Card';
 import ListRow from '@/components/design-system/ListRow';
-import SegmentedControl from '@/components/design-system/SegmentedControl';
 import StatusPill from '@/components/design-system/StatusPill';
 import Button from '@/components/design-system/Button';
 import Sheet from '@/components/design-system/Sheet';
@@ -20,7 +19,7 @@ import Switch from '@/components/design-system/Switch';
 import pkg from '../../package.json';
 import {
     Airplane, MagnifyingGlass, Gear, CaretRight, User, Envelope,
-    ShieldCheck, SuitcaseRolling, Baby, Bell, Info,
+    Shield, ShieldCheck, SuitcaseRolling, Baby, Bell, Info,
     Car, SteeringWheel, Train, MapTrifold, NavigationArrow, Compass,
     SignOut, Check, Trash, ClockCounterClockwise, ChatCircle,
     FileText, Lock, WarningCircle,
@@ -38,10 +37,22 @@ const TRANSPORT_CARDS = [
     { value: 'train',     label: 'Public transit', subtitle: 'Bus, BART, rail', Icon: Train },
 ];
 
+// Security access ladder — mirrors StepDepartureSetup.jsx:69-74 verbatim.
+// Settings and Setup must stay in lockstep so a user's Setup choice
+// round-trips through Settings without a silent downgrade (see commit
+// that introduced this alignment for the lossy-round-trip bug context).
+// priority_lane is intentionally excluded here — Setup excludes it too
+// per brief §4.4 ("too airline-specific, hard to model"). The backend
+// enum still supports it, so data shaped before this UI existed
+// round-trips; it just isn't user-selectable.
 const SECURITY_OPTIONS = [
-    { value: 'none', label: 'Standard' },
-    { value: 'precheck', label: 'PreCheck' },
+    { value: 'none',           title: 'None',             subtitle: 'Standard security lane' },
+    { value: 'precheck',       title: 'TSA PreCheck',     subtitle: 'Dedicated fast lane',    badge: 'Saves ~15 min' },
+    { value: 'clear',          title: 'CLEAR',            subtitle: 'Biometric fast lane',    badge: 'Saves ~15 min' },
+    { value: 'clear_precheck', title: 'PreCheck + CLEAR', subtitle: 'Fastest combined lane',  badge: 'Saves ~20 min' },
 ];
+
+const SECURITY_VALUES = new Set(SECURITY_OPTIONS.map(o => o.value));
 
 const BUFFER_OPTIONS = [
     { value: 15, label: 'Tight · 15 min' },
@@ -146,6 +157,44 @@ function ToggleRow({ icon: Icon, primary, secondary, checked, onChange, disabled
 function SectionLabel({ children }) {
     return (
         <h2 className="c-type-caption text-c-text-tertiary px-c-4 pb-c-2 pt-c-6">{children}</h2>
+    );
+}
+
+/* ── Security option card — structural mirror of StepDepartureSetup.jsx's
+     local SecurityOption (lines 490–524). Keep visually identical so a
+     user perceives the Settings and Setup controls as the same surface.
+     If either page restyles, update both — or lift this to a shared DS
+     primitive. */
+
+function SecurityOption({ active, onClick, title, subtitle, badge }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            aria-pressed={active}
+            className={`w-full flex items-center gap-c-3 md:flex-col md:items-start md:gap-c-2 p-c-4 rounded-c-md border transition-colors text-left md:min-h-[148px] focus:outline-none focus-visible:ring-2 focus-visible:ring-c-brand-primary focus-visible:ring-offset-2 ${
+                active
+                    ? 'bg-c-brand-primary-surface border-c-brand-primary'
+                    : 'bg-c-ground-elevated border-c-border-hairline hover:border-c-border-strong'
+            }`}
+        >
+            <Shield
+                size={22}
+                weight={active ? 'fill' : 'regular'}
+                className={`shrink-0 ${active ? 'text-c-brand-primary' : 'text-c-text-secondary'}`}
+            />
+            <div className="flex-1 md:flex-none md:w-full min-w-0">
+                <p className={`c-type-body font-semibold ${active ? 'text-c-brand-primary' : 'text-c-text-primary'}`}>
+                    {title}
+                </p>
+                <p className="c-type-footnote text-c-text-secondary">{subtitle}</p>
+            </div>
+            {badge && (
+                <span className="shrink-0 md:mt-auto inline-flex items-center px-c-2 py-c-1 rounded-c-pill bg-c-confidence-surface text-c-confidence c-type-footnote font-semibold">
+                    {badge}
+                </span>
+            )}
+        </button>
     );
 }
 
@@ -314,10 +363,10 @@ export default function Settings() {
                 if (p.has_boarding_pass != null) setHasBoardingPass(p.has_boarding_pass);
                 if (p.traveling_with_children != null) setWithChildren(p.traveling_with_children);
                 if (p.gate_time_minutes != null) setGateTime(p.gate_time_minutes);
-                // Map any legacy security_access value onto the 2-option scheme
-                // (precheck or none). PreCheck+CLEAR, CLEAR, priority_lane all
-                // collapse to None on read; backend stays as-is until next save.
-                setSecurity(p.security_access === 'precheck' ? 'precheck' : 'none');
+                // Accept any of the 4 valid security_access values directly.
+                // priority_lane (still in the backend enum but not user-selectable
+                // here) and any unknown value fall back to 'none'.
+                setSecurity(SECURITY_VALUES.has(p.security_access) ? p.security_access : 'none');
                 setLoadError(false);
             } catch (err) {
                 console.error('Failed to load profile:', err);
@@ -568,11 +617,21 @@ export default function Settings() {
 
                             <div>
                                 <label className="c-type-footnote font-semibold text-c-text-secondary block pb-c-2">Security access</label>
-                                <SegmentedControl
-                                    segments={SECURITY_OPTIONS}
-                                    value={security}
-                                    onChange={setSecurity}
-                                />
+                                {/* Grid + SecurityOption shape mirrors Setup
+                                    (StepDepartureSetup.jsx:394-408): stacked
+                                    on mobile, 4-col row on ≥768px. */}
+                                <div className="grid grid-cols-1 md:grid-cols-4 gap-c-3">
+                                    {SECURITY_OPTIONS.map((opt) => (
+                                        <SecurityOption
+                                            key={opt.value}
+                                            active={security === opt.value}
+                                            onClick={() => setSecurity(opt.value)}
+                                            title={opt.title}
+                                            subtitle={opt.subtitle}
+                                            badge={opt.badge}
+                                        />
+                                    ))}
+                                </div>
                             </div>
 
                             <div>
