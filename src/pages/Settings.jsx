@@ -20,19 +20,22 @@ import Switch from '@/components/design-system/Switch';
 import pkg from '../../package.json';
 import {
     Airplane, MagnifyingGlass, Gear, CaretRight, User, Envelope,
-    ShieldCheck, DeviceMobile, Baby, Bell, Info,
-    Car, Train, Bus, MapTrifold, NavigationArrow, Compass,
+    ShieldCheck, SuitcaseRolling, Baby, Bell, Info,
+    Car, SteeringWheel, Train, MapTrifold, NavigationArrow, Compass,
     SignOut, Check, Trash, ClockCounterClockwise, ChatCircle,
     FileText, Lock, WarningCircle,
 } from '@phosphor-icons/react';
 
 /* ── Option sets ────────────────────────────────────────────────────────── */
 
-const TRANSPORT_OPTIONS = [
-    { value: 'rideshare', label: 'Rideshare', Icon: Car },
-    { value: 'driving', label: 'Drive', Icon: Car },
-    { value: 'train', label: 'Train', Icon: Train },
-    { value: 'bus', label: 'Bus', Icon: Bus },
+// Transport cards mirror StepDepartureSetup.jsx (brief §4.4): three
+// options, provider pick (Uber vs Lyft) surfaces later in Results and
+// via the Preferred Apps row below. 'train' is also the backend value
+// for transit (Bay Area BART/rail tilt).
+const TRANSPORT_CARDS = [
+    { value: 'rideshare', label: 'Rideshare',     subtitle: 'Uber, Lyft, etc.', Icon: Car },
+    { value: 'driving',   label: 'Drive',         subtitle: '+~10 min parking', Icon: SteeringWheel },
+    { value: 'train',     label: 'Public transit', subtitle: 'Bus, BART, rail', Icon: Train },
 ];
 
 const SECURITY_OPTIONS = [
@@ -60,6 +63,7 @@ const NAV_APP_OPTIONS = [
 const LS_NAV_KEY = 'airbridge_preferred_nav';
 const LS_RIDE_KEY = 'airbridge_preferred_rideshare';
 const LS_NOTIF_KEY = 'airbridge_notification_prefs';
+const LS_CHECKING_BAGS_KEY = 'airbridge_checking_bags';
 
 const NOTIF_DEFAULTS = {
     leave_by: true,
@@ -149,16 +153,16 @@ function SectionLabel({ children }) {
 
 function SignOutSheet({ open, onClose, onConfirm }) {
     return (
-        <Sheet open={open} onClose={onClose} title="Sign out?">
+        <Sheet open={open} onClose={onClose} title="Sign out?" placement="center">
             <p className="c-type-body text-c-text-secondary">
                 You&rsquo;ll need to sign in again to track trips and get notifications.
             </p>
-            <div className="mt-c-6 flex flex-col gap-c-3">
-                <Button variant="destructive" full onClick={onConfirm}>
-                    Sign out
-                </Button>
-                <Button variant="secondary" full onClick={onClose}>
+            <div className="mt-c-6 flex items-center gap-c-3">
+                <Button variant="secondary" onClick={onClose} className="flex-1">
                     Cancel
+                </Button>
+                <Button variant="destructive" onClick={onConfirm} className="flex-1">
+                    Sign out
                 </Button>
             </div>
         </Sheet>
@@ -202,6 +206,15 @@ export default function Settings() {
     // TODO: persist server-side once backend accepts these keys.
     const [navApp, setNavApp] = useState(() => loadLocalPref(LS_NAV_KEY, 'apple_maps'));
     const [rideshareApp, setRideshareApp] = useState(() => loadLocalPref(LS_RIDE_KEY, 'uber'));
+    // 'checking_bags' is a Settings-only toggle — Setup has a bag-count
+    // stepper and a separate boarding-pass toggle. The old has_boarding_pass
+    // backend field is still persisted on save (unchanged) but no longer
+    // has a Settings UI control. Orphan localStorage keys left intact.
+    // TODO: persist server-side once backend accepts this key.
+    const [checkingBags, setCheckingBags] = useState(() => {
+        try { return localStorage.getItem(LS_CHECKING_BAGS_KEY) === '1'; }
+        catch { return false; }
+    });
 
     // ── Notification prefs (local-only for v1) ──────────────────────────
     // TODO: persist server-side once backend accepts these keys.
@@ -378,13 +391,24 @@ export default function Settings() {
         console.log('TODO: route to /settings/delete');
     };
 
+    const handleCheckingBags = (v) => {
+        setCheckingBags(v);
+        // TODO: persist server-side once backend accepts this key.
+        try { localStorage.setItem(LS_CHECKING_BAGS_KEY, v ? '1' : '0'); }
+        catch { /* ignore */ }
+    };
+
     if (!isAuthenticated) return null;
 
     const avatarInitial = (display_name || email || '?').charAt(0).toUpperCase();
 
     return (
         <div className="min-h-screen bg-c-ground font-c-sans text-c-text-primary pb-28">
-            <TopBar title="Settings" align="left" />
+            {/* Brief §2.4 puts the page title in the TopBar; Rab's preference
+                is to keep it inline in the content area so sub-routes can
+                reclaim the TopBar's left/right slots for back/action chevrons
+                later. TopBar stays mounted (empty) to preserve layout. */}
+            <TopBar align="left" />
 
             {/* Inline save-status toast — confidence tone, fades via state timeout */}
             <div
@@ -407,10 +431,17 @@ export default function Settings() {
             </div>
 
             <main className="max-w-2xl mx-auto px-c-4 pt-c-4 pb-c-10">
-                {/* US domestic pill */}
-                <div className="pb-c-2 px-c-1">
-                    <StatusPill tone="neutral">🇺🇸 US domestic flights only</StatusPill>
-                </div>
+                {/* Inline page title (Rab preference — see TopBar note above).
+                    Semibold (600), not the token's default bold (700), to
+                    feel less heavy at scale. Inline style wins over the
+                    c-type-title-xl class's font-weight without mutating the
+                    token. */}
+                <h1
+                    className="c-type-title-xl text-c-text-primary px-c-1"
+                    style={{ fontWeight: 600 }}
+                >
+                    Settings
+                </h1>
 
                 {loadingProfile ? (
                     <div className="flex items-center justify-center py-c-16">
@@ -496,7 +527,43 @@ export default function Settings() {
                         <Card padding="md" className="space-y-c-5">
                             <div>
                                 <label className="c-type-footnote font-semibold text-c-text-secondary block pb-c-2">Transport mode</label>
-                                <OptionGrid options={TRANSPORT_OPTIONS} value={transport} onChange={setTransport} cols={4} />
+                                {/* Card grid mirrors StepDepartureSetup.jsx:
+                                    3 options (Rideshare / Drive / Public transit),
+                                    same icons, labels, subtexts. Selected card
+                                    gets brand-tinted bg + brand border. */}
+                                <div className="grid grid-cols-3 gap-c-3">
+                                    {TRANSPORT_CARDS.map((card) => {
+                                        const active = transport === card.value;
+                                        const Icon = card.Icon;
+                                        return (
+                                            <button
+                                                key={card.value}
+                                                type="button"
+                                                onClick={() => setTransport(card.value)}
+                                                aria-pressed={active}
+                                                className={`flex flex-col items-start gap-c-2 p-c-3 rounded-c-md border transition-colors duration-c-fast text-left min-h-[104px] focus:outline-none focus-visible:ring-2 focus-visible:ring-c-brand-primary ${
+                                                    active
+                                                        ? 'bg-c-brand-primary-surface border-c-brand-primary'
+                                                        : 'bg-c-ground-elevated border-c-border-hairline hover:border-c-border-strong'
+                                                }`}
+                                            >
+                                                <Icon
+                                                    size={22}
+                                                    weight={active ? 'fill' : 'regular'}
+                                                    className={active ? 'text-c-brand-primary' : 'text-c-text-secondary'}
+                                                />
+                                                <div className="min-w-0">
+                                                    <p className={`c-type-body font-semibold ${active ? 'text-c-brand-primary' : 'text-c-text-primary'}`}>
+                                                        {card.label}
+                                                    </p>
+                                                    <p className="c-type-footnote text-c-text-secondary">
+                                                        {card.subtitle}
+                                                    </p>
+                                                </div>
+                                            </button>
+                                        );
+                                    })}
+                                </div>
                             </div>
 
                             <div>
@@ -543,16 +610,16 @@ export default function Settings() {
 
                             <div className="-mx-c-4 border-t border-c-border-hairline">
                                 <ToggleRow
-                                    icon={DeviceMobile}
-                                    primary="Boarding pass"
-                                    secondary="Default to having boarding pass"
-                                    checked={hasBoardingPass}
-                                    onChange={setHasBoardingPass}
+                                    icon={SuitcaseRolling}
+                                    primary="Checking bags?"
+                                    secondary="Joining the check-in line · Wait time varies"
+                                    checked={checkingBags}
+                                    onChange={handleCheckingBags}
                                 />
                                 <ToggleRow
                                     icon={Baby}
                                     primary="Traveling with children"
-                                    secondary="Adjusts walking pace at the airport"
+                                    secondary="Adjusts walking pace at airport"
                                     checked={withChildren}
                                     onChange={setWithChildren}
                                 />
