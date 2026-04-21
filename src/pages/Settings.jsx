@@ -466,7 +466,7 @@ export default function Settings() {
                 }`}
                 aria-live="polite"
             >
-                <div className="max-w-2xl mx-auto flex justify-center">
+                <div className="max-w-3xl mx-auto flex justify-center">
                     {saveStatus === 'saving' && (
                         <StatusPill tone="neutral">Saving…</StatusPill>
                     )}
@@ -479,7 +479,7 @@ export default function Settings() {
                 </div>
             </div>
 
-            <main className="max-w-2xl mx-auto px-c-4 pt-c-4 pb-c-10">
+            <main className="max-w-3xl mx-auto px-c-4 pt-c-4 pb-c-10">
                 {/* Inline page title (Rab preference — see TopBar note above).
                     Semibold (600), not the token's default bold (700), to
                     feel less heavy at scale. Inline style wins over the
