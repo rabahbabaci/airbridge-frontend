@@ -9,7 +9,7 @@ import {
 } from '@phosphor-icons/react';
 import { RefreshCw, Pencil, Settings as SettingsIcon } from 'lucide-react';
 
-import { formatCountdownTextWithSeconds, formatLocalTime, formatDuration } from '@/utils/format';
+import { parseCountdown, formatLocalTime, formatDuration } from '@/utils/format';
 import { useAuth } from '@/lib/AuthContext';
 import { API_BASE, GOOGLE_MAPS_API_KEY } from '@/config';
 import { createPageUrl } from '@/utils';
@@ -405,11 +405,62 @@ function PhaseTopBar({ theme, phase, trip, selectedFlight, onBack, onMore, origi
     );
 }
 
+/* ── Hero countdown — "Leave in 11h 47m 52s" with stable letter
+   positions. Each numeric group sits in its own inline-block with a
+   pinned min-width so the "h"/"m"/"s" unit letters never shift as the
+   digits tick from 9→10 or 59→0. On mobile the "Leave in" label stacks
+   above the digits; on md:+ it sits inline at the same hero size. */
+function CountdownSlots({ parsed }) {
+    if (!parsed || parsed.isDate) {
+        return parsed?.text || '—';
+    }
+    const { h, m, s } = parsed;
+    const showH = h > 0;
+    const showM = showH || m > 0;
+    const pad2 = (n) => String(n).padStart(2, '0');
+    const numClass = 'inline-block text-right tabular-nums';
+    const numStyle = { minWidth: '1.4em' };
+    return (
+        <>
+            {showH && (
+                <>
+                    <span className={numClass} style={numStyle}>{h}</span>
+                    <span className="inline-block">h </span>
+                </>
+            )}
+            {showM && (
+                <>
+                    <span className={numClass} style={numStyle}>{showH ? pad2(m) : m}</span>
+                    <span className="inline-block">m </span>
+                </>
+            )}
+            <span className={numClass} style={numStyle}>{showM ? pad2(s) : s}</span>
+            <span className="inline-block">s</span>
+        </>
+    );
+}
+
+function LeaveInHero({ parsed, tone = 'brand' }) {
+    // tone 'brand' → light-theme purple. tone 'urgent' → red in the
+    // time-to-go variant.
+    const heroColor = tone === 'urgent' ? 'text-c-urgency' : 'text-c-brand-primary';
+    const labelColor = tone === 'urgent' ? 'text-c-urgency' : 'text-c-brand-primary';
+    return (
+        <div className="flex flex-col md:flex-row md:items-baseline md:gap-c-3">
+            <span className={cn('c-type-headline md:hidden', labelColor)}>Leave in</span>
+            <span className={cn('hidden md:inline c-type-hero leading-none', heroColor)}>Leave in</span>
+            <span className={cn('c-type-hero leading-none tabular-nums', heroColor)}>
+                <CountdownSlots parsed={parsed} />
+            </span>
+        </div>
+    );
+}
+
 /* ── Phase content — per-phase hero + body. Kept as one component with
    a switch so the state-to-screen mapping is all visible in one place. */
 function PhaseContent({
     phase, trip, recommendation, selectedFlight, transport, homeAddress,
-    countdownText, bufferMinutes, boardingTime, destinationCity,
+    countdownParsed, bufferMinutes, boardingTime, destinationCity,
     onBook, onEditPrefs, onUntrack, onOpenFeedback,
 }) {
     const terminal = selectedFlight?.departure_terminal;
@@ -421,9 +472,7 @@ function PhaseContent({
     if (phase === 'active') {
         return (
             <>
-                <p className="c-type-hero text-c-brand-primary tabular-nums leading-none">
-                    {countdownText || '—'}
-                </p>
+                <LeaveInHero parsed={countdownParsed} tone="brand" />
                 {terminal && (
                     <p className="c-type-footnote text-c-text-secondary mt-c-3">
                         On your way to{' '}
@@ -461,20 +510,22 @@ function PhaseContent({
         );
     }
 
-    // ── time-to-go (dark, urgent)
+    // ── time-to-go (dark, urgent). Split rendering on the 30-second
+    // threshold: above it we still show a countdown (urgency tone); at
+    // or below, we collapse to the single-line "LEAVE NOW" hero.
     if (phase === 'time-to-go') {
+        const showCountdown = countdownParsed && countdownParsed.totalSec > 30 && !countdownParsed.isDate;
         return (
             <>
-                <p className="font-extrabold text-c-urgency leading-none tabular-nums" style={{ fontSize: '72px' }}>
-                    LEAVE NOW
-                </p>
-                {countdownText && (
-                    <p className="c-type-headline text-white mt-c-3">
-                        {countdownText}
+                {showCountdown ? (
+                    <LeaveInHero parsed={countdownParsed} tone="urgent" />
+                ) : (
+                    <p className="font-extrabold text-c-urgency leading-none tabular-nums" style={{ fontSize: '72px' }}>
+                        LEAVE NOW
                     </p>
                 )}
                 {terminal && (
-                    <p className="c-type-footnote text-white/70 mt-c-2">
+                    <p className="c-type-footnote text-white/70 mt-c-3">
                         Head to Terminal {terminal}{gate ? ` · Gate ${gate}` : ''}
                     </p>
                 )}
@@ -897,7 +948,7 @@ export default function ActiveTripView({
     const [searchParams] = useSearchParams();
     const { handleTabChange, authOpen, setAuthOpen, handleAuthSuccess } = useAuthGatedTabs();
 
-    const [countdownText, setCountdownText] = useState('');
+    const [countdownParsed, setCountdownParsed] = useState(null);
     const [urgencyLevel, setUrgencyLevel] = useState('calm');
     const [polledStatus, setPolledStatus] = useState(null);
     const [untrackOpen, setUntrackOpen] = useState(false);
@@ -939,11 +990,10 @@ export default function ActiveTripView({
     useEffect(() => {
         if (!recommendation?.leave_home_at) return;
         const tick = () => {
-            // Seconds-resolution countdown — when < 1 hour remains, the
-            // ticking "Xm Ys" readout is the visual urgency signal. Above
-            // that, it falls back to "Xh Ym" which updates at minute
-            // granularity naturally.
-            setCountdownText(formatCountdownTextWithSeconds(recommendation.leave_home_at));
+            // Structured countdown — H/M/S slot values rendered by
+            // CountdownSlots downstream, so the unit letters don't
+            // shift horizontally as the digits tick.
+            setCountdownParsed(parseCountdown(recommendation.leave_home_at));
             const diffMin = (new Date(recommendation.leave_home_at) - Date.now()) / 60000;
             if (diffMin <= 0) setUrgencyLevel('critical');
             else if (diffMin < 15) setUrgencyLevel('critical');
@@ -1152,7 +1202,7 @@ export default function ActiveTripView({
                     selectedFlight={selectedFlight}
                     transport={transport}
                     homeAddress={trip?.home_address}
-                    countdownText={countdownText}
+                    countdownParsed={countdownParsed}
                     bufferMinutes={bufferMinutes}
                     boardingTime={boardingTime}
                     destinationCity={destinationCity}

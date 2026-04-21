@@ -72,6 +72,24 @@ export function formatCountdownTextWithSeconds(leaveAtISO) {
     return formatCountdownText(leaveAtISO);
 }
 
+// Structured countdown breakdown. Lets consumers render each H / M / S
+// numeric group in its own fixed-width slot so the unit letters don't
+// shift horizontally as digits tick (0→9 vs 10→59 vs 100+). Returns
+// { totalSec, isDate, h, m, s } when in the live-countdown window, or
+// { totalSec, isDate: true, text } for >= 24h which shows a date.
+export function parseCountdown(leaveAtISO) {
+    const diffMs = new Date(leaveAtISO) - Date.now();
+    if (diffMs <= 0) return { totalSec: 0, isDate: false, h: 0, m: 0, s: 0 };
+    const totalSec = Math.floor(diffMs / 1000);
+    if (totalSec >= 24 * 3600) {
+        return { totalSec, isDate: true, text: formatCountdownText(leaveAtISO) };
+    }
+    const h = Math.floor(totalSec / 3600);
+    const m = Math.floor((totalSec % 3600) / 60);
+    const s = totalSec % 60;
+    return { totalSec, isDate: false, h, m, s };
+}
+
 export function parseTimeToDate(localTimeStr) {
     if (!localTimeStr) return null;
     const match = localTimeStr.match(/(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})/);
