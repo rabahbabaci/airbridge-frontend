@@ -13,7 +13,6 @@ const SHARING_ROWS = [
     { provider: 'Twilio', purpose: 'SMS delivery (if you opt in)', data: 'Phone number, SMS content' },
     { provider: 'Stripe', purpose: 'Subscription billing', data: 'Email address, subscription status. Payment card details are handled directly by Stripe and never touch our servers.' },
     { provider: 'Sentry', purpose: 'Error monitoring', data: 'Crash diagnostics, device type, non-personal technical data' },
-    { provider: 'PostHog', purpose: 'Product analytics', data: 'Anonymous and pseudonymous usage events' },
 ];
 
 function PrivacyLink({ href, children }) {

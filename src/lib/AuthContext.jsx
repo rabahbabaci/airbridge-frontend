@@ -1,5 +1,4 @@
 import React, { createContext, useState, useContext, useCallback, useEffect, useRef } from 'react';
-import { identify, resetIdentity } from '@/utils/analytics';
 import { API_BASE } from '@/config';
 import { isNative } from '@/utils/platform';
 import { App } from '@capacitor/app';
@@ -96,14 +95,12 @@ export const AuthProvider = ({ children }) => {
       display_name: data.display_name ?? null,
     };
     persist(next);
-    identify(next.user_id, { display_name: next.display_name, tier: next.tier, auth_provider: next.auth_provider });
     // Fetch authoritative subscription status right after login.
     refreshSubscriptionStatus(next.token);
   }, [refreshSubscriptionStatus]);
 
   const logout = useCallback(() => {
     persist(EMPTY_AUTH);
-    resetIdentity();
   }, []);
 
   const updateTripCount = useCallback((count) => {

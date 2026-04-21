@@ -73,7 +73,106 @@ module.exports = {
   				'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
   				border: 'hsl(var(--sidebar-border))',
   				ring: 'hsl(var(--sidebar-ring))'
+  			},
+  			/* Concourse design system (§3.1) — prefixed `c` namespace.
+  			   Light/dark values wired via CSS vars in src/styles/design-system.css. */
+  			c: {
+  				brand: {
+  					primary: 'var(--c-brand-primary)',
+  					'primary-hover': 'var(--c-brand-primary-hover)',
+  					'primary-pressed': 'var(--c-brand-primary-pressed)',
+  					'primary-surface': 'var(--c-brand-primary-surface)'
+  				},
+  				confidence: {
+  					DEFAULT: 'var(--c-confidence)',
+  					surface: 'var(--c-confidence-surface)'
+  				},
+  				urgency: {
+  					DEFAULT: 'var(--c-urgency)',
+  					surface: 'var(--c-urgency-surface)'
+  				},
+  				'live-data': {
+  					DEFAULT: 'var(--c-live-data)',
+  					surface: 'var(--c-live-data-surface)'
+  				},
+  				warning: {
+  					DEFAULT: 'var(--c-warning)',
+  					surface: 'var(--c-warning-surface)'
+  				},
+  				ground: {
+  					DEFAULT: 'var(--c-ground)',
+  					elevated: 'var(--c-ground-elevated)',
+  					raised: 'var(--c-ground-raised)',
+  					sunken: 'var(--c-ground-sunken)'
+  				},
+  				text: {
+  					primary: 'var(--c-text-primary)',
+  					secondary: 'var(--c-text-secondary)',
+  					tertiary: 'var(--c-text-tertiary)',
+  					inverse: 'var(--c-text-inverse)',
+  					'on-urgency': 'var(--c-text-on-urgency)'
+  				},
+  				border: {
+  					hairline: 'var(--c-border-hairline)',
+  					subtle: 'var(--c-border-subtle)',
+  					strong: 'var(--c-border-strong)'
+  				},
+  				glass: {
+  					tint: 'var(--c-glass-tint)',
+  					border: 'var(--c-glass-border)'
+  				}
   			}
+  		},
+  		fontFamily: {
+  			'c-sans': ['General Sans', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'sans-serif']
+  		},
+  		fontSize: {
+  			'c-hero-xl': ['72px', { lineHeight: '76px', fontWeight: '700' }],
+  			'c-hero': ['56px', { lineHeight: '60px', fontWeight: '700' }],
+  			'c-display': ['36px', { lineHeight: '40px', fontWeight: '700' }],
+  			'c-title-xl': ['28px', { lineHeight: '34px', fontWeight: '700' }],
+  			'c-title': ['22px', { lineHeight: '28px', fontWeight: '600' }],
+  			'c-headline': ['17px', { lineHeight: '22px', fontWeight: '600' }],
+  			'c-body': ['15px', { lineHeight: '21px', fontWeight: '400' }],
+  			'c-footnote': ['13px', { lineHeight: '18px', fontWeight: '400' }],
+  			'c-caption': ['11px', { lineHeight: '14px', fontWeight: '500', letterSpacing: '0.08em' }],
+  			'c-tabular': ['15px', { lineHeight: '21px', fontWeight: '500' }]
+  		},
+  		spacing: {
+  			'c-1': '4px',
+  			'c-2': '8px',
+  			'c-3': '12px',
+  			'c-4': '16px',
+  			'c-5': '20px',
+  			'c-6': '24px',
+  			'c-8': '32px',
+  			'c-10': '40px',
+  			'c-12': '48px',
+  			'c-16': '64px'
+  		},
+  		borderRadius: {
+  			'c-pill': '999px',
+  			'c-lg': '20px',
+  			'c-md': '14px',
+  			'c-sm': '10px',
+  			'c-xs': '6px'
+  		},
+  		boxShadow: {
+  			'c-sm': 'var(--c-shadow-sm)',
+  			'c-md': 'var(--c-shadow-md)',
+  			'c-lg': 'var(--c-shadow-lg)',
+  			'c-glass': 'var(--c-shadow-glass)'
+  		},
+  		transitionDuration: {
+  			'c-fast': '150ms',
+  			'c-normal': '250ms',
+  			'c-slow': '400ms',
+  			'c-urgent': '600ms'
+  		},
+  		transitionTimingFunction: {
+  			'c-standard': 'cubic-bezier(0.4, 0.0, 0.2, 1)',
+  			'c-emphasized': 'cubic-bezier(0.2, 0.0, 0.0, 1)',
+  			'c-decelerate': 'cubic-bezier(0.0, 0.0, 0.2, 1)'
   		},
   		keyframes: {
   			'accordion-down': {
@@ -83,11 +182,27 @@ module.exports = {
   			'accordion-up': {
   				from: { height: 'var(--radix-accordion-content-height)' },
   				to: { height: '0' }
+  			},
+  			// Active-Trip phase-indicator dot: gentle 1.5s breathing
+  			// cycle — scale-up + slight opacity dip. Used on the
+  			// currently-active step only.
+  			'phase-pulse': {
+  				'0%, 100%': { transform: 'scale(1)', opacity: '1' },
+  				'50%': { transform: 'scale(1.15)', opacity: '0.6' }
+  			},
+  			// Live-data amber dot: 2s cycle, subtler opacity swing, no
+  			// scale — tells users "this number is moving" without
+  			// competing with the phase pulse.
+  			'live-pulse': {
+  				'0%, 100%': { opacity: '1' },
+  				'50%': { opacity: '0.4' }
   			}
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
-  			'accordion-up': 'accordion-up 0.2s ease-out'
+  			'accordion-up': 'accordion-up 0.2s ease-out',
+  			'phase-pulse': 'phase-pulse 1.5s ease-in-out infinite',
+  			'live-pulse': 'live-pulse 2s ease-in-out infinite'
   		}
   	}
   },

@@ -22,7 +22,7 @@ const problems = [
 
 export default function Problem() {
     return (
-        <section id="problem" className="py-24 lg:py-32 bg-secondary/50">
+        <section id="problem" className="py-24 lg:py-32 bg-c-ground-sunken">
             <div className="max-w-7xl mx-auto px-6">
                 <motion.div
                     initial={{ opacity: 0, y: 20 }}
@@ -30,9 +30,9 @@ export default function Problem() {
                     viewport={{ once: true }}
                     className="text-center mb-16"
                 >
-                    <h2 className="text-4xl lg:text-5xl font-bold text-foreground">
+                    <h2 className="text-4xl lg:text-5xl font-bold text-c-text-primary">
                         Airport Travel Is{' '}
-                        <span className="text-destructive">
+                        <span className="text-c-urgency">
                             Broken
                         </span>
                     </h2>
@@ -48,14 +48,14 @@ export default function Problem() {
                             transition={{ delay: index * 0.1 }}
                             className="group"
                         >
-                            <div className="bg-card rounded-3xl p-8 h-full border border-border shadow-sm hover:shadow-xl hover:border-border transition-all duration-300">
-                                <div className="w-14 h-14 rounded-2xl bg-brand-muted flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
-                                    <problem.icon className="w-6 h-6 text-primary" />
+                            <div className="bg-c-ground-elevated rounded-3xl p-8 h-full border border-c-border-hairline shadow-sm hover:shadow-xl hover:border-c-border-hairline transition-all duration-300">
+                                <div className="w-14 h-14 rounded-2xl bg-c-brand-primary-surface flex items-center justify-center mb-6 group-hover:scale-110 transition-transform">
+                                    <problem.icon className="w-6 h-6 text-c-brand-primary" />
                                 </div>
-                                <h3 className="text-xl font-semibold text-foreground mb-3">
+                                <h3 className="text-xl font-semibold text-c-text-primary mb-3">
                                     {problem.title}
                                 </h3>
-                                <p className="text-muted-foreground leading-relaxed">
+                                <p className="text-c-text-secondary leading-relaxed">
                                     {problem.description}
                                 </p>
                             </div>

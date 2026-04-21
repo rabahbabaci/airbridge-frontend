@@ -1,19 +1,28 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { Plane, History, BarChart3, Plus, Clock } from 'lucide-react';
+import { Airplane, MagnifyingGlass, Gear } from '@phosphor-icons/react';
 import { createPageUrl } from '@/utils';
 import { useAuth } from '@/lib/AuthContext';
 import { API_BASE } from '@/config';
 import { formatCountdownText, formatLocalTime } from '@/utils/format';
 import PaywallModal from '@/components/PaywallModal';
+import TabBar from '@/components/design-system/TabBar';
+import AuthModal from '@/components/engine/AuthModal';
+import useAuthGatedTabs from '@/hooks/useAuthGatedTabs';
 
 const HISTORY_PAGE_SIZE = 10;
 const FREE_TIER_HISTORY_LIMIT = 5;
 
+function parseLocalDate(dateStr) {
+    const [y, m, d] = dateStr.split('-').map(Number);
+    return new Date(y, m - 1, d);
+}
+
 function formatDate(dateStr) {
     if (!dateStr) return '';
     try {
-        const d = new Date(dateStr);
+        const d = parseLocalDate(dateStr);
         if (isNaN(d.getTime())) return dateStr;
         return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
     } catch {
@@ -24,7 +33,7 @@ function formatDate(dateStr) {
 function formatShortDate(dateStr) {
     if (!dateStr) return '';
     try {
-        const d = new Date(dateStr);
+        const d = parseLocalDate(dateStr);
         if (isNaN(d.getTime())) return dateStr;
         return d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
     } catch {
@@ -50,6 +59,22 @@ const STATUS_STYLES = {
     at_gate: 'bg-emerald-50 text-emerald-700',
 };
 
+// Inline action surfaced above a populated Active list. Sized smaller and
+// quieter than the empty-state body CTA so it doesn't compete visually with
+// the trip cards beneath it, but still reads as a tappable action (44×44pt
+// min hit target per iOS HIG).
+function NewTripPill() {
+    return (
+        <Link
+            to="/search"
+            className="inline-flex items-center gap-1.5 h-11 px-4 rounded-full bg-primary/10 text-primary text-sm font-semibold hover:bg-primary/15 transition-colors"
+        >
+            <Plus className="w-4 h-4" />
+            New Trip
+        </Link>
+    );
+}
+
 function StatusPill({ status }) {
     const label = STATUS_LABELS[status] || status;
     const style = STATUS_STYLES[status] || 'bg-muted text-muted-foreground';
@@ -71,20 +96,27 @@ function ActiveTripCard({ trip }) {
         ? `${trip.origin_iata} → ${trip.destination_iata}`
         : null;
 
+    const isInProgress = trip.status === 'en_route' || trip.status === 'at_airport' || trip.status === 'at_gate';
+    const isComplete = trip.status === 'complete';
+
     const handleClick = () => {
-        if (isDraft) return; // Draft edit flow wired in Task 4 (F7.2)
+        if (isDraft) {
+            navigate(createPageUrl('Engine'), { state: { editTrip: trip } });
+            return;
+        }
+        // All tracked trips (active, en_route, at_airport, at_gate) → Active Trip Screen
         navigate(createPageUrl('Engine'), { state: { viewTrip: trip } });
     };
 
-    const CardTag = isDraft ? 'div' : 'button';
+    const CardTag = 'button';
 
     return (
         <CardTag
-            {...(!isDraft && { onClick: handleClick })}
-            className={`w-full text-left rounded-2xl p-5 ${
+            onClick={handleClick}
+            className={`w-full text-left rounded-2xl p-5 cursor-pointer transition-all ${
                 isDraft
-                    ? 'border border-border bg-card'
-                    : 'border border-border bg-card shadow-sm cursor-pointer transition-all'
+                    ? 'border border-border/50 bg-secondary'
+                    : 'border border-border bg-card shadow-sm'
             }`}
         >
             <div className="flex items-start justify-between gap-3 mb-2">
@@ -119,7 +151,16 @@ function ActiveTripCard({ trip }) {
             )}
 
             {isDraft && (
-                <p className="mt-2 text-xs text-muted-foreground">Not yet tracked</p>
+                <p className="mt-2 text-xs text-muted-foreground">Continue draft →</p>
+            )}
+            {trip.status === 'active' && (
+                <p className="mt-2 text-xs text-muted-foreground">Tap to view trip</p>
+            )}
+            {isInProgress && (
+                <p className="mt-2 text-xs text-muted-foreground">Live — tap for details</p>
+            )}
+            {isComplete && (
+                <p className="mt-2 text-xs text-muted-foreground">Tap to view summary</p>
             )}
         </CardTag>
     );
@@ -173,6 +214,28 @@ function HistoryTripRow({ trip, isFirst }) {
 export default function Trips() {
     const navigate = useNavigate();
     const { token, isAuthenticated, isPro } = useAuth();
+    const { handleTabChange, authOpen, setAuthOpen, handleAuthSuccess } = useAuthGatedTabs('trip');
+
+    const tabs = [
+        {
+            value: 'search',
+            label: 'Search',
+            icon: <MagnifyingGlass size={22} weight="regular" />,
+            iconActive: <MagnifyingGlass size={22} weight="bold" />,
+        },
+        {
+            value: 'trip',
+            label: 'My Trip',
+            icon: <Airplane size={22} weight="regular" />,
+            iconActive: <Airplane size={22} weight="bold" />,
+        },
+        {
+            value: 'settings',
+            label: 'Settings',
+            icon: <Gear size={22} weight="regular" />,
+            iconActive: <Gear size={22} weight="bold" />,
+        },
+    ];
 
     // Active tab state
     const [activeTrips, setActiveTrips] = useState([]);
@@ -252,12 +315,33 @@ export default function Trips() {
         }
     }, [token]);
 
+    // Eager history count — fetch total on mount so tab visibility is correct
+    // even when active-list has only 1 trip but history has completed trips.
+    const [historyTotal, setHistoryTotal] = useState(null);
+    useEffect(() => {
+        if (!token) return;
+        (async () => {
+            try {
+                const res = await fetch(
+                    `${API_BASE}/v1/trips/history?limit=1&offset=0`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+                if (res.ok) {
+                    const data = await res.json();
+                    setHistoryTotal(data.total ?? 0);
+                }
+            } catch {
+                // Non-blocking — tabs just won't show for edge case
+            }
+        })();
+    }, [token]);
+
     // Load active trips on mount
     useEffect(() => {
         if (token) fetchActiveTrips();
     }, [token, fetchActiveTrips]);
 
-    // Lazy-load history when History tab is first selected
+    // Lazy-load full history when History tab is first selected
     useEffect(() => {
         if (activeTab === 'history' && !historyFetchedRef.current && token) {
             historyFetchedRef.current = true;
@@ -294,15 +378,15 @@ export default function Trips() {
 
     if (!isAuthenticated) return null;
 
-    // Section 2.5: 0 trips = empty, 1 trip = direct detail, 2+ = tabs
+    // Tab visibility: show tabs when active-list >= 2 OR history has at least 1 entry.
+    // This ensures users with 1 active + completed trips can reach History tab.
     const totalActiveTrips = activeTrips.length;
     const hasLoaded = !activeLoading;
+    const hasHistory = historyTotal != null && historyTotal >= 1;
 
-    // If exactly 1 non-completed trip and no history to show, go direct to trip detail
-    // (full active-trip-takes-over routing deferred to Task 5)
-    const showTabs = hasLoaded && !activeError && totalActiveTrips >= 2;
-    const showSingleTrip = hasLoaded && !activeError && totalActiveTrips === 1;
-    const showEmpty = hasLoaded && !activeError && totalActiveTrips === 0;
+    const showTabs = hasLoaded && !activeError && (totalActiveTrips >= 2 || hasHistory);
+    const showSingleTrip = hasLoaded && !activeError && totalActiveTrips === 1 && !hasHistory;
+    const showEmpty = hasLoaded && !activeError && totalActiveTrips === 0 && !hasHistory;
 
     // History tab data
     const visibleHistory = isPro ? historyTrips : historyTrips.slice(0, FREE_TIER_HISTORY_LIMIT);
@@ -311,32 +395,17 @@ export default function Trips() {
         : historyAggregate.total > FREE_TIER_HISTORY_LIMIT;
 
     return (
-        <div className="min-h-screen bg-secondary/50 font-sans antialiased">
-            {/* Header */}
+        <div className="min-h-screen bg-secondary/50 font-sans antialiased pb-28">
+            {/* Header — logomark only. Tab switching lives in the DS TabBar
+               at the bottom; empty state surfaces "+ New Trip" directly. */}
             <header className="bg-card border-b border-border sticky top-0 z-50">
-                <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
-                    <div className="flex items-center gap-4 sm:gap-6">
-                        <Link to={createPageUrl('Home')} className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                                <Plane className="w-4 h-4 text-primary-foreground" />
-                            </div>
-                            <span className="font-bold text-lg text-foreground">AirBridge</span>
-                        </Link>
-                        <nav className="hidden md:flex items-center gap-1 text-sm">
-                            <Link to={createPageUrl('Engine')} className="text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg transition-colors">Search</Link>
-                            <span className="text-foreground font-semibold px-3 py-1.5 bg-secondary rounded-lg">My Trip</span>
-                            <Link to={createPageUrl('Settings')} className="text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg transition-colors">Settings</Link>
-                        </nav>
-                    </div>
-                    {showTabs && (
-                        <Link
-                            to={createPageUrl('Engine')}
-                            className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-primary-foreground hover:bg-primary/90 transition-colors"
-                            title="New trip"
-                        >
-                            <Plus className="w-4 h-4" />
-                        </Link>
-                    )}
+                <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3.5">
+                    <Link to="/search" className="inline-flex items-center gap-2">
+                        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
+                            <Plane className="w-4 h-4 text-primary-foreground" />
+                        </div>
+                        <span className="font-bold text-lg text-foreground">AirBridge</span>
+                    </Link>
                 </div>
             </header>
 
@@ -388,7 +457,7 @@ export default function Trips() {
                         <p className="text-sm font-semibold text-foreground mb-1">No trips yet</p>
                         <p className="text-xs text-muted-foreground mb-4">Your tracked trips will appear here.</p>
                         <Link
-                            to={createPageUrl('Engine')}
+                            to="/search"
                             className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
                         >
                             <Plus className="w-4 h-4" />
@@ -400,7 +469,10 @@ export default function Trips() {
                 {/* Single trip: direct to detail */}
                 {showSingleTrip && (
                     <div>
-                        <ActiveTripCard trip={activeTrips[0]} />
+                        <NewTripPill />
+                        <div className="mt-3">
+                            <ActiveTripCard trip={activeTrips[0]} />
+                        </div>
                     </div>
                 )}
 
@@ -434,6 +506,7 @@ export default function Trips() {
                         {/* Active tab content */}
                         {activeTab === 'active' && (
                             <div className="space-y-3">
+                                <NewTripPill />
                                 {activeError && (
                                     <div className="bg-destructive/10 border border-destructive/20 rounded-2xl p-4">
                                         <p className="text-sm text-destructive">{activeError}</p>
@@ -443,6 +516,22 @@ export default function Trips() {
                                         >
                                             Try again
                                         </button>
+                                    </div>
+                                )}
+                                {activeTrips.length === 0 && !activeError && (
+                                    <div className="bg-card border border-border rounded-2xl p-8 text-center">
+                                        <div className="w-12 h-12 rounded-2xl bg-secondary flex items-center justify-center mx-auto mb-3">
+                                            <Plane className="w-5 h-5 text-muted-foreground" />
+                                        </div>
+                                        <p className="text-sm font-semibold text-foreground mb-1">No active trips</p>
+                                        <p className="text-xs text-muted-foreground mb-4">Your tracked trips will appear here.</p>
+                                        <Link
+                                            to="/search"
+                                            className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-primary text-primary-foreground text-sm font-semibold hover:bg-primary/90 transition-colors"
+                                        >
+                                            <Plus className="w-4 h-4" />
+                                            New Trip
+                                        </Link>
                                     </div>
                                 )}
                                 {activeTrips.map(trip => (
@@ -542,6 +631,14 @@ export default function Trips() {
                 open={paywallOpen}
                 onOpenChange={setPaywallOpen}
                 token={token}
+            />
+
+            <TabBar value="trip" onChange={handleTabChange} tabs={tabs} />
+
+            <AuthModal
+                open={authOpen}
+                onOpenChange={setAuthOpen}
+                onSuccess={handleAuthSuccess}
             />
         </div>
     );

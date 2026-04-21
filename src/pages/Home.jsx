@@ -7,7 +7,6 @@ import Problem from '@/components/landing/Problem';
 import Solution from '@/components/landing/Solution';
 import HowItWorks from '@/components/landing/HowItWorks';
 import Comparison from '@/components/landing/Comparison';
-import Trust from '@/components/landing/Trust';
 import CTA from '@/components/landing/CTA';
 import Footer from '@/components/landing/Footer';
 
@@ -22,7 +21,7 @@ export default function Home() {
 
     return (
         <>
-            <div className="min-h-screen bg-white font-sans antialiased">
+            <div className="min-h-screen bg-c-ground font-c-sans antialiased">
                 <Header />
                 <main>
                     <Hero />
@@ -30,7 +29,6 @@ export default function Home() {
                     <Solution />
                     <HowItWorks />
                     <Comparison />
-                    <Trust />
                     <CTA />
                 </main>
                 <Footer />
@@ -43,7 +41,7 @@ export default function Home() {
                         animate={{ opacity: 1, y: 0 }}
                         exit={{ opacity: 0, y: 20 }}
                         onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
-                        className="fixed bottom-6 left-6 z-50 w-11 h-11 rounded-full bg-indigo-600 hover:bg-indigo-700 text-white flex items-center justify-center shadow-lg transition-all opacity-60 hover:opacity-100"
+                        className="fixed bottom-6 left-6 z-50 w-11 h-11 rounded-full bg-c-brand-primary hover:bg-c-brand-primary-hover text-c-text-inverse flex items-center justify-center shadow-lg transition-all opacity-60 hover:opacity-100"
                     >
                         <ArrowUp className="w-5 h-5" />
                     </motion.button>

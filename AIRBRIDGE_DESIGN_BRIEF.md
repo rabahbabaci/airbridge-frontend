@@ -1,7 +1,7 @@
 # AirBridge Mobile Design Brief
 
-**Version:** 2.0
-**Date:** April 14, 2026
+**Version:** 2.5
+**Date:** April 18, 2026
 **Author:** Strategic planning chat (design synthesis + team feedback integration)
 **Consumed by:** Sprint 7 implementation (Claude Code) + the AirBridge team
 **Supersedes:** v1.0 of this brief (April 8, 2026), Valerie's three ideation passes, the team's HTML prototype, and the team feedback PDF. All inputs were considered and synthesized; this brief is authoritative where they conflict.
@@ -9,6 +9,85 @@
 - `REVISED_SPRINT_PLAN.md` — authoritative for scope and sequencing
 - `CLAUDE.md` — authoritative for implementation patterns and workflow
 - This brief — authoritative for design decisions
+
+---
+
+## v2.5 Changelog (read this first)
+
+**Three Setup screen refinements from a second UX review pass.**
+
+1. **Security access horizontal on desktop/tablet.** Was: stacked 4 options. Now: 4-in-a-row horizontal layout on desktop and tablet (≥768px); remains stacked on mobile. Reduces vertical form length on larger viewports.
+
+2. **Gate buffer is a continuous slider.** Was: 3 presets (Tight/Comfortable/Relaxed) as segmented control. Now: slider from 15 min to 120 min (2 hours), 5-minute increments, default 30 min. User has precise control over gate arrival buffer.
+
+3. **Bags is a stepper, not a toggle.** Was: binary toggle (rule 18). Now: stepper (0-10 bags). Collects actual bag count; backend may use this for granular timing. Replaces rule 18 entirely.
+
+Also: Setup form max-width on desktop increased to 800px.
+
+**What this changes in the brief:**
+- §4.4 Security access layout: horizontal on ≥768px, stacked on <768px
+- §4.4 Gate buffer: slider replaces preset segmented control
+- §4.4 Bags: stepper replaces toggle
+- §8.3 Rule 18: REVOKED. Bags is a stepper.
+
+---
+
+## v2.4 Changelog (read this first)
+
+**Four Setup screen overrides based on real-UX-review feedback.**
+
+Section 4.4 refinements after building the screen and reviewing end-to-end:
+
+1. **Rideshare collapses to one card.** Was: Uber + Lyft as separate cards in a 2x2 grid. Now: single "Rideshare" card. Provider selection (Uber vs Lyft) moves to Results/Active Trip screen where it matters for deep-link routing.
+
+2. **Security access includes CLEAR options.** Was: v1 restricted to PreCheck / None. Now: None, TSA PreCheck, CLEAR, PreCheck + CLEAR (4 options). Priority Lane / airline status not included — too airline-specific and imprecise to model.
+
+3. **Gate buffer selection added back to Setup.** Was: cut in v2.x. Now: three presets — Tight (15 min) / Comfortable (30 min) / Relaxed (60 min) — as segmented control. Users have real preferences about gate arrival comfort.
+
+4. **Boarding pass toggle added back.** Single yes/no: "Do you have a mobile boarding pass?" Materially changes whether user goes through check-in line. Was: cut to reduce form burden. Now: restored.
+
+Transport grid is now a 2x2 with: Rideshare / Drive / Public transit / [gap reserved for future]. Or alternatively 3-card layout — implementer's call.
+
+---
+
+## v2.3 Changelog (read this first)
+
+**Behavior change — Flight Selection always renders.**
+
+Section 4.3 previously specified auto-skipping Flight Selection when exactly one flight matches. That's removed. The selection screen always renders regardless of match count, so the user confirms their chosen flight before the preference-collection step.
+
+**Rationale:** Codeshare ambiguity, wrong flight-number typos, and flight-number reuse can make "one match" not always mean "the flight the user wanted." A confirmation tap adds negligible friction and increases confidence. A single-flight list is brief but valuable.
+
+**What changes in the brief:**
+- Section 4.3: removed the "auto-skip selection for exactly one match" behavior.
+- No other sections affected.
+
+---
+
+## v2.2 Changelog (read this first)
+
+**Addition — sign-in affordance is state-driven.**
+
+Section 4.2 Search screen now specifies how the top-right avatar slot behaves for unauthenticated vs authenticated users. Rationale: brief §4.1's Duolingo-model (anonymous first, delayed registration) works well for new users but left returning users without an obvious sign-in path. The avatar slot now adapts: authenticated users see their initials in an indigo circle; unauthenticated users see a "Sign in" pill in the same indigo surface. Single entry point, state-driven shape.
+
+**What this changes in the brief:**
+- Section 4.2 Search screen → top-right affordance row expanded to specify both authenticated and unauthenticated states.
+- No other sections affected.
+
+---
+
+## v2.1 Changelog (read this first)
+
+**Scope cut — email notifications removed entirely from v1.**
+
+Morning-of email briefing (previously listed as a Free+Pro notification channel in Settings and in the Pro gating table) is cut. Rationale: push notifications cover the actionable plan-change cases with lower latency and higher user attention; email briefing was the weakest link in the notification stack; removing it eliminates a provider dependency (SendGrid/Resend) with ongoing cost and DNS/verification overhead. See `REVISED_SPRINT_PLAN.md` "Cut from v1" section for full reasoning.
+
+**What this changes in the brief:**
+- Section 4.14 Settings → Notifications section: "Morning email briefing" row removed.
+- Section 6 Pro gating table: "Morning-of email briefing" row removed.
+- No other sections affected. Push and SMS notification flows unchanged.
+
+**Implementation note:** Claude Code building Settings (Task 7.5 screen work) must use the v2.1 Settings notification list, not the v2.0 list. If a Claude Code prompt cites Section 4.14 and pulls the v2.0 copy by mistake, the brief authoritative answer is v2.1 — surface to Rab.
 
 ---
 
@@ -385,7 +464,9 @@ Each screen has a purpose, layout, states, and content rules. The screens have b
 **Purpose:** The primary screen of the app. Form-forward, low friction, get to a calculated leave-by time in two taps.
 
 **Layout:**
-- Top bar: AirBridge logomark + wordmark left, avatar circle right (24px, initials)
+- Top bar: AirBridge logomark + wordmark left, state-driven affordance right (36×36):
+    - *Authenticated:* Avatar circle with user's initials in indigo background, rounded pill shape. Tap → Settings.
+    - *Unauthenticated:* "Sign in" pill in same indigo surface (taller 36-tall pill, text label, footnote type). Tap → opens AuthModal. On successful auth, shape flips to the authenticated avatar circle.
 - Below top bar: small "🇺🇸 US domestic flights only" pill in `--ground-sunken` background
 - Content region with 24px horizontal padding
 - 32px gap
@@ -425,7 +506,9 @@ Each screen has a purpose, layout, states, and content rules. The screens have b
 
 ## 4.3 Flight selection / disambiguation
 
-**Purpose:** When a search yields multiple matches, let the user pick. Auto-skip when only one match.
+**Purpose:** Let the user confirm which flight they intend before the preference-collection step.
+
+The selection screen always renders, even for a single match, so the user can confirm they picked the right flight before committing to preference collection. The screen is brief but valuable — it catches codeshare ambiguity, wrong-flight-number typos, and cases where the user searched fresh but wanted a different return-trip flight. A confirmation tap on a single-flight list adds negligible friction and increases user confidence significantly.
 
 **Layout:**
 - Top bar: "<" back, "Select your flight" title
@@ -455,28 +538,38 @@ Each screen has a purpose, layout, states, and content rules. The screens have b
   - Below input: small text button "📡 Use my current location" in `--brand-primary`
 - **Section 2: How are you getting there?**
   - Field label: "🚗 How are you getting there?"
-  - 2x2 card grid (NOT a segmented control):
-    - **Uber** — "Rideshare"
-    - **Lyft** — "Rideshare"
-    - **Public transit** — "Bus, BART, rail"
+  - Card grid (NOT a segmented control). Three transport options:
+    - **Rideshare** — "Uber, Lyft, etc." (provider selection surfaces in Results/Active Trip where it matters for deep-link routing)
     - **Drive** — "+~10 min parking" (selected by default)
+    - **Public transit** — "Bus, BART, rail"
+  - Implementer's call between a 3-card row and a 2x2 grid with a reserved 4th slot.
   - Each card has icon, name, subtext
   - Selected card: brand-tinted background, brand-colored border
 - **Section 3: Security access**
   - Field label: "🛡 Security access"
-  - Two stacked option cards (NOT five):
-    - **TSA PreCheck** — "Dedicated fast lane" + "Saves ~15 min" badge in confidence color
-    - **None** — "Standard security lane" (renamed from "Standard")
-- **Section 4: Bags** (simplified from v1.0)
-  - Single toggle row:
-    - Label: "Checking bags?"
-    - Subtext: "Joining the check-in line · Wait time varies"
-    - Toggle switch on right
-  - NOT a stepper. The number of bags doesn't materially change the time impact.
-- **Section 5: Traveling with children?**
+  - Four option cards: **None** (default, "Standard security lane"), **TSA PreCheck** ("Dedicated fast lane" + "Saves ~15 min" confidence badge), **CLEAR** ("Biometric fast lane" + "Saves ~15 min" confidence badge), **PreCheck + CLEAR** ("Fastest combined lane" + "Saves ~20 min" confidence badge).
+  - Layout: horizontal 4-column row on viewports ≥768px (desktop/tablet); stacked vertically on mobile (<768px). Card visual treatment is identical across layouts; savings badge may reflow below the label in the horizontal variant.
+  - Priority Lane / airline status deliberately excluded — too airline-specific and imprecise to model.
+- **Section 4: How early at your gate?**
+  - Field label: "How early at your gate?"
+  - Slider: 15 to 120 minutes, 5-minute increments, default 30.
+  - Current value shown prominently above or inline with the slider (e.g., "30 min" in a title-weight numeral).
+  - Subtext below: "Extra time at your gate before boarding begins."
+- **Section 5: Bags**
+  - Stepper control (NOT a toggle — rule 18 revoked in v2.5):
+    - Label: "Checked bags"
+    - Subtext: "Each bag adds bag-drop time."
+    - Range: 0–10. Default: 0.
+    - Visual: number centered with − and + buttons on either side. Buttons disable at respective boundaries.
+- **Section 6: Traveling with children?**
   - Single toggle row:
     - Label: "Traveling with children"
     - Subtext: "Adjusts walking pace at airport"
+- **Section 7: Boarding pass**
+  - Single toggle row:
+    - Label: "Mobile boarding pass ready?"
+    - Subtext: "Skip the check-in line if you already have one"
+    - Default: on
 - 24px gap
 - Primary CTA: "🚀 Start my trip" full-width
 - Bottom: safe area + tab bar clearance
@@ -489,10 +582,9 @@ Each screen has a purpose, layout, states, and content rules. The screens have b
 - Cache resolved location in `sessionStorage` so we don't re-prompt within a session
 
 **What was cut from v1.0 Setup:**
-- ❌ CLEAR option
-- ❌ PreCheck+CLEAR combo
-- ❌ Priority Lane
-- ❌ "# of bags" stepper
+- ❌ Priority Lane / airline-status fast lanes — too airline-specific, hard to model
+
+(v2.4 restored CLEAR, PreCheck+CLEAR, gate-buffer, and the boarding-pass toggle that v2.x temporarily cut. v2.5 re-restored the bag-count stepper (rule 18 revoked) and switched gate-buffer from presets to a 15–120 min slider. See v2.4 + v2.5 changelogs.)
 
 ## 4.5 Results (planning mode)
 
@@ -709,11 +801,10 @@ The "from security checkpoint to gate" clarification is critical — team feedba
   - Traveling with children — toggle
   - Preferred rideshare — "Uber" / "Lyft"
   - Preferred nav app — "Apple Maps" / "Google Maps" / "Waze"
-- **Notifications section** (push notifications shown, NO Live Activity section):
+- **Notifications section** (push notifications shown, NO Live Activity section, NO email — cut from v1):
   - Leave-by reminders — "Alerted when it's time to leave, and if traffic changes your departure time"
   - Flight status updates — "Instant alerts for delays, cancellations, and gate changes"
   - TSA wait spikes — "Notified if security lines grow beyond your buffer"
-  - Morning email briefing — "6 hours before departure"
   - SMS escalation (Pro) — "Text if you miss the Time to go push" (Pro-gated, lock icon if free)
 - **About section:**
   - Send Feedback (mail composer)
@@ -768,7 +859,6 @@ The Pro feature gating table is now:
 | Core recommendation | ✓ | ✓ |
 | Leave-by shift push notifications | ✓ | ✓ |
 | Flight delay/cancellation push | ✓ | ✓ |
-| Morning-of email briefing | ✓ | ✓ |
 | "Time to go!" push | ✓ | ✓ |
 | **Gate change push alerts** | ✗ | ✓ |
 | **SMS "Time to go!" escalation** | ✗ | ✓ |
@@ -826,9 +916,9 @@ Same as v1.0. The 14 non-negotiable rules. Plus this v2.0 addition:
 
 **Rule 16:** Geolocation uses `navigator.geolocation` or `@capacitor/geolocation`. No custom native code. Address text input is always primary; geolocation is opt-in via tap.
 
-**Rule 17:** Security access has TWO options for v1: PreCheck or None. Do not add CLEAR, PreCheck+CLEAR, or Priority Lane.
+**Rule 17:** Security access has FOUR options for v1: None, TSA PreCheck, CLEAR, PreCheck + CLEAR. Priority Lane / airline-status fast lanes are excluded — too airline-specific to model. (Updated in v2.4; v2.0–v2.3 temporarily restricted to PreCheck / None.)
 
-**Rule 18:** Bags input is a single toggle ("Checking bags?"), never a stepper.
+**Rule 18:** REVOKED in v2.5. Bags input is a stepper, 0–10 range.
 
 **Rule 19:** "Calculate Departure" wording is forbidden. Use "Find your leave-by time" / "Your leave-by time" / "Track my trip."
 
@@ -840,7 +930,6 @@ Same as v1.0:
 - File organization within `src/`
 - Test strategy
 - CSS methodology
-- PostHog event naming
 - Git commit message style
 - Error boundary strategy
 - Loading state implementation details

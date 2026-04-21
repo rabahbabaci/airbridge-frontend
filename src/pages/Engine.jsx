@@ -1,10 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
-import { Link } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { createPageUrl } from '@/utils';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Plane, Settings, Menu, X } from 'lucide-react';
 
-import StepEntry from '@/components/engine/StepEntry';
 import StepSelectFlight from '@/components/engine/StepSelectFlight';
 import StepDepartureSetup from '@/components/engine/StepDepartureSetup';
 import LoadingView from '@/components/engine/LoadingView';
@@ -17,10 +15,13 @@ import { useAuth } from '@/lib/AuthContext';
 import { mapFlights } from '@/utils/mapFlight';
 
 import { API_BASE } from '@/config';
-import { track } from '@/utils/analytics';
 import { isNative } from '@/utils/platform';
 import { setupPushListeners, removePushListeners } from '@/utils/pushNotifications';
 import { postEvent } from '@/utils/events';
+import { clearSearchState } from '@/pages/Search';
+import { clearSetupState } from '@/components/engine/StepDepartureSetup';
+import { clearRideshareProvider } from '@/utils/rideshareLinks';
+import { loadEngineStep, saveEngineStep, clearEngineStep } from '@/utils/engineStep';
 
 // ── Animations ──────────────────────────────────────────────────────────────
 const pageTransition = {
@@ -37,26 +38,21 @@ function todayStr() {
 export default function Engine() {
     const { token, login, logout, updateTripCount, isAuthenticated, display_name, trip_count, isPro } = useAuth();
     const authHeaders = token ? { Authorization: `Bearer ${token}` } : {};
+    const location = useLocation();
+    const navigate = useNavigate();
 
-    const [step, setStep] = useState(1);
+    // Step 2 is the new entry point for the in-Engine flow (Flight Selection).
+    // Step 1 (flight-number entry form) is retired — canonical entry is the
+    // Search screen at `/`, which hands off pre-fetched flights via state.
+    const [step, setStep] = useState(2);
     const [dir, setDir] = useState(1);
 
-    // Step 1 — trip-specific
-    const [inputMode, setInputMode] = useState('flight_number');
     const [departureDate, setDepartureDate] = useState(todayStr);
     const [flightNumber, setFlightNumber] = useState('');
-    const [calendarOpen, setCalendarOpen] = useState(false);
 
-    // Route search — lifted state
-    const [routeOrigin, setRouteOrigin] = useState('');
-    const [routeDestination, setRouteDestination] = useState('');
-    const [routeTimeWindow, setRouteTimeWindow] = useState('any');
-
-    // Step 2 — trip-specific
-    const [searching, setSearching] = useState(false);
+    // Flight selection (step 2)
     const [flightOptions, setFlightOptions] = useState([]);
     const [selectedFlight, setSelectedFlight] = useState(null);
-    const [searchError, setSearchError] = useState(null);
 
     // Step 3 — user preferences (kept across trips)
     const [startingAddress, setStartingAddress] = useState('');
@@ -68,9 +64,6 @@ export default function Engine() {
     const [bagCount, setBagCount] = useState(0);
     const [withChildren, setWithChildren] = useState(false);
     const [gateTime, setGateTime] = useState(15);
-
-    // Mobile menu
-    const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
     // OTP modal
     const [authOpen, setAuthOpen] = useState(false);
@@ -103,6 +96,13 @@ export default function Engine() {
     const [paywallOpen, setPaywallOpen] = useState(false);
     const paywallShownForResultsRef = useRef(false);
 
+    // Edit mode — entered from Trips page when editing a draft or planning-phase active trip
+    const [editMode, setEditMode] = useState(false);
+    const [editTripId, setEditTripId] = useState(null);
+    const [editTripStatus, setEditTripStatus] = useState(null);
+    const [editError, setEditError] = useState(null);
+    const [isUpdating, setIsUpdating] = useState(false);
+
     // Latest token, kept in a ref so the push notification listener
     // (registered once on mount) can always read the current value.
     const tokenRef = useRef(token);
@@ -117,8 +117,6 @@ export default function Engine() {
         setDepartureDate(todayStr());
         setSelectedFlight(null);
         setFlightOptions([]);
-        setSearchError(null);
-        setInputMode('flight_number');
         setCurrentTripId(null);
         setRecommendation(null);
         setLocked(false);
@@ -128,15 +126,11 @@ export default function Engine() {
         setAddressError(null);
         setBagCount(0);
         setDir(-1);
-        setStep(1);
+        setStep(2);
         setLastSearchParams(null);
         setActiveTripData(null);
         setActiveTripRec(null);
         setIsTracked(false);
-        // Route search fields are trip-specific too
-        setRouteOrigin('');
-        setRouteDestination('');
-        setRouteTimeWindow('any');
     };
 
     // Paywall trigger — show once per results view when the user is no
@@ -165,8 +159,348 @@ export default function Engine() {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, []);
 
+    // ── Edit mode hydration ─────────────────────────────────────────────
+    // Two callers exercise this same hydration:
+    //   1. Deep-link from Trips — user taps Edit on a draft card,
+    //      React Router puts the trip on location.state.editTrip and
+    //      Engine mounts. The mount-time useEffect below picks it up.
+    //   2. In-flight from Active Trip — user taps Edit on the trip
+    //      context strip. Engine is already mounted (viewMode='active_trip');
+    //      navigating to the same route wouldn't re-trigger the mount
+    //      useEffect, so ActiveTripView calls enterEditModeForTrip
+    //      directly via the onEnterEditMode prop.
+    //
+    // The function also flips Engine from its current viewMode into
+    // 'setup' (step 3 — Departure Setup), clearing any Active Trip
+    // render state. Idempotent; safe to call mid-render from a button.
+    const editTripRef = useRef(location.state?.editTrip);
+    const hydratePrefsJson = (source) => {
+        if (!source) return;
+        try {
+            const prefs = typeof source === 'string' ? JSON.parse(source) : source;
+            if (prefs.transport_mode) setTransport(prefs.transport_mode);
+            if (prefs.bag_count != null) setBagCount(prefs.bag_count);
+            if (prefs.traveling_with_children != null) setWithChildren(prefs.traveling_with_children);
+            if (prefs.has_boarding_pass != null) setHasBoardingPass(prefs.has_boarding_pass);
+            if (prefs.gate_time_minutes != null) setGateTime(prefs.gate_time_minutes);
+            if (prefs.security_access) {
+                setHasPrecheck(prefs.security_access === 'precheck' || prefs.security_access === 'clear_precheck');
+                setHasClear(prefs.security_access === 'clear' || prefs.security_access === 'clear_precheck');
+                setHasPriorityLane(prefs.security_access === 'priority_lane');
+            }
+        } catch (e) {
+            console.error('Failed to parse edit trip preferences:', e);
+        }
+    };
+    // Hydrate + flip viewMode. Returns a cleanup that cancels any
+    // in-flight fetches (matters for the mount useEffect; button-
+    // callers discard the return value since they don't own a lifecycle).
+    const enterEditModeForTrip = (trip) => {
+        if (!trip) return () => {};
+
+        // Synchronous field hydration from the router-state / passed shape
+        // (may be partial — the async fetch below re-hydrates with the
+        // authoritative trip record).
+        if (trip.flight_number) setFlightNumber(trip.flight_number);
+        if (trip.departure_date) setDepartureDate(trip.departure_date);
+        if (trip.home_address) setStartingAddress(trip.home_address);
+        hydratePrefsJson(trip.preferences_json);
+
+        // Edit-mode state flags.
+        setEditMode(true);
+        setEditTripId(trip.trip_id);
+        setEditTripStatus(trip.status);
+        setCurrentTripId(trip.trip_id);
+        setCheckingActiveTrip(false);
+        // StepEntry was retired; edit mode lands directly on Setup (step 3).
+        setStep(3);
+        setDir(1);
+
+        // Flip Engine out of any Active Trip render state. No-op when the
+        // caller already has viewMode='setup' (deep-link case); essential
+        // when called mid-flight from ActiveTripView.
+        setActiveTripData(null);
+        setActiveTripRec(null);
+        setLocked(false);
+        setViewMode('setup');
+
+        // Async: pull the authoritative trip + live flight metadata so
+        // Setup / Results have everything they need. Same pattern the
+        // viewTrip flow uses. `cancelled` shuts down stale setState if
+        // the caller owns a lifecycle (mount useEffect); button callers
+        // discard the cleanup and rely on the component staying mounted.
+        if (!token || !trip.trip_id) return () => {};
+        let cancelled = false;
+        (async () => {
+            let authoritative = trip;
+            try {
+                const res = await fetch(`${API_BASE}/v1/trips/${trip.trip_id}`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (res.ok && !cancelled) {
+                    authoritative = await res.json();
+                    if (cancelled) return;
+                    if (authoritative.home_address) setStartingAddress(authoritative.home_address);
+                    if (authoritative.flight_number) setFlightNumber(authoritative.flight_number);
+                    if (authoritative.departure_date) setDepartureDate(authoritative.departure_date);
+                    hydratePrefsJson(authoritative.preferences_json);
+                }
+            } catch (err) {
+                console.error('Failed to fetch full trip for edit:', err);
+            }
+
+            const fn = authoritative.flight_number;
+            const dd = authoritative.departure_date;
+            const selectedUtc = authoritative.selected_departure_utc;
+            if (!fn || !dd || cancelled) return;
+            try {
+                const flightRes = await fetch(
+                    `${API_BASE}/v1/flights/${encodeURIComponent(fn)}/${dd}`,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                );
+                if (!flightRes.ok || cancelled) return;
+                const flightData = await flightRes.json();
+                const flights = mapFlights(flightData.flights || []);
+                const matched = flights.find(f => f.departure_time_utc === selectedUtc) || flights[0];
+                if (matched && !cancelled) setSelectedFlight(matched);
+            } catch (err) {
+                console.error('Failed to fetch flight metadata for edit:', err);
+            }
+        })();
+        return () => { cancelled = true; };
+    };
+    useEffect(() => {
+        return enterEditModeForTrip(editTripRef.current);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // ── View mode hydration from Trips page or app-open routing ─────────────
+    // Phase 3 — single-fetch mount path. On viewTrip, fire ONE GET /v1/trips/{id}
+    // and hydrate selectedFlight + recommendation from the fat response
+    // (flight_info + flight_status + latest_recommendation + projected_timeline).
+    // Replaces the pre-Phase-3 POST /v1/recommendations + GET /v1/flights/{n}/{date}
+    // round-trips. Legacy fallback to POST /v1/recommendations preserved for trips
+    // that were tracked before Phase 3 shipped (no latest_recommendation yet).
+    const viewTripRef = useRef(location.state?.viewTrip);
+    useEffect(() => {
+        const trip = viewTripRef.current;
+        if (!trip || editTripRef.current) return;
+
+        // Render immediately from passed trip data — the detail fetch below
+        // overwrites state with the authoritative record.
+        setActiveTripData({
+            trip_id: trip.trip_id,
+            flight_number: trip.flight_number,
+            departure_date: trip.departure_date,
+            home_address: trip.home_address,
+            status: trip.status,
+            selected_departure_utc: trip.selected_departure_utc,
+            preferences_json: trip.preferences_json,
+        });
+        setCurrentTripId(trip.trip_id);
+        setIsTracked(true);
+        setViewMode('active_trip');
+        setCheckingActiveTrip(false);
+
+        // Parse transport from the router-state preferences for immediate render.
+        // Detail response below re-hydrates with the authoritative value.
+        if (trip.preferences_json) {
+            try {
+                const prefs = typeof trip.preferences_json === 'string'
+                    ? JSON.parse(trip.preferences_json)
+                    : trip.preferences_json;
+                if (prefs.transport_mode) setTransport(prefs.transport_mode);
+            } catch { /* use default */ }
+        }
+
+        if (!token) return;
+
+        (async () => {
+            // Single round-trip: GET /v1/trips/{id} returns flight_info,
+            // flight_status, latest_recommendation, projected_timeline, and
+            // the denormalized scalars. No AeroDataBox call fires.
+            let detail = null;
+            try {
+                const res = await fetch(`${API_BASE}/v1/trips/${trip.trip_id}`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (res.ok) detail = await res.json();
+            } catch (err) {
+                console.error('Failed to fetch trip detail for viewTrip:', err);
+            }
+
+            if (!detail) return;
+
+            // Refresh activeTripData with the authoritative record (status may
+            // have advanced since the Trips page was loaded).
+            setActiveTripData({
+                trip_id: detail.trip_id,
+                flight_number: detail.flight_number,
+                departure_date: detail.departure_date,
+                home_address: detail.home_address,
+                status: detail.status,
+                selected_departure_utc: detail.selected_departure_utc,
+                preferences_json: detail.preferences_json,
+            });
+
+            // Preferences → transport (handle both string and already-parsed).
+            let prefs = null;
+            if (detail.preferences_json) {
+                try {
+                    prefs = typeof detail.preferences_json === 'string'
+                        ? JSON.parse(detail.preferences_json)
+                        : detail.preferences_json;
+                    if (prefs?.transport_mode) setTransport(prefs.transport_mode);
+                } catch { /* already set from list row above */ }
+            }
+
+            // selectedFlight shim: flight_info (frozen) + flight_status (live)
+            // assembled into the legacy mapFlights() shape that ActiveTripView
+            // already reads.
+            const fi = detail.flight_info;
+            const fs = detail.flight_status;
+            if (fi) {
+                setSelectedFlight({
+                    flight_number: fi.flight_number,
+                    origin_code: fi.origin_iata,
+                    destination_code: fi.destination_iata,
+                    destination_name: fi.destination_name,
+                    departure_terminal: fi.terminal,
+                    departure_gate: fs?.gate,
+                    departure_time: fi.scheduled_departure_local,
+                    departure_time_utc: fi.scheduled_departure_at,
+                    is_delayed: (fs?.delay_minutes ?? 0) > 0,
+                });
+            }
+
+            // recommendation shim: latest_recommendation carries segments + map
+            // coords; projected_timeline.leave_home_at drives the countdown.
+            const lr = detail.latest_recommendation;
+            const segs = Array.isArray(lr?.segments) ? lr.segments : [];
+            const hasLatestRec = segs.length > 0;
+
+            if (hasLatestRec) {
+                const rec = {
+                    leave_home_at: detail.projected_timeline?.leave_home_at,
+                    segments: segs,
+                    home_coordinates: lr.home_coordinates,
+                    terminal_coordinates: lr.terminal_coordinates,
+                    gate_time_minutes: prefs?.gate_time_minutes,
+                };
+                setActiveTripRec(rec);
+                setRecommendation(rec);
+                return;
+            }
+
+            // Legacy fallback — trip predates Phase 3 or the polling agent
+            // hasn't recomputed yet (<= 5 min window for an active trip).
+            // Fires POST /v1/recommendations once to hydrate; the polling
+            // agent's next active-phase tick will persist latest_recommendation
+            // server-side, eliminating this path on future mounts.
+            // TODO: remove legacy fallback after 2026-05-15 — by then every
+            // active trip should have been re-polled and populated.
+            console.warn('legacy trip without latest_recommendation, computing live');
+            try {
+                const recRes = await fetch(`${API_BASE}/v1/recommendations`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ trip_id: trip.trip_id }),
+                });
+                if (recRes.ok) {
+                    const rec = await recRes.json();
+                    setActiveTripRec(rec);
+                    setRecommendation(rec);
+                }
+            } catch (err) {
+                console.error('Legacy fallback recommendation fetch failed:', err);
+            }
+        })();
+    }, [token]);
+
+    // ── Prefill from /Search handoff ──────────────────────────────────────
+    // Search performs the flight lookup itself and navigates here with
+    // pre-fetched flight results. We pick them up and land directly on
+    // step 2 (flight selection).
+    const fromSearchRef = useRef(location.state?.fromSearch);
+    useEffect(() => {
+        const fs = fromSearchRef.current;
+        if (!fs || editTripRef.current || viewTripRef.current) return;
+
+        if (fs.departureDate) setDepartureDate(fs.departureDate);
+        if (fs.mode === 'route') {
+            setLastSearchParams({
+                mode: 'route',
+                origin: fs.routeOrigin,
+                destination: fs.routeDestination,
+                date: fs.departureDate,
+                timeWindow: 'any',
+            });
+        } else {
+            setFlightNumber(fs.flightNumber || '');
+            setLastSearchParams({
+                mode: 'flight_number',
+                flightNumber: fs.flightNumber,
+                departureDate: fs.departureDate,
+            });
+        }
+
+        if (fs.flights?.length) {
+            setFlightOptions(fs.flights);
+            setCheckingActiveTrip(false);
+            // Already on step 2 by default; no goTo needed.
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    // ── Rehydrate mid-flow position across refresh ───────────────────────
+    // If sessionStorage holds an airbridge_engine_step snapshot AND no
+    // higher-priority entry context exists (edit/view/fresh-from-Search/
+    // explicit-newTrip), revive the user at step 3 (Setup) or step 4
+    // (Results). Masquerades as a fromSearch handoff so the active-trip
+    // check and the /Engine-→-/ redirect effects treat this as a valid
+    // entry context and stand down.
+    useEffect(() => {
+        if (editTripRef.current || viewTripRef.current || fromSearchRef.current) return;
+        if (location.state?.newTrip) return;
+
+        const saved = loadEngineStep();
+        if (!saved) return;
+
+        setSelectedFlight(saved.selectedFlight);
+        if (saved.flightOptions?.length) setFlightOptions(saved.flightOptions);
+        if (saved.flightNumber) setFlightNumber(saved.flightNumber);
+        if (saved.departureDate) setDepartureDate(saved.departureDate);
+        if (saved.currentTripId) setCurrentTripId(saved.currentTripId);
+        if (saved.recommendation) {
+            setRecommendation(saved.recommendation);
+            setJourneyReady(true);
+        }
+
+        // Synthetic fromSearch marker — the useEffect pattern below
+        // (active-trip check, /-redirect) treats any truthy value on
+        // fromSearchRef as "user has context; don't redirect."
+        fromSearchRef.current = { syntheticHydration: true };
+
+        if (saved.step === 4 && saved.recommendation) {
+            setStep(3);
+            setViewMode('results');
+        } else if (saved.step === 3) {
+            setStep(3);
+            setViewMode('setup');
+        }
+        setCheckingActiveTrip(false);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
     // Check for active trip on mount, then hydrate preferences from trip or profile
     useEffect(() => {
+        // Skip active trip check when in edit, view, or explicit new-trip mode
+        if (editTripRef.current || viewTripRef.current || fromSearchRef.current) return;
+        if (location.state?.newTrip) {
+            setCheckingActiveTrip(false);
+            return;
+        }
+
         if (!token) {
             setCheckingActiveTrip(false);
             return;
@@ -324,6 +658,57 @@ export default function Engine() {
         })();
     }, [token]);
 
+    // ── Redirect /Engine → / when the user has no valid entry context ─────
+    // StepEntry (step 1) was retired; canonical entry is the Search screen.
+    // If a user hits /Engine directly (URL bar, back-forward, etc.) without
+    // any hand-off state and without an active trip to show, bounce them
+    // to Search rather than render an empty Flight Selection list.
+    useEffect(() => {
+        if (fromSearchRef.current || editTripRef.current || viewTripRef.current) return;
+        if (checkingActiveTrip) return; // wait for the active-trip check
+        if (viewMode === 'active_trip') return; // active trip loaded
+        navigate('/', { replace: true });
+    }, [checkingActiveTrip, viewMode, navigate]);
+
+    // ── Persist mid-flow position for refresh recovery ───────────────────
+    // Writes an airbridge_engine_step snapshot whenever the user is in
+    // the normal Search → Setup → Results flow. Skipped for edit and
+    // view modes (those have their own router-state entry) and for the
+    // active_trip / initial flight-selection views. Cleared in the
+    // reset, track, and new-trip paths below.
+    useEffect(() => {
+        if (editMode || editTripRef.current || viewTripRef.current) return;
+        if (checkingActiveTrip) return;
+
+        const isSetup = viewMode === 'setup' && step === 3 && selectedFlight;
+        const isResults = viewMode === 'results' && recommendation && selectedFlight;
+
+        if (isResults) {
+            saveEngineStep({
+                step: 4,
+                selectedFlight,
+                flightOptions,
+                flightNumber,
+                departureDate,
+                currentTripId,
+                recommendation,
+            });
+        } else if (isSetup) {
+            saveEngineStep({
+                step: 3,
+                selectedFlight,
+                flightOptions,
+                flightNumber,
+                departureDate,
+                currentTripId: null,
+                recommendation: null,
+            });
+        }
+    }, [
+        viewMode, step, selectedFlight, flightOptions, flightNumber,
+        departureDate, currentTripId, recommendation, editMode, checkingActiveTrip,
+    ]);
+
     // Set up push notification listeners (native only)
     useEffect(() => {
         if (!isNative()) return;
@@ -368,65 +753,34 @@ export default function Engine() {
     });
 
     // ── Handlers ────────────────────────────────────────────────────────────
-    const handleFindFlight = async () => {
-        if (!flightNumber.trim() || !departureDate) return;
-        track('flight_entry_submitted', { flight_number: flightNumber.trim(), departure_date: departureDate, input_mode: 'flight_number' });
-
-        // Skip re-fetch if inputs haven't changed and we have results
-        if (
-            lastSearchParams &&
-            lastSearchParams.mode === 'flight_number' &&
-            lastSearchParams.flightNumber === flightNumber.trim() &&
-            lastSearchParams.departureDate === departureDate &&
-            flightOptions.length > 0
-        ) {
-            goTo(2);
-            return;
+    // One-tap selection: set the flight and advance to Setup in a single
+    // render pass. Avoids the stale-closure pattern where a separate
+    // Continue handler read selectedFlight from state (null on the first
+    // tap because setSelectedFlight hadn't flushed yet).
+    // Cancelled / departed / boarding flights still advance — brief §4.3
+    // expects them to be tappable and Setup surfaces the status.
+    const handleFlightSelect = (flight) => {
+        setSelectedFlight(flight);
+        if (!editMode) {
+            setCurrentTripId(null);
+            setRecommendation(null);
+            setLocked(false);
+            setJourneyReady(false);
         }
-
-        setSearching(true);
-        setSelectedFlight(null);
-        setSearchError(null);
-        setFlightOptions([]);
-        goTo(2);
-        try {
-            const addrParam = startingAddress.trim() ? `?home_address=${encodeURIComponent(startingAddress.trim())}` : '';
-            const res = await fetch(`${API_BASE}/v1/flights/${encodeURIComponent(flightNumber.trim())}/${departureDate}${addrParam}`, {
-                headers: { ...authHeaders },
-            });
-            if (!res.ok) {
-                setFlightOptions([]);
-                setSearchError('Could not look up flights. Please check the flight number and try again.');
-                setSearching(false);
-                return;
-            }
-            const data = await res.json();
-            const flights = mapFlights(data.flights);
-            setFlightOptions(flights);
-            setLastSearchParams({ mode: 'flight_number', flightNumber: flightNumber.trim(), departureDate });
-        } catch (err) {
-            console.error('Flight lookup failed:', err);
-            setFlightOptions([]);
-            setSearchError('Network error — could not reach the server. Please check your connection and try again.');
-        }
-        setSearching(false);
+        goTo(3);
     };
-
-    const handleFlightClick = (f) => {
-        if (f.departed || f.canceled || f.is_boarding) return;
-        track('flight_selected', { flight_number: f.flight_number, origin: f.origin_code, destination: f.destination_code });
-        setSelectedFlight(f);
-        // Always clear trip state so a fresh trip + recommendation is created for the new flight
-        setCurrentTripId(null);
-        setRecommendation(null);
-        setLocked(false);
-        setJourneyReady(false);
-    };
-
-    const handleContinueToSetup = () => { if (selectedFlight) goTo(3); };
 
     const handleLockIn = async () => {
         if (isSubmitting) return;
+
+        // Edit mode safety: currentTripId should never be null here with Fix A,
+        // but guard against unknown state paths that could create a duplicate trip.
+        if (editMode && !currentTripId) {
+            console.error('[Engine] editMode=true but currentTripId is null — unexpected state path, aborting to prevent duplicate trip creation');
+            setApiError('Could not update trip. Returning to your trips.');
+            navigate(createPageUrl('Trips'), { replace: true });
+            return;
+        }
 
         // Draft already exists — just recompute with current preferences
         if (currentTripId) {
@@ -435,20 +789,31 @@ export default function Engine() {
             setApiError(null);
             setIsSubmitting(true);
             try {
+                const lockInRecomputeBody = {
+                    trip_id: currentTripId,
+                    reason: 'preference_change',
+                    preference_overrides: buildPreferences(),
+                    home_address: startingAddress,
+                };
+                if (editMode) {
+                    lockInRecomputeBody.flight_number = flightNumber.trim();
+                    lockInRecomputeBody.departure_date = departureDate;
+                    lockInRecomputeBody.selected_departure_utc = selectedFlight?.departure_time_utc || undefined;
+                }
                 const recRes = await fetch(`${API_BASE}/v1/recommendations/recompute`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', ...authHeaders },
-                    body: JSON.stringify({
-                        trip_id: currentTripId,
-                        reason: 'preference_change',
-                        preference_overrides: buildPreferences(),
-                        home_address: startingAddress,
-                    }),
+                    body: JSON.stringify(lockInRecomputeBody),
                 });
                 if (!recRes.ok) throw new Error(`Recompute failed (${recRes.status})`);
                 const rec = await recRes.json();
                 setRecommendation(rec);
                 setJourneyReady(true);
+                // Setup submit succeeded (recompute on an existing draft/trip).
+                // Clear the Setup form's sessionStorage, and defensively the
+                // Search state too — Task 7.3 only clears search on track.
+                clearSetupState();
+                clearSearchState();
                 if (isTracked) {
                     setActiveTripData({
                         trip_id: currentTripId,
@@ -517,8 +882,11 @@ export default function Engine() {
             }
             const rec = await recRes.json();
             setRecommendation(rec);
-            track('recommendation_viewed', { leave_by_time: rec.leave_home_at, total_minutes: rec.segments?.reduce((s, seg) => s + (seg.duration_minutes || 0), 0), transport_mode: transport });
             setJourneyReady(true);
+            // Fresh trip created successfully — clear Setup form's
+            // sessionStorage, plus Search state as a belt-and-braces.
+            clearSetupState();
+            clearSearchState();
             setTimeout(() => setViewMode('results'), 500);
         } catch (err) {
             console.error('Recommendation failed:', err);
@@ -537,15 +905,22 @@ export default function Engine() {
         setApiError(null);
 
         try {
+            const recomputeBody = {
+                trip_id: currentTripId,
+                reason: 'preference_change',
+                preference_overrides: buildPreferences(),
+                home_address: startingAddress,
+            };
+            // Edit mode: pass wizard state so recompute previews edited values
+            if (editMode) {
+                recomputeBody.flight_number = flightNumber.trim();
+                recomputeBody.departure_date = departureDate;
+                recomputeBody.selected_departure_utc = selectedFlight?.departure_time_utc || undefined;
+            }
             const recRes = await fetch(`${API_BASE}/v1/recommendations/recompute`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', ...authHeaders },
-                body: JSON.stringify({
-                    trip_id: currentTripId,
-                    reason: 'preference_change',
-                    preference_overrides: buildPreferences(),
-                    home_address: startingAddress,
-                })
+                body: JSON.stringify(recomputeBody),
             });
             if (!recRes.ok) {
                 const errBody = await recRes.text();
@@ -563,24 +938,10 @@ export default function Engine() {
         }
     };
 
-    const handleRouteFlightsFound = (flights, meta) => {
-        track('route_search_submitted', { origin: meta?.origin, destination: meta?.destination, date: meta?.date, time_window: meta?.timeWindow });
-        if (meta?.date) setDepartureDate(meta.date);
-        setFlightOptions(flights);
-        setSearching(false);
-        setLastSearchParams({
-            mode: 'route',
-            origin: meta?.origin || routeOrigin,
-            destination: meta?.destination || routeDestination,
-            date: meta?.date || departureDate,
-            timeWindow: meta?.timeWindow || routeTimeWindow,
-        });
-        goTo(2);
-    };
-
     const handleReset = () => {
-        track('start_over_clicked');
         resetTripState();
+        clearEngineStep();
+        navigate('/', { replace: true });
     };
 
     const handleEditSetup = () => {
@@ -592,8 +953,8 @@ export default function Engine() {
 
     const handleTrackTrip = async () => {
         if (!currentTripId) return;
+        if (editMode) return; // Edit mode must never promote/track — only PUT updates
         if (!isAuthenticated) {
-            track('auth_modal_opened', { trigger: 'track_trip' });
             pendingTrackAfterAuth.current = true;
             setAuthOpen(true);
             return;
@@ -606,9 +967,36 @@ export default function Engine() {
             if (res.ok) {
                 const data = await res.json();
                 setIsTracked(true);
+                clearSearchState();
+                clearRideshareProvider();
+                clearEngineStep();
                 if (data.trip_count != null) updateTripCount(data.trip_count);
-                track('trip_tracked', { trip_id: currentTripId });
-                // Switch to active trip view
+
+                // Show push priming on native after tracking
+                if (isNative() && shouldShowPushPriming(data.trip_count)) {
+                    setPushPrimingOpen(true);
+                }
+
+                // Adaptive routing: fetch active-list to decide where to land
+                try {
+                    const listRes = await fetch(`${API_BASE}/v1/trips/active-list`, {
+                        headers: { Authorization: `Bearer ${token}` },
+                    });
+                    if (listRes.ok) {
+                        const listData = await listRes.json();
+                        const activeTrips = (listData.trips || []).filter(
+                            t => ['active', 'en_route', 'at_airport', 'at_gate'].includes(t.status)
+                        );
+                        if (activeTrips.length >= 2) {
+                            navigate(createPageUrl('Trips'), { replace: true });
+                            return;
+                        }
+                    }
+                } catch {
+                    // Fall through to single-trip view
+                }
+
+                // Single trip (or fetch failed): show Active Trip Screen
                 setActiveTripData({
                     trip_id: currentTripId,
                     flight_number: flightNumber,
@@ -620,11 +1008,6 @@ export default function Engine() {
                 });
                 setActiveTripRec(recommendation);
                 setViewMode('active_trip');
-
-                // Show push priming on native after tracking
-                if (isNative() && shouldShowPushPriming(data.trip_count)) {
-                    setPushPrimingOpen(true);
-                }
             }
         } catch (err) {
             console.error('Failed to track trip:', err);
@@ -647,6 +1030,43 @@ export default function Engine() {
             const result = await handleRecompute();
             if (result) {
                 setJourneyReady(true);
+
+                // Edit mode is a two-tap commit that the user reads as one.
+                // Setup's "Update my trip" used to only preview via recompute
+                // and leave Results wearing an "Update my trip" label — so
+                // the user reasonably tapped it again expecting Track. Here
+                // we persist the edit via PUT alongside the preview recompute
+                // and clear editMode so the Results CTA becomes "Track my
+                // trip". If PUT fails, keep editMode=true so the user can
+                // retry from Results.
+                if (editMode && editTripId) {
+                    try {
+                        const putRes = await fetch(`${API_BASE}/v1/trips/${editTripId}`, {
+                            method: 'PUT',
+                            headers: { 'Content-Type': 'application/json', ...authHeaders },
+                            body: JSON.stringify({
+                                flight_number: flightNumber.trim() || undefined,
+                                departure_date: departureDate || undefined,
+                                home_address: startingAddress.trim() || undefined,
+                                transport_mode: transport || undefined,
+                                security_access: computeSecurityAccess() || undefined,
+                                buffer_preference: gateTime,
+                            }),
+                        });
+                        if (putRes.ok) {
+                            setEditMode(false);
+                        } else if (putRes.status === 409) {
+                            const err = await putRes.json().catch(() => ({}));
+                            setEditError(err.detail || 'This trip can no longer be edited because it is in progress.');
+                        } else {
+                            setEditError('Failed to save your changes. Please try again.');
+                        }
+                    } catch (err) {
+                        console.error('PUT during edit recalculate failed:', err);
+                        setEditError('Network error — could not save your changes.');
+                    }
+                }
+
                 if (isTracked) {
                     setActiveTripData({
                         trip_id: currentTripId,
@@ -670,105 +1090,119 @@ export default function Engine() {
         }
     };
 
-    const canSearch = flightNumber.trim().length > 0 && departureDate.length > 0;
+    // ── Edit mode: Update Trip via PUT /v1/trips/{id} ─────────────────────
+    // For drafts (created/draft): PUT to save edits, then POST track to promote.
+    // For active trips: PUT only (already tracked).
+    const editIsDraft = editTripStatus === 'draft' || editTripStatus === 'created';
+
+    const handleUpdateTrip = async () => {
+        if (!editTripId || isUpdating) return;
+        setIsUpdating(true);
+        setEditError(null);
+        try {
+            const res = await fetch(`${API_BASE}/v1/trips/${editTripId}`, {
+                method: 'PUT',
+                headers: { 'Content-Type': 'application/json', ...authHeaders },
+                body: JSON.stringify({
+                    flight_number: flightNumber.trim() || undefined,
+                    departure_date: departureDate || undefined,
+                    home_address: startingAddress.trim() || undefined,
+                    transport_mode: transport || undefined,
+                    security_access: computeSecurityAccess() || undefined,
+                    buffer_preference: gateTime,
+                }),
+            });
+            if (!res.ok) {
+                if (res.status === 409) {
+                    const err = await res.json().catch(() => ({}));
+                    setEditError(err.detail || 'This trip can no longer be edited because it is in progress.');
+                } else {
+                    setEditError('Failed to update trip. Please try again.');
+                }
+                return;
+            }
+
+            // Draft edit: promote to tracked after saving
+            if (editIsDraft) {
+                try {
+                    const trackRes = await fetch(`${API_BASE}/v1/trips/${editTripId}/track`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json', ...authHeaders },
+                    });
+                    if (trackRes.ok) {
+                        const trackData = await trackRes.json();
+                        clearSearchState();
+                        clearRideshareProvider();
+                        clearEngineStep();
+                        if (trackData.trip_count != null) updateTripCount(trackData.trip_count);
+
+                        if (isNative() && shouldShowPushPriming(trackData.trip_count)) {
+                            setPushPrimingOpen(true);
+                        }
+
+                        // Adaptive routing
+                        try {
+                            const listRes = await fetch(`${API_BASE}/v1/trips/active-list`, {
+                                headers: { Authorization: `Bearer ${token}` },
+                            });
+                            if (listRes.ok) {
+                                const listData = await listRes.json();
+                                const activeTrips = (listData.trips || []).filter(
+                                    t => ['active', 'en_route', 'at_airport', 'at_gate'].includes(t.status)
+                                );
+                                if (activeTrips.length >= 2) {
+                                    navigate(createPageUrl('Trips'), { replace: true });
+                                    return;
+                                }
+                            }
+                        } catch {
+                            // Fall through to single-trip view
+                        }
+
+                        // Single trip: show Active Trip Screen
+                        setEditMode(false);
+                        setIsTracked(true);
+                        setActiveTripData({
+                            trip_id: editTripId,
+                            flight_number: flightNumber,
+                            departure_date: departureDate,
+                            home_address: startingAddress,
+                            status: 'active',
+                            selected_departure_utc: selectedFlight?.departure_time_utc,
+                            preferences_json: JSON.stringify(buildPreferences()),
+                        });
+                        setActiveTripRec(recommendation);
+                        setViewMode('active_trip');
+                        return;
+                    }
+                    // Track call failed — PUT succeeded, trip saved but not tracked
+                    setEditError('Your changes were saved, but we couldn\u2019t track the trip. Tap again to retry.');
+                } catch {
+                    setEditError('Your changes were saved, but we couldn\u2019t track the trip. Tap again to retry.');
+                }
+                return;
+            }
+
+            // Active trip edit: just navigate back
+            navigate(createPageUrl('Trips'), { replace: true });
+        } catch (err) {
+            console.error('PUT trip failed:', err);
+            setEditError('Network error — could not reach the server.');
+        } finally {
+            setIsUpdating(false);
+        }
+    };
 
     // ── Render ──────────────────────────────────────────────────────────────
+    // /Engine intentionally renders without the legacy app header. Each
+    // sub-view owns its own top bar (StepSelectFlight uses the DS TopBar;
+    // Setup/Results/ActiveTrip will follow in their own redesigns).
     return (
-        <div className="min-h-screen bg-secondary/50 font-sans antialiased">
-
-            {/* ── HEADER ── */}
-            <header className="bg-card border-b border-border sticky top-0 z-50">
-                <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3.5 flex items-center justify-between">
-                    <div className="flex items-center gap-4 sm:gap-6">
-                        <Link to={createPageUrl('Home')} className="flex items-center gap-2">
-                            <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                                <Plane className="w-4 h-4 text-primary-foreground" />
-                            </div>
-                            <span className="font-bold text-lg text-foreground">AirBridge</span>
-                        </Link>
-                        <nav className="hidden md:flex items-center gap-1 text-sm">
-                            <Link to={createPageUrl('Home')} className="text-muted-foreground hover:text-foreground px-3 py-1.5 rounded-lg transition-colors">Home</Link>
-                            <span className="text-foreground font-semibold px-3 py-1.5 bg-secondary rounded-lg">Departure Engine</span>
-                        </nav>
-                    </div>
-                    <div className="flex items-center gap-3">
-                        <AnimatePresence mode="wait">
-                            {locked && recommendation ? (
-                                <motion.div key="live" initial={{ opacity: 0, scale: 0.9 }} animate={{ opacity: 1, scale: 1 }}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-50 border border-emerald-200">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-                                    <span className="text-xs text-emerald-700 font-medium">Live</span>
-                                </motion.div>
-                            ) : (
-                                <motion.div key="active" initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                                    className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-accent border border-primary/20">
-                                    <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
-                                    <span className="text-xs text-primary font-medium">Engine Active</span>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-                        {isAuthenticated ? (
-                            <div className="hidden md:flex items-center gap-2">
-                                <div className="w-7 h-7 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-primary-foreground">
-                                    {(display_name || '').charAt(0).toUpperCase() || 'U'}
-                                </div>
-                                <span className="text-sm font-medium text-foreground">
-                                    {display_name ? display_name.split(' ')[0] : 'Account'}
-                                </span>
-                                <Link to={createPageUrl('Settings')} className="w-7 h-7 rounded-lg flex items-center justify-center text-muted-foreground hover:text-foreground hover:bg-secondary transition-all ml-1" title="Settings">
-                                    <Settings className="w-4 h-4" />
-                                </Link>
-                                <button onClick={logout} className="text-xs text-muted-foreground hover:text-foreground transition-colors ml-1">Sign out</button>
-                            </div>
-                        ) : (
-                            <button onClick={() => { track('auth_modal_opened', { trigger: 'navbar' }); setAuthOpen(true); }} className="text-sm text-muted-foreground hover:text-foreground transition-colors hidden md:block">Sign In</button>
-                        )}
-                        <button className="md:hidden p-2 -mr-2" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-                            {mobileMenuOpen ? <X size={22} /> : <Menu size={22} />}
-                        </button>
-                    </div>
-                </div>
-
-                {/* Mobile menu */}
-                <AnimatePresence>
-                    {mobileMenuOpen && (
-                        <motion.div
-                            initial={{ opacity: 0, height: 0 }}
-                            animate={{ opacity: 1, height: 'auto' }}
-                            exit={{ opacity: 0, height: 0 }}
-                            className="md:hidden border-t border-border bg-card"
-                        >
-                            <div className="px-6 py-4 space-y-4">
-                                {isAuthenticated && (
-                                    <div className="flex items-center gap-2 pb-3 border-b border-border">
-                                        <div className="w-8 h-8 rounded-full bg-primary flex items-center justify-center text-xs font-bold text-primary-foreground">
-                                            {(display_name || '').charAt(0).toUpperCase() || 'U'}
-                                        </div>
-                                        <span className="text-sm font-medium text-foreground">{display_name ? display_name.split(' ')[0] : 'Account'}</span>
-                                    </div>
-                                )}
-                                <Link to={createPageUrl('Home')} onClick={() => setMobileMenuOpen(false)} className="block text-sm text-muted-foreground hover:text-foreground">Home</Link>
-                                {isAuthenticated && (
-                                    <Link to={createPageUrl('Settings')} onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-                                        <Settings className="w-4 h-4" />Settings
-                                    </Link>
-                                )}
-                                <div className="pt-3 border-t border-border">
-                                    {isAuthenticated ? (
-                                        <button onClick={() => { setMobileMenuOpen(false); logout(); }} className="text-sm text-muted-foreground hover:text-foreground">Sign out</button>
-                                    ) : (
-                                        <button onClick={() => { setMobileMenuOpen(false); track('auth_modal_opened', { trigger: 'mobile_menu' }); setAuthOpen(true); }} className="text-sm text-muted-foreground hover:text-foreground">Sign In</button>
-                                    )}
-                                </div>
-                            </div>
-                        </motion.div>
-                    )}
-                </AnimatePresence>
-            </header>
+        <div className="min-h-screen bg-c-ground font-sans antialiased">
 
             {/* ── MAIN CONTENT ── */}
             {checkingActiveTrip && (
-                <div className="min-h-[calc(100vh-57px)] flex items-center justify-center">
+                <div className="min-h-screen flex items-center justify-center">
                     <div className="w-6 h-6 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full animate-spin" />
                 </div>
             )}
@@ -785,11 +1219,6 @@ export default function Engine() {
                         transport={transport}
                         isAuthenticated={isAuthenticated}
                         display_name={display_name}
-                        onNewTrip={() => {
-                            setActiveTripData(null);
-                            setActiveTripRec(null);
-                            resetTripState();
-                        }}
                         onEdit={() => {
                             // State is already hydrated from active trip load
                             setActiveTripData(null);
@@ -799,6 +1228,7 @@ export default function Engine() {
                             setDir(1);
                             setLocked(false);
                         }}
+                        onEnterEditMode={enterEditModeForTrip}
                         onRefresh={async () => {
                             if (!activeTripData) return;
                             try {
@@ -823,36 +1253,19 @@ export default function Engine() {
                     <motion.div key="setup" {...pageTransition} className="min-h-[calc(100vh-57px)] flex items-start justify-center py-8 md:py-12 px-4">
                         <AnimatePresence mode="wait" custom={dir}>
 
-                            {step === 1 && (
-                                <StepEntry
-                                    flightNumber={flightNumber} setFlightNumber={setFlightNumber}
-                                    departureDate={departureDate} setDepartureDate={setDepartureDate}
-                                    calendarOpen={calendarOpen} setCalendarOpen={setCalendarOpen}
-                                    inputMode={inputMode} setInputMode={setInputMode}
-                                    canSearch={canSearch}
-                                    onFindFlight={handleFindFlight}
-                                    onRouteFlightsFound={handleRouteFlightsFound}
-                                    authHeaders={authHeaders}
-                                    routeOrigin={routeOrigin} setRouteOrigin={setRouteOrigin}
-                                    routeDestination={routeDestination} setRouteDestination={setRouteDestination}
-                                    routeTimeWindow={routeTimeWindow} setRouteTimeWindow={setRouteTimeWindow}
-                                    lastSearchParams={lastSearchParams} flightOptions={flightOptions}
-                                />
-                            )}
-
                             {step === 2 && (
                                 <StepSelectFlight
                                     flightOptions={flightOptions}
-                                    selectedFlight={selectedFlight}
-                                    searching={searching}
-                                    searchError={searchError}
-                                    inputMode={inputMode}
-                                    flightNumber={flightNumber}
-                                    departureDate={departureDate}
-                                    onFlightClick={handleFlightClick}
-                                    onContinue={handleContinueToSetup}
-                                    onBack={() => goTo(1)}
-                                    onRetry={handleFindFlight}
+                                    onSelect={handleFlightSelect}
+                                    onBack={() => {
+                                        // Back always returns to Search — StepEntry is
+                                        // retired, so there's no in-Engine step 1.
+                                        if (fromSearchRef.current) {
+                                            navigate(-1);
+                                        } else {
+                                            navigate('/', { replace: true });
+                                        }
+                                    }}
                                 />
                             )}
 
@@ -901,7 +1314,6 @@ export default function Engine() {
                         onEditSetup={handleEditSetup}
                         onReset={handleReset}
                         onReady={() => setJourneyReady(true)}
-                        onSignIn={() => { track('auth_modal_opened', { trigger: 'save_trip' }); setAuthOpen(true); }}
                         isTracked={isTracked}
                         onTrack={handleTrackTrip}
                         securityLabel={
@@ -911,6 +1323,11 @@ export default function Engine() {
                             hasClear ? 'CLEAR' : 'Standard TSA'
                         }
                         homeAddress={startingAddress}
+                        editMode={editMode}
+                        editIsDraft={editIsDraft}
+                        editError={editError}
+                        isUpdating={isUpdating}
+                        onUpdateTrip={handleUpdateTrip}
                     />
                 )}
 
@@ -918,7 +1335,6 @@ export default function Engine() {
             )}
 
             <AuthModal open={authOpen} onOpenChange={(open) => { setAuthOpen(open); if (!open) pendingTrackAfterAuth.current = false; }} onSuccess={(data) => {
-                track('auth_completed', { provider: data.auth_provider || 'phone' });
                 login(data);
                 // Auto-track only if auth was triggered by the Track button
                 if (pendingTrackAfterAuth.current && currentTripId && !isTracked) {
@@ -932,9 +1348,36 @@ export default function Engine() {
                             if (res.ok) {
                                 const trackData = await res.json();
                                 setIsTracked(true);
+                                clearSearchState();
+                                clearRideshareProvider();
+                                clearEngineStep();
                                 if (trackData.trip_count != null) updateTripCount(trackData.trip_count);
-                                track('trip_tracked', { trip_id: currentTripId, trigger: 'post_auth' });
-                                // Switch to active trip view
+
+                                // Show push priming on native after first tracked trip
+                                if (isNative() && shouldShowPushPriming(trackData.trip_count)) {
+                                    setPushPrimingOpen(true);
+                                }
+
+                                // Adaptive routing: fetch active-list to decide where to land
+                                try {
+                                    const listRes = await fetch(`${API_BASE}/v1/trips/active-list`, {
+                                        headers: { Authorization: `Bearer ${data.token}` },
+                                    });
+                                    if (listRes.ok) {
+                                        const listData = await listRes.json();
+                                        const activeTrips = (listData.trips || []).filter(
+                                            t => ['active', 'en_route', 'at_airport', 'at_gate'].includes(t.status)
+                                        );
+                                        if (activeTrips.length >= 2) {
+                                            navigate(createPageUrl('Trips'), { replace: true });
+                                            return;
+                                        }
+                                    }
+                                } catch {
+                                    // Fall through to single-trip view
+                                }
+
+                                // Single trip (or fetch failed): show Active Trip Screen
                                 setActiveTripData({
                                     trip_id: currentTripId,
                                     flight_number: flightNumber,
@@ -946,11 +1389,6 @@ export default function Engine() {
                                 });
                                 setActiveTripRec(recommendation);
                                 setViewMode('active_trip');
-
-                                // Show push priming on native after first tracked trip
-                                if (isNative() && shouldShowPushPriming(trackData.trip_count)) {
-                                    setPushPrimingOpen(true);
-                                }
                             }
                         } catch (err) {
                             console.error('Failed to auto-track after auth:', err);

@@ -24,14 +24,14 @@ React 18, React Router v6, Vite 6, Tailwind CSS 3 + shadcn/ui, Framer Motion, da
 
 ## Key Directories
 
-- `src/pages/` — Home.jsx, Engine.jsx, Settings.jsx, Trips.jsx (routed via `src/pages.config.js`)
+- `src/pages/` — Search.jsx (/ route per brief §4.2), Engine.jsx, Settings.jsx, Trips.jsx, PrivacyPolicy.jsx, DesignSystem.jsx (routed via `src/pages.config.js` + direct routes in App.jsx)
 - `src/components/engine/` — Engine sub-components: StepEntry, StepSelectFlight, StepDepartureSetup, ResultsView, ActiveTripView, JourneyVisualization, AuthModal, PushPrimingModal, ActionCards, LoadingView, RouteSearchForm, AddressAutocomplete, AirportAutocomplete, SocialAuthCard, OTPModal
+- `src/components/design-system/` — Concourse design system primitives (Button, Card, ListRow, StatusPill, SegmentedControl, Input, TopBar, TabBar, Sheet)
 - `src/components/` — Top-level shared components: PaywallModal.jsx, FeedbackPrompt.jsx
-- `src/components/landing/` — Landing page sections (Header, Hero, HowItWorks, etc.)
 - `src/components/ui/` — shadcn/ui components (do not hand-edit)
 - `src/lib/` — AuthContext.jsx (exposes `isPro()` helper), utils.js (cn helper), PageNotFound
-- `src/utils/` — platform.js, pushNotifications.js, analytics.js, events.js (postEvent → /v1/events), format.js, mapFlight.js, nativeAuth.js
-- `src/config.js` — API_BASE, GOOGLE_CLIENT_ID, GOOGLE_MAPS_API_KEY, POSTHOG_API_KEY
+- `src/utils/` — platform.js, pushNotifications.js, events.js (postEvent → /v1/events), format.js, mapFlight.js, nativeAuth.js
+- `src/config.js` — API_BASE, GOOGLE_CLIENT_ID, GOOGLE_MAPS_API_KEY
 - `ios/App/App/Plugins/` — Custom Swift plugins (AppleSignInPlugin, GoogleSignInPlugin)
 
 ## Native (Capacitor 8)
@@ -101,7 +101,7 @@ ActiveTripView polls `GET /v1/trips/active` and adapts UI to `trip_status`:
 - `at_gate` → "Boarding at [time]," minimal UI
 - `complete` → FeedbackPrompt (or "Trip complete" if dismissed)
 
-Interaction signals (POST /v1/events, dual-fired alongside PostHog):
+Interaction signals (POST /v1/events):
 - `rideshare_tap`, `nav_tap` from ActionCards
 - `timetogo_tap` from push notification action listener
 
@@ -125,7 +125,7 @@ Sprint 7 in progress. Sprint 6 shipped (Stripe subscriptions, feedback, trip his
 
 ## Design Source of Truth
 
-`AIRBRIDGE_DESIGN_BRIEF.md` at repo root is authoritative for all UI work (v2.0). Every UI-touching task reads the relevant section(s) before writing code. Cite sections by number (e.g., "Section 4.4 Setup", "Section 3.1 Color palette"). Do not re-derive decisions the brief settles. If the brief is unclear or contradicts a prompt mid-implementation, surface to user — do not guess.
+`AIRBRIDGE_DESIGN_BRIEF.md` at repo root is authoritative for all UI work. Every UI-touching task reads the relevant section(s) before writing code. Cite sections by number (e.g., "Section 4.4 Setup", "Section 3.1 Color palette"). Do not re-derive decisions the brief settles. If the brief is unclear or contradicts a prompt mid-implementation, surface to user — do not guess.
 
 Reference materials in `docs/design-ideations/`: 14 PNGs — home screen (v1–v3), my trip screen (v1–v3, two sets), settings screen (v1–v3, partial second set). These are visual exploration, not authoritative — the brief wins where they disagree.
 

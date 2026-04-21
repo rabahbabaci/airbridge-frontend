@@ -1,64 +1,111 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
-import { Switch } from '@/components/ui/switch';
-import { shortCity, formatLocalTime } from '@/utils/format';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import {
-    Car, Train, Bus, AlertCircle, CheckCircle2, ArrowLeft,
-    ShieldCheck, Luggage, Baby, Smartphone, Minus, Plus, RefreshCw, MapPin,
-} from 'lucide-react';
+    Car, SteeringWheel, Train, Shield, Rocket, MapPin, NavigationArrow,
+    WarningCircle, Timer, SuitcaseRolling, Baby, QrCode, Minus, Plus,
+} from '@phosphor-icons/react';
+import { Switch } from '@/components/ui/switch';
+import { cn } from '@/lib/utils';
+import TopBar from '@/components/design-system/TopBar';
+import Button from '@/components/design-system/Button';
+import { loadGoogleMaps, reverseGeocode, getCurrentPosition } from '@/utils/geocode';
+import { formatLocalTime } from '@/utils/format';
 
-import AddressAutocomplete from './AddressAutocomplete';
+/* ── Persisted Setup state (sessionStorage) ─────────────────────────────
+   Mirrors Task 7.3's airbridge_search_state. Shape updated in brief v2.4:
+   rideshareProvider is gone (provider selection moves to Results/Active
+   Trip); gateBuffer + hasBoardingPass are back; security is a 4-valued
+   enum now (none | precheck | clear | clear_precheck).
+*/
+const SETUP_STATE_KEY = 'airbridge_setup_state';
 
-// ── Constants ───────────────────────────────────────────────────────────────
-const GATE_TIME_SNAPS = [0, 15, 30, 45, 60, 90, 120, 150, 180];
-const GATE_TIME_LABELS = {
-    0: '0 min · Board on arrival',
-    15: '15 min · Quick settle-in',
-    30: '30 min · Time to relax',
-    45: '45 min · Grab a bite',
-    60: '1 hour · Work or explore',
-    90: '1h 30m · Plenty of time',
-    120: '2 hours · Full airport experience',
-    150: '2h 30m · Extended airport time',
-    180: '3 hours · Maximum comfort',
-};
-
-function snapToNearest(val) {
-    let closest = GATE_TIME_SNAPS[0];
-    let minDist = Math.abs(val - closest);
-    for (const snap of GATE_TIME_SNAPS) {
-        const dist = Math.abs(val - snap);
-        if (dist < minDist) { closest = snap; minDist = dist; }
-    }
-    return closest;
+function loadSetupState() {
+    try {
+        const raw = sessionStorage.getItem(SETUP_STATE_KEY);
+        if (!raw) return null;
+        const parsed = JSON.parse(raw);
+        return parsed && typeof parsed === 'object' ? parsed : null;
+    } catch { return null; }
 }
 
-const TRANSPORT_OPTIONS = [
-    { id: 'rideshare', label: 'Rideshare', icon: Car },
-    { id: 'driving', label: 'Drive', icon: Car },
-    { id: 'train', label: 'Train', icon: Train },
-    { id: 'bus', label: 'Bus', icon: Bus },
+function saveSetupState(state) {
+    try { sessionStorage.setItem(SETUP_STATE_KEY, JSON.stringify(state)); }
+    catch { /* quota / private mode — ignore */ }
+}
+
+export function clearSetupState() {
+    try { sessionStorage.removeItem(SETUP_STATE_KEY); } catch { /* ignore */ }
+}
+
+/* ── Transport cards (brief v2.4 §4.4) ──────────────────────────────────
+   Three options, distinct icons. Rideshare consolidates Uber/Lyft;
+   provider pick moves to Results/Active Trip where it matters for the
+   deep link. Public transit still maps backend-side to 'train' (Bay
+   Area BART/rail tilt).
+*/
+const TRANSPORT_CARDS = [
+    { id: 'rideshare', icon: Car,           label: 'Rideshare',      subtitle: 'Uber, Lyft, etc.' },
+    { id: 'drive',     icon: SteeringWheel, label: 'Drive',          subtitle: '+~10 min parking' },
+    { id: 'transit',   icon: Train,         label: 'Public transit', subtitle: 'Bus, BART, rail' },
 ];
 
-const BUFFER_PRESETS = [
-    { label: 'Tight · 15 min', value: 15 },
-    { label: 'Comfortable · 30 min', value: 30 },
-    { label: 'Relaxed · 60 min', value: 60 },
+function cardIdFor(transport) {
+    if (transport === 'rideshare') return 'rideshare';
+    if (transport === 'driving') return 'drive';
+    if (transport === 'train' || transport === 'bus') return 'transit';
+    return null;
+}
+
+function transportFor(cardId) {
+    switch (cardId) {
+        case 'rideshare': return 'rideshare';
+        case 'drive':     return 'driving';
+        case 'transit':   return 'train';
+        default:          return null;
+    }
+}
+
+/* ── Security — 4 options per brief v2.4 (rule 17 updated) ──────────── */
+const SECURITY_OPTIONS = [
+    { id: 'none',          title: 'None',             subtitle: 'Standard security lane' },
+    { id: 'precheck',      title: 'TSA PreCheck',     subtitle: 'Dedicated fast lane',      badge: 'Saves ~15 min' },
+    { id: 'clear',         title: 'CLEAR',            subtitle: 'Biometric fast lane',      badge: 'Saves ~15 min' },
+    { id: 'clear_precheck',title: 'PreCheck + CLEAR', subtitle: 'Fastest combined lane',    badge: 'Saves ~20 min' },
 ];
 
-const pageTransition = {
-    initial: { opacity: 0, y: 24 },
-    animate: { opacity: 1, y: 0, transition: { duration: 0.4, ease: [0.4, 0, 0.2, 1] } },
-    exit: { opacity: 0, y: -16, transition: { duration: 0.25, ease: [0.4, 0, 1, 1] } },
-};
+// Map UI value ↔ parent's 3-boolean security state. Aligns with
+// Engine.computeSecurityAccess() which already emits the same strings
+// to the backend (hasPriorityLane is always forced false — brief v2.4
+// still excludes it).
+function securityIdFrom(hasPrecheck, hasClear) {
+    if (hasPrecheck && hasClear) return 'clear_precheck';
+    if (hasPrecheck) return 'precheck';
+    if (hasClear) return 'clear';
+    return 'none';
+}
 
-const stagger = {
-    hidden: { opacity: 0, y: 16 },
-    visible: (i) => ({
-        opacity: 1, y: 0,
-        transition: { delay: i * 0.07, duration: 0.35, ease: [0.4, 0, 0.2, 1] },
-    }),
-};
+/* ── Gate buffer (brief v2.5 §4.4) ──────────────────────────────────── */
+const GATE_BUFFER_MIN = 15;
+const GATE_BUFFER_MAX = 120;
+const GATE_BUFFER_STEP = 5;
+const GATE_BUFFER_DEFAULT = 30;
+
+// Legacy v2.4 preset labels → v2.5 minute values (for sessionStorage
+// hydration across the version bump).
+const LEGACY_GATE_BUFFER_MAP = { tight: 15, comfortable: 30, relaxed: 60 };
+
+function normalizeGateBuffer(raw) {
+    if (typeof raw === 'string' && raw in LEGACY_GATE_BUFFER_MAP) return LEGACY_GATE_BUFFER_MAP[raw];
+    if (typeof raw === 'number' && Number.isFinite(raw)) {
+        // Clamp + snap to the 5-minute grid
+        const clamped = Math.max(GATE_BUFFER_MIN, Math.min(GATE_BUFFER_MAX, raw));
+        return Math.round(clamped / GATE_BUFFER_STEP) * GATE_BUFFER_STEP;
+    }
+    return GATE_BUFFER_DEFAULT;
+}
+
+const BAG_COUNT_MIN = 0;
+const BAG_COUNT_MAX = 10;
 
 export default function StepDepartureSetup({
     selectedFlight, flightNumber,
@@ -68,340 +115,684 @@ export default function StepDepartureSetup({
     transport, setTransport,
     hasPrecheck, setHasPrecheck,
     hasClear, setHasClear,
-    hasPriorityLane, setHasPriorityLane,
-    hasBoardingPass, setHasBoardingPass,
+    setHasPriorityLane, // write-only — brief v2.4 still excludes Priority Lane
     bagCount, setBagCount,
     withChildren, setWithChildren,
+    hasBoardingPass, setHasBoardingPass,
     gateTime, setGateTime,
-    currentTripId, isSubmitting, isRecomputing,
+    currentTripId, isSubmitting,
     apiError, setApiError,
-    onRecalculate, onBack, onReset,
+    onRecalculate, onBack,
 }) {
-    const hasAddress = startingAddress.trim().length > 0;
-    const isPresetGateTime = BUFFER_PRESETS.some(p => p.value === gateTime);
-    const [customSliderOpen, setCustomSliderOpen] = useState(!isPresetGateTime);
-    // Determine if current gateTime matches a preset
-    const activePreset = BUFFER_PRESETS.find(p => p.value === gateTime);
+    const navigate = useNavigate();
 
-    // Auto-expand custom slider when gateTime is set to a non-preset value (e.g., from active trip)
+    const hydratedOnceRef = useRef(false);
+    const [geolocation, setGeolocation] = useState({
+        loading: false,
+        denied: false,
+        error: null,
+    });
+
+    // Normalize the parent's incoming gateTime once on mount: clamp to
+    // [15, 120], snap to the 5-min grid, and substitute the default if
+    // the upstream prop is undefined/junk. Keeps the slider in a valid
+    // position regardless of whatever Engine/profile hydration handed us.
     useEffect(() => {
-        const isPreset = BUFFER_PRESETS.some(p => p.value === gateTime);
-        if (!isPreset && !customSliderOpen) {
-            setCustomSliderOpen(true);
+        const normalized = normalizeGateBuffer(gateTime);
+        if (normalized !== gateTime) setGateTime(normalized);
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
+
+    useEffect(() => {
+        if (hydratedOnceRef.current) return;
+        hydratedOnceRef.current = true;
+        const saved = loadSetupState();
+        if (!saved) return;
+        if (typeof saved.address === 'string' && saved.address && !startingAddress) {
+            setStartingAddress(saved.address);
         }
-    }, [gateTime]);
+        if (saved.transport && saved.transport !== transport) {
+            setTransport(saved.transport);
+        }
+        if (['none', 'precheck', 'clear', 'clear_precheck'].includes(saved.security)) {
+            setHasPriorityLane(false);
+            setHasPrecheck(saved.security === 'precheck' || saved.security === 'clear_precheck');
+            setHasClear(saved.security === 'clear' || saved.security === 'clear_precheck');
+        }
+        // v2.5: bags is an integer count now. Legacy v2.4 sessions may
+        // have persisted a boolean — map true→1, false→0.
+        if (typeof saved.bags === 'number') {
+            const clamped = Math.max(BAG_COUNT_MIN, Math.min(BAG_COUNT_MAX, Math.trunc(saved.bags)));
+            setBagCount(clamped);
+        } else if (typeof saved.bags === 'boolean') {
+            setBagCount(saved.bags ? 1 : 0);
+        }
+        if (typeof saved.children === 'boolean') {
+            setWithChildren(saved.children);
+        }
+        if (typeof saved.hasBoardingPass === 'boolean') {
+            setHasBoardingPass(saved.hasBoardingPass);
+        }
+        // v2.5: gateBuffer is minutes (15-120 step 5). Legacy v2.4
+        // sessions may have persisted a preset label — map via
+        // LEGACY_GATE_BUFFER_MAP inside normalizeGateBuffer().
+        if (saved.gateBuffer !== undefined) {
+            setGateTime(normalizeGateBuffer(saved.gateBuffer));
+        }
+        if (saved.geolocationDenied) {
+            setGeolocation((g) => ({ ...g, denied: true }));
+        }
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, []);
 
-    // Security chip helpers
-    const isNoneSecurity = !hasPrecheck && !hasClear && !hasPriorityLane;
+    // Security UI value derived from the parent's (hasPrecheck, hasClear) pair.
+    const security = securityIdFrom(hasPrecheck, hasClear);
+    const setSecurity = (id) => {
+        setHasPriorityLane(false);
+        setHasPrecheck(id === 'precheck' || id === 'clear_precheck');
+        setHasClear(id === 'clear' || id === 'clear_precheck');
+    };
 
-    function handleSecurityChip(chip) {
-        if (chip === 'none') {
-            setHasPrecheck(false);
-            setHasClear(false);
-            setHasPriorityLane(false);
-        } else if (chip === 'precheck') {
-            setHasPrecheck(v => !v);
-            setHasClear(false);
-            setHasPriorityLane(false);
-        } else if (chip === 'clear') {
-            setHasClear(v => !v);
-            setHasPrecheck(false);
-            setHasPriorityLane(false);
-        } else if (chip === 'clear_precheck') {
-            const isComboActive = hasPrecheck && hasClear;
-            setHasPrecheck(!isComboActive);
-            setHasClear(!isComboActive);
-            setHasPriorityLane(false);
-        } else if (chip === 'priority') {
-            setHasPriorityLane(v => !v);
-            if (!hasPriorityLane) { setHasPrecheck(false); setHasClear(false); }
+    // Bags stepper — parent owns bagCount. Clamp on set.
+    const incBags = () => setBagCount(Math.min(BAG_COUNT_MAX, bagCount + 1));
+    const decBags = () => setBagCount(Math.max(BAG_COUNT_MIN, bagCount - 1));
+
+    useEffect(() => {
+        if (!hydratedOnceRef.current) return;
+        saveSetupState({
+            address: startingAddress,
+            transport,
+            security,
+            bags: bagCount,
+            children: withChildren,
+            hasBoardingPass,
+            gateBuffer: gateTime,
+            geolocationDenied: geolocation.denied,
+        });
+    }, [startingAddress, transport, security, bagCount, withChildren, hasBoardingPass, gateTime, geolocation.denied]);
+
+    const hasAddress = startingAddress.trim().length > 0;
+    const isCancelled = !!selectedFlight?.canceled;
+    const canSubmit = !isSubmitting && hasAddress && !isCancelled;
+
+    const flightSubtitle = useMemo(() => {
+        if (!selectedFlight) return flightNumber?.toUpperCase() || '';
+        const num = (flightNumber || selectedFlight.flight_number || '').toUpperCase();
+        const origin = selectedFlight.origin_code || '';
+        const dest = selectedFlight.destination_code || '';
+        const time = formatLocalTime(selectedFlight.departure_time);
+        return [num, origin && dest ? `${origin} → ${dest}` : '', time]
+            .filter(Boolean)
+            .join(' · ');
+    }, [selectedFlight, flightNumber]);
+
+    const selectedCardId = cardIdFor(transport);
+
+    const handleCardTap = (cardId) => {
+        const next = transportFor(cardId);
+        if (next) setTransport(next);
+    };
+
+    const handleUseCurrentLocation = async () => {
+        if (geolocation.loading) return;
+        setGeolocation({ loading: true, denied: false, error: null });
+        try {
+            loadGoogleMaps().catch(() => {});
+            const pos = await getCurrentPosition();
+            const address = await reverseGeocode(pos.coords.latitude, pos.coords.longitude);
+            setStartingAddress(address);
+            setAddressError(null);
+            setGeolocation({ loading: false, denied: false, error: null });
+        } catch (err) {
+            const denied = err?.code === 1 || /denied|permission/i.test(err?.message || '');
+            setGeolocation({
+                loading: false,
+                denied,
+                error: denied ? null : (err?.message || 'Could not get your location'),
+            });
+        }
+    };
+
+    return (
+        <div className="w-full max-w-[800px] mx-auto -mx-4">
+            <TopBar title="Departure setup" onBack={onBack} />
+
+            {flightSubtitle && (
+                <div className="border-b border-c-border-hairline bg-c-ground px-c-4 py-c-2">
+                    <p className="c-type-footnote text-c-text-secondary text-center">{flightSubtitle}</p>
+                </div>
+            )}
+
+            <div className="px-c-6 pb-c-12 pt-c-6 space-y-c-8">
+
+                {isCancelled && (
+                    <div className="rounded-c-lg bg-c-urgency-surface border border-c-urgency/30 p-c-5">
+                        <div className="flex items-start gap-c-3">
+                            <WarningCircle size={24} weight="fill" className="text-c-urgency shrink-0 mt-0.5" />
+                            <div className="flex-1 min-w-0">
+                                <h3 className="c-type-headline text-c-urgency">This flight has been cancelled.</h3>
+                                <p className="c-type-body text-c-text-primary mt-c-1">
+                                    We can't plan a journey for a flight that isn't happening. You may want to search for an alternative.
+                                </p>
+                                <div className="mt-c-4">
+                                    <Button
+                                        variant="destructive"
+                                        size="sm"
+                                        onClick={() => navigate('/', { replace: true })}
+                                    >
+                                        Search for alternatives
+                                    </Button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                )}
+
+                {apiError && !isCancelled && (
+                    <div className="rounded-c-md bg-c-urgency-surface border border-c-urgency/30 p-c-4 flex items-start gap-c-3">
+                        <WarningCircle size={20} weight="regular" className="text-c-urgency shrink-0 mt-0.5" />
+                        <div className="flex-1">
+                            <p className="c-type-footnote text-c-urgency">{apiError}</p>
+                            <button
+                                type="button"
+                                onClick={() => setApiError(null)}
+                                className="c-type-footnote text-c-urgency underline mt-c-1"
+                            >
+                                Dismiss
+                            </button>
+                        </div>
+                    </div>
+                )}
+
+                {!isCancelled && (
+                    <>
+                        {/* ── Section 1: Address ───────────────────────── */}
+                        <section>
+                            <SectionHeading icon={MapPin}>Where are you leaving from?</SectionHeading>
+                            <PlacesInput
+                                ref={addressInputRef}
+                                containerRef={addressContainerRef}
+                                value={startingAddress}
+                                onChange={(v) => { setStartingAddress(v); setAddressError(null); }}
+                                hasError={!!addressError}
+                                placeholder="Enter your departure address"
+                            />
+                            {addressError && (
+                                <p className="c-type-footnote text-c-urgency mt-c-2">{addressError}</p>
+                            )}
+                            <div className="mt-c-3 flex items-center gap-c-2">
+                                <button
+                                    type="button"
+                                    onClick={handleUseCurrentLocation}
+                                    disabled={geolocation.loading}
+                                    className={cn(
+                                        'inline-flex items-center gap-c-1 c-type-footnote font-medium text-c-brand-primary',
+                                        'hover:text-c-brand-primary-hover transition-colors',
+                                        'focus:outline-none focus-visible:ring-2 focus-visible:ring-c-brand-primary focus-visible:ring-offset-2 rounded-c-xs',
+                                        geolocation.loading && 'opacity-60 cursor-wait'
+                                    )}
+                                >
+                                    <NavigationArrow size={14} weight="fill" />
+                                    {geolocation.loading ? 'Getting your location…' : 'Use my current location'}
+                                </button>
+                            </div>
+                            {geolocation.denied && (
+                                <p className="c-type-footnote text-c-text-secondary mt-c-2">
+                                    Location access denied. Enter your address above.
+                                </p>
+                            )}
+                            {geolocation.error && (
+                                <p className="c-type-footnote text-c-urgency mt-c-2">{geolocation.error}</p>
+                            )}
+                        </section>
+
+                        {/* ── Section 2: Transport (3-card row) ────────── */}
+                        <section>
+                            <SectionHeading icon={Car}>How are you getting there?</SectionHeading>
+                            <div className="grid grid-cols-3 gap-c-3">
+                                {TRANSPORT_CARDS.map((card) => {
+                                    const active = selectedCardId === card.id;
+                                    const Icon = card.icon;
+                                    return (
+                                        <button
+                                            key={card.id}
+                                            type="button"
+                                            onClick={() => handleCardTap(card.id)}
+                                            aria-pressed={active}
+                                            className={cn(
+                                                'flex flex-col items-start gap-c-2 p-c-4 rounded-c-md border transition-colors text-left min-h-[104px]',
+                                                'focus:outline-none focus-visible:ring-2 focus-visible:ring-c-brand-primary focus-visible:ring-offset-2',
+                                                active
+                                                    ? 'bg-c-brand-primary-surface border-c-brand-primary'
+                                                    : 'bg-c-ground-elevated border-c-border-hairline hover:border-c-border-strong'
+                                            )}
+                                        >
+                                            <Icon
+                                                size={24}
+                                                weight={active ? 'fill' : 'regular'}
+                                                className={active ? 'text-c-brand-primary' : 'text-c-text-secondary'}
+                                            />
+                                            <div className="min-w-0">
+                                                <p className={cn(
+                                                    'c-type-body font-semibold',
+                                                    active ? 'text-c-brand-primary' : 'text-c-text-primary'
+                                                )}>
+                                                    {card.label}
+                                                </p>
+                                                <p className="c-type-footnote text-c-text-secondary">
+                                                    {card.subtitle}
+                                                </p>
+                                            </div>
+                                        </button>
+                                    );
+                                })}
+                            </div>
+                        </section>
+
+                        {/* ── Section 3: Security — stacked on mobile,
+                                4-col row on ≥768px per brief v2.5 ──────────── */}
+                        <section>
+                            <SectionHeading icon={Shield}>Security access</SectionHeading>
+                            <div className="grid grid-cols-1 md:grid-cols-4 gap-c-3">
+                                {SECURITY_OPTIONS.map((opt) => (
+                                    <SecurityOption
+                                        key={opt.id}
+                                        active={security === opt.id}
+                                        onClick={() => setSecurity(opt.id)}
+                                        title={opt.title}
+                                        subtitle={opt.subtitle}
+                                        badge={opt.badge}
+                                    />
+                                ))}
+                            </div>
+                        </section>
+
+                        {/* ── Section 4: Gate buffer slider (v2.5) ─────── */}
+                        <section>
+                            <SectionHeading icon={Timer}>How early at your gate?</SectionHeading>
+                            <GateBufferSlider value={gateTime} onChange={setGateTime} />
+                            <p className="c-type-footnote text-c-text-secondary mt-c-2">
+                                Extra time at your gate before boarding begins.
+                            </p>
+                        </section>
+
+                        {/* ── Section 5: Bags stepper (v2.5) ───────────── */}
+                        <section>
+                            <StepperRow
+                                icon={SuitcaseRolling}
+                                title="Checked bags"
+                                subtitle="Each bag adds bag-drop time."
+                                value={bagCount}
+                                onDecrement={decBags}
+                                onIncrement={incBags}
+                                min={BAG_COUNT_MIN}
+                                max={BAG_COUNT_MAX}
+                            />
+                        </section>
+
+                        {/* ── Section 6: Children ──────────────────────── */}
+                        <section>
+                            <ToggleRow
+                                icon={Baby}
+                                title="Traveling with children"
+                                subtitle="Adjusts walking pace at airport"
+                                checked={withChildren}
+                                onCheckedChange={setWithChildren}
+                            />
+                        </section>
+
+                        {/* ── Section 7: Boarding pass ─────────────────── */}
+                        <section>
+                            <ToggleRow
+                                icon={QrCode}
+                                title="Mobile boarding pass ready?"
+                                subtitle="Skip the check-in line if you already have one"
+                                checked={hasBoardingPass}
+                                onCheckedChange={setHasBoardingPass}
+                            />
+                        </section>
+
+                        {/* ── Primary CTA ──────────────────────────────── */}
+                        <div className="pt-c-2">
+                            <Button
+                                variant="primary"
+                                full
+                                disabled={!canSubmit}
+                                onClick={onRecalculate}
+                                leftIcon={<Rocket size={18} weight="fill" />}
+                            >
+                                {isSubmitting ? 'Planning your trip…' : currentTripId ? 'Update my trip' : 'Start my trip'}
+                            </Button>
+                        </div>
+                    </>
+                )}
+            </div>
+        </div>
+    );
+}
+
+/* ── Section heading with Phosphor glyph (replaces emoji) ─────────────── */
+function SectionHeading({ icon: Icon, children }) {
+    return (
+        <h2 className="c-type-headline text-c-text-primary mb-c-3 flex items-center gap-c-2">
+            <Icon size={18} weight="regular" className="text-c-text-secondary shrink-0" />
+            <span>{children}</span>
+        </h2>
+    );
+}
+
+/* ── Security option card ───────────────────────────────────────────────
+   Reflows between two shapes:
+   - <md: horizontal list-row (icon-left, text-middle, badge-right)
+   - ≥md: 4-col grid tile — icon top-left, label + subtitle stacked,
+          savings badge pinned at card bottom (mt-auto so empty-badge
+          tiles like "None" keep the same min-height). */
+function SecurityOption({ active, onClick, title, subtitle, badge }) {
+    return (
+        <button
+            type="button"
+            onClick={onClick}
+            aria-pressed={active}
+            className={cn(
+                'w-full flex items-center gap-c-3 md:flex-col md:items-start md:gap-c-2 p-c-4 rounded-c-md border transition-colors text-left',
+                'md:min-h-[148px]',
+                'focus:outline-none focus-visible:ring-2 focus-visible:ring-c-brand-primary focus-visible:ring-offset-2',
+                active
+                    ? 'bg-c-brand-primary-surface border-c-brand-primary'
+                    : 'bg-c-ground-elevated border-c-border-hairline hover:border-c-border-strong'
+            )}
+        >
+            <Shield
+                size={22}
+                weight={active ? 'fill' : 'regular'}
+                className={cn('shrink-0', active ? 'text-c-brand-primary' : 'text-c-text-secondary')}
+            />
+            <div className="flex-1 md:flex-none md:w-full min-w-0">
+                <p className={cn(
+                    'c-type-body font-semibold',
+                    active ? 'text-c-brand-primary' : 'text-c-text-primary'
+                )}>{title}</p>
+                <p className="c-type-footnote text-c-text-secondary">{subtitle}</p>
+            </div>
+            {badge && (
+                <span className="shrink-0 md:mt-auto inline-flex items-center px-c-2 py-c-1 rounded-c-pill bg-c-confidence-surface text-c-confidence c-type-footnote font-semibold">
+                    {badge}
+                </span>
+            )}
+        </button>
+    );
+}
+
+/* ── Generic labelled toggle row (now with optional Phosphor icon) ────── */
+function ToggleRow({ icon: Icon, title, subtitle, checked, onCheckedChange }) {
+    return (
+        <label className="flex items-center gap-c-3 p-c-4 rounded-c-md bg-c-ground-elevated border border-c-border-hairline cursor-pointer">
+            {Icon && (
+                <Icon size={20} weight="regular" className="text-c-text-secondary shrink-0" />
+            )}
+            <div className="flex-1 min-w-0">
+                <p className="c-type-body font-semibold text-c-text-primary">{title}</p>
+                <p className="c-type-footnote text-c-text-secondary mt-c-1">{subtitle}</p>
+            </div>
+            <Switch checked={checked} onCheckedChange={onCheckedChange} />
+        </label>
+    );
+}
+
+/* ── Stepper row (bags, v2.5 — rule 18 revoked) ───────────────────────── */
+function StepperRow({ icon: Icon, title, subtitle, value, onIncrement, onDecrement, min, max }) {
+    const atMin = value <= min;
+    const atMax = value >= max;
+    const stepBtn = (disabled) => cn(
+        'w-10 h-10 rounded-c-pill flex items-center justify-center border transition-colors',
+        'focus:outline-none focus-visible:ring-2 focus-visible:ring-c-brand-primary focus-visible:ring-offset-2',
+        disabled
+            ? 'bg-c-ground-sunken border-c-border-hairline text-c-text-tertiary cursor-not-allowed'
+            : 'bg-c-ground-elevated border-c-border-hairline text-c-text-primary hover:border-c-border-strong'
+    );
+    return (
+        <div className="flex items-center gap-c-3 p-c-4 rounded-c-md bg-c-ground-elevated border border-c-border-hairline">
+            {Icon && <Icon size={20} weight="regular" className="text-c-text-secondary shrink-0" />}
+            <div className="flex-1 min-w-0">
+                <p className="c-type-body font-semibold text-c-text-primary">{title}</p>
+                <p className="c-type-footnote text-c-text-secondary mt-c-1">{subtitle}</p>
+            </div>
+            <div className="flex items-center gap-c-2 shrink-0">
+                <button
+                    type="button"
+                    onClick={onDecrement}
+                    disabled={atMin}
+                    aria-label="Decrease"
+                    className={stepBtn(atMin)}
+                >
+                    <Minus size={16} weight="bold" />
+                </button>
+                <span
+                    aria-live="polite"
+                    className="w-8 text-center c-type-title text-c-text-primary tabular-nums"
+                >
+                    {value}
+                </span>
+                <button
+                    type="button"
+                    onClick={onIncrement}
+                    disabled={atMax}
+                    aria-label="Increase"
+                    className={stepBtn(atMax)}
+                >
+                    <Plus size={16} weight="bold" />
+                </button>
+            </div>
+        </div>
+    );
+}
+
+/* ── Gate-buffer slider (bags, v2.5) ──────────────────────────────────── */
+/* Native <input type="range"> styled with CSS. Chose native over a
+   custom pointer-handler because it gives keyboard nav, iOS/Android
+   haptics, and accessibility for free. Track fill is a linear-gradient
+   computed from the current value; thumb is themed via vendor prefixes. */
+function GateBufferSlider({ value, onChange }) {
+    const pct = ((value - GATE_BUFFER_MIN) / (GATE_BUFFER_MAX - GATE_BUFFER_MIN)) * 100;
+    return (
+        <div>
+            <div className="flex items-baseline justify-between mb-c-3">
+                <span className="c-type-title text-c-text-primary tabular-nums">{value} min</span>
+                <div className="flex items-center gap-c-3 c-type-footnote text-c-text-tertiary">
+                    <span>{GATE_BUFFER_MIN}m</span>
+                    <span aria-hidden="true">—</span>
+                    <span>{GATE_BUFFER_MAX}m</span>
+                </div>
+            </div>
+            <input
+                type="range"
+                min={GATE_BUFFER_MIN}
+                max={GATE_BUFFER_MAX}
+                step={GATE_BUFFER_STEP}
+                value={value}
+                onChange={(e) => onChange(Number(e.target.value))}
+                aria-label="Gate arrival buffer in minutes"
+                style={{
+                    background: `linear-gradient(to right, var(--c-brand-primary) 0% ${pct}%, var(--c-border-hairline) ${pct}% 100%)`,
+                }}
+                className={cn(
+                    'w-full h-1.5 rounded-c-pill appearance-none cursor-pointer',
+                    'focus:outline-none focus-visible:ring-2 focus-visible:ring-c-brand-primary focus-visible:ring-offset-2',
+                    // WebKit thumb
+                    '[&::-webkit-slider-thumb]:appearance-none',
+                    '[&::-webkit-slider-thumb]:w-5 [&::-webkit-slider-thumb]:h-5',
+                    '[&::-webkit-slider-thumb]:rounded-full',
+                    '[&::-webkit-slider-thumb]:bg-c-brand-primary',
+                    '[&::-webkit-slider-thumb]:border-2',
+                    '[&::-webkit-slider-thumb]:border-c-ground-elevated',
+                    '[&::-webkit-slider-thumb]:shadow-c-md',
+                    '[&::-webkit-slider-thumb]:cursor-grab',
+                    'active:[&::-webkit-slider-thumb]:cursor-grabbing',
+                    // Firefox thumb
+                    '[&::-moz-range-thumb]:w-5 [&::-moz-range-thumb]:h-5',
+                    '[&::-moz-range-thumb]:rounded-full',
+                    '[&::-moz-range-thumb]:bg-c-brand-primary',
+                    '[&::-moz-range-thumb]:border-2',
+                    '[&::-moz-range-thumb]:border-c-ground-elevated',
+                    '[&::-moz-range-thumb]:shadow-c-md',
+                    '[&::-moz-range-thumb]:cursor-grab'
+                )}
+            />
+        </div>
+    );
+}
+
+/* ── DS-styled Google Places autocomplete ─────────────────────────────── */
+const PlacesInput = React.forwardRef(function PlacesInput(
+    { value, onChange, placeholder, hasError, containerRef },
+    ref
+) {
+    const [query, setQuery] = useState('');
+    const [open, setOpen] = useState(false);
+    const [results, setResults] = useState([]);
+    const [highlightIdx, setHighlightIdx] = useState(0);
+
+    const wrapperRef = useRef(null);
+    const inputRef = useRef(null);
+    const serviceRef = useRef(null);
+    const sessionTokenRef = useRef(null);
+    const debounceRef = useRef(null);
+
+    React.useImperativeHandle(ref, () => inputRef.current, []);
+    React.useImperativeHandle(containerRef, () => wrapperRef.current, []);
+
+    useEffect(() => {
+        loadGoogleMaps()
+            .then(() => {
+                serviceRef.current = new window.google.maps.places.AutocompleteService();
+                sessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken();
+            })
+            .catch(() => { /* places unavailable — user can still type */ });
+    }, []);
+
+    useEffect(() => {
+        function handleClick(e) {
+            if (wrapperRef.current && !wrapperRef.current.contains(e.target)) setOpen(false);
+        }
+        document.addEventListener('mousedown', handleClick);
+        return () => document.removeEventListener('mousedown', handleClick);
+    }, []);
+
+    function fetchPredictions(input) {
+        if (!serviceRef.current || !input.trim()) { setResults([]); return; }
+        serviceRef.current.getPlacePredictions(
+            {
+                input,
+                componentRestrictions: { country: 'us' },
+                sessionToken: sessionTokenRef.current,
+            },
+            (predictions, status) => {
+                if (status === window.google.maps.places.PlacesServiceStatus.OK && predictions) {
+                    setResults(predictions.slice(0, 5));
+                } else {
+                    setResults([]);
+                }
+            }
+        );
+    }
+
+    function handleInputChange(e) {
+        const text = e.target.value;
+        setQuery(text);
+        setOpen(true);
+        setHighlightIdx(0);
+        clearTimeout(debounceRef.current);
+        debounceRef.current = setTimeout(() => fetchPredictions(text), 200);
+    }
+
+    function handleSelect(prediction) {
+        onChange(prediction.description);
+        setQuery('');
+        setOpen(false);
+        setResults([]);
+        if (window.google?.maps?.places) {
+            sessionTokenRef.current = new window.google.maps.places.AutocompleteSessionToken();
         }
     }
 
+    function handleClear() {
+        onChange('');
+        setQuery('');
+        setResults([]);
+        inputRef.current?.focus();
+    }
+
+    function handleKeyDown(e) {
+        if (!open || results.length === 0) {
+            if (e.key === 'Escape') setOpen(false);
+            return;
+        }
+        if (e.key === 'ArrowDown') { e.preventDefault(); setHighlightIdx((i) => Math.min(i + 1, results.length - 1)); }
+        else if (e.key === 'ArrowUp') { e.preventDefault(); setHighlightIdx((i) => Math.max(i - 1, 0)); }
+        else if (e.key === 'Enter') { e.preventDefault(); handleSelect(results[highlightIdx]); }
+        else if (e.key === 'Escape') { setOpen(false); }
+    }
+
     return (
-        <motion.div key="s3" {...pageTransition} className="w-full max-w-2xl mx-auto">
-            <motion.div custom={0} variants={stagger} initial="hidden" animate="visible" className="flex items-center gap-3 mb-6">
-                <button onClick={onBack} className="w-9 h-9 rounded-xl border border-border bg-card flex items-center justify-center text-muted-foreground hover:text-foreground hover:border-muted-foreground/30 transition-all">
-                    <ArrowLeft className="w-4 h-4" />
-                </button>
-                <div>
-                    <h1 className="text-2xl font-black text-foreground tracking-tight">Departure Setup</h1>
-                    <p className="text-sm text-muted-foreground">
-                        {currentTripId ? 'Adjust preferences — your trip will be recomputed' : 'Customize your travel preferences'}
-                    </p>
-                </div>
-            </motion.div>
-
-            {/* Error banner */}
-            {apiError && (
-                <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }}
-                    className="rounded-2xl px-5 py-4 mb-5 flex items-start gap-3 bg-destructive/10 border border-destructive/20">
-                    <AlertCircle className="w-5 h-5 text-destructive shrink-0 mt-0.5" />
-                    <div>
-                        <p className="text-destructive text-sm font-medium">{apiError}</p>
-                        <button onClick={() => setApiError(null)}
-                            className="text-sm text-destructive font-semibold underline mt-1 hover:text-destructive/80">
-                            Dismiss
-                        </button>
-                    </div>
-                </motion.div>
-            )}
-
-            {/* 1. Address input — always full opacity */}
-            <motion.div ref={addressContainerRef} custom={1} variants={stagger} initial="hidden" animate="visible" className="mb-5">
-                <label className="text-sm font-semibold text-foreground/70 mb-2 block">Where are you leaving from?</label>
-                <AddressAutocomplete
-                    ref={addressInputRef}
-                    value={startingAddress}
-                    onChange={(v) => { setStartingAddress(v); setAddressError(null); }}
-                    hasError={!!addressError}
-                    className={!hasAddress && !addressError ? '[&>div]:border-primary [&>div]:ring-2 [&>div]:ring-primary/20' : ''}
-                />
-                {addressError && <p className="text-sm text-destructive mt-1.5">{addressError}</p>}
-                {!hasAddress && !addressError && (
-                    <div className="flex items-center gap-2 mt-2.5">
-                        <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
-                        <p className="text-sm text-muted-foreground">Enter your departure location to calculate your journey</p>
-                    </div>
+        <div ref={wrapperRef} className="relative">
+            <div
+                className={cn(
+                    'flex items-center gap-c-2 bg-c-ground-sunken rounded-c-md border border-c-border-hairline px-c-3 h-12',
+                    'focus-within:border-c-border-strong transition-colors duration-c-fast',
+                    hasError && 'border-c-urgency'
                 )}
-            </motion.div>
-
-            {/* 2. Flight badge */}
-            {selectedFlight && (
-                <motion.div custom={2} variants={stagger} initial="hidden" animate="visible"
-                    className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-50 border border-emerald-200 mb-6">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span className="text-sm font-semibold text-emerald-700 flex items-center gap-1.5 flex-wrap">
-                        {flightNumber.toUpperCase()} · {formatLocalTime(selectedFlight.departure_time)} ·{' '}
-                        {shortCity(selectedFlight.origin_name) || selectedFlight.origin_code}{' '}
-                        <span className="font-mono font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded text-[10px]">{selectedFlight.origin_code}</span>
-                        {' → '}
-                        {shortCity(selectedFlight.destination_name) || selectedFlight.destination_code}{' '}
-                        <span className="font-mono font-bold bg-emerald-100 text-emerald-800 px-1.5 py-0.5 rounded text-[10px]">{selectedFlight.destination_code}</span>
-                    </span>
-                </motion.div>
-            )}
-
-            {/* Dimmed wrapper — only preferences + CTA */}
-            <div className={`transition-opacity duration-300 ${hasAddress ? 'opacity-100' : 'opacity-50 pointer-events-none'}`}>
-
-                {/* 3. Transport pills */}
-                <motion.div custom={3} variants={stagger} initial="hidden" animate="visible"
-                    className="bg-card border border-border rounded-2xl overflow-hidden mb-4">
-                    <div className="px-5 py-3.5 border-b border-border">
-                        <h3 className="font-bold text-foreground text-sm">How are you getting there?</h3>
-                    </div>
-                    <div className="px-5 py-4">
-                        <div className="grid grid-cols-4 gap-2">
-                            {TRANSPORT_OPTIONS.map(opt => {
-                                const isActive = transport === opt.id;
-                                return (
-                                    <button key={opt.id} onClick={() => setTransport(opt.id)}
-                                        className={`flex items-center justify-center gap-1.5 px-3 py-2.5 rounded-xl text-sm font-medium border transition-all ${
-                                            isActive
-                                                ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                                                : 'bg-secondary text-foreground/70 border-border hover:border-muted-foreground/30'
-                                        }`}>
-                                        <opt.icon className="w-4 h-4" />
-                                        {opt.label}
-                                    </button>
-                                );
-                            })}
-                        </div>
-                        {transport === 'driving' && (
-                            <p className="text-xs text-muted-foreground mt-2">Includes parking time at airport</p>
-                        )}
-                    </div>
-                </motion.div>
-
-                {/* 4. Security & Travel Details */}
-                <motion.div custom={4} variants={stagger} initial="hidden" animate="visible"
-                    className="bg-card border border-border rounded-2xl overflow-hidden mb-4">
-                    <div className="px-5 py-3.5 border-b border-border">
-                        <h3 className="font-bold text-foreground text-sm">Security & Travel Details</h3>
-                    </div>
-                    <div className="px-5 py-4 space-y-4">
-                        {/* Security chips */}
-                        <div>
-                            <label className="text-xs font-medium text-muted-foreground mb-2 block">Security access</label>
-                            <div className="flex flex-wrap gap-2">
-                                {[
-                                    { id: 'none', label: 'Standard', active: isNoneSecurity },
-                                    { id: 'precheck', label: 'PreCheck', active: hasPrecheck && !hasClear },
-                                    { id: 'clear', label: 'CLEAR', active: hasClear && !hasPrecheck },
-                                    { id: 'clear_precheck', label: 'PreCheck + CLEAR', active: hasPrecheck && hasClear },
-                                    { id: 'priority', label: 'Priority Lane (Airline)', active: hasPriorityLane, subtitle: 'First/Business or elite status' },
-                                ].map(chip => (
-                                    <button key={chip.id} onClick={() => handleSecurityChip(chip.id)}
-                                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium border transition-all ${
-                                            chip.active
-                                                ? 'bg-primary text-primary-foreground border-primary'
-                                                : 'bg-secondary text-foreground/70 border-border hover:border-muted-foreground/30'
-                                        }`}
-                                        title={chip.subtitle || ''}>
-                                        <ShieldCheck className="w-3 h-3" />
-                                        {chip.label}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="border-t border-border" />
-
-                        {/* Boarding pass */}
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <Smartphone className="w-4 h-4 text-muted-foreground" />
-                                <div>
-                                    <p className="text-sm font-medium text-foreground">Boarding Pass</p>
-                                    <p className="text-xs text-muted-foreground">Already have your boarding pass?</p>
-                                </div>
-                            </div>
-                            <Switch checked={hasBoardingPass} onCheckedChange={setHasBoardingPass} />
-                        </div>
-                        {/* Checked bags */}
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <Luggage className="w-4 h-4 text-muted-foreground" />
-                                <div>
-                                    <p className="text-sm font-medium text-foreground">Checked Bags</p>
-                                    <p className="text-xs text-muted-foreground">Number of bags to check</p>
-                                </div>
-                            </div>
-                            <div className="flex items-center gap-2">
-                                <button onClick={() => setBagCount(Math.max(0, bagCount - 1))} disabled={bagCount === 0}
-                                    className={`w-8 h-8 rounded-lg border flex items-center justify-center transition-all ${
-                                        bagCount === 0
-                                            ? 'bg-secondary text-muted-foreground/40 border-border cursor-not-allowed'
-                                            : 'bg-secondary text-foreground border-border hover:border-muted-foreground/30'
-                                    }`}>
-                                    <Minus className="w-3.5 h-3.5" />
-                                </button>
-                                <span className="w-8 text-center text-sm font-bold text-foreground">{bagCount}</span>
-                                <button onClick={() => setBagCount(Math.min(10, bagCount + 1))}
-                                    className="w-8 h-8 rounded-lg border bg-secondary text-foreground border-border hover:border-muted-foreground/30 flex items-center justify-center transition-all">
-                                    <Plus className="w-3.5 h-3.5" />
-                                </button>
-                            </div>
-                        </div>
-                        {/* Children */}
-                        <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
-                                <Baby className="w-4 h-4 text-muted-foreground" />
-                                <div>
-                                    <p className="text-sm font-medium text-foreground">Traveling with children?</p>
-                                    <p className="text-xs text-muted-foreground">Adjusts walking pace at the airport</p>
-                                </div>
-                            </div>
-                            <Switch checked={withChildren} onCheckedChange={setWithChildren} />
-                        </div>
-                    </div>
-                </motion.div>
-
-                {/* 5. Gate buffer — presets + expandable slider */}
-                <motion.div custom={5} variants={stagger} initial="hidden" animate="visible"
-                    className="bg-card border border-border rounded-2xl overflow-hidden mb-4">
-                    <div className="px-5 py-3.5 border-b border-border">
-                        <h3 className="font-bold text-foreground text-sm">How early at your gate?</h3>
-                    </div>
-                    <div className="px-5 py-4">
-                        <div className="grid grid-cols-3 gap-2">
-                            {BUFFER_PRESETS.map(preset => {
-                                const isActive = gateTime === preset.value && !customSliderOpen;
-                                return (
-                                    <button key={preset.value} onClick={() => { setGateTime(preset.value); setCustomSliderOpen(false); }}
-                                        className={`py-2.5 px-2 rounded-xl text-sm font-medium border transition-all text-center ${
-                                            isActive
-                                                ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                                                : 'bg-secondary text-foreground/70 border-border hover:border-muted-foreground/30'
-                                        }`}>
-                                        {preset.label}
-                                    </button>
-                                );
-                            })}
-                        </div>
-
-                        <button onClick={() => setCustomSliderOpen(v => !v)}
-                            className="text-xs text-primary font-medium mt-3 hover:text-primary/80 transition-colors">
-                            {customSliderOpen ? 'Hide custom time' : 'Custom time'}
+            >
+                <MapPin size={18} weight="regular" className="shrink-0 text-c-text-tertiary" />
+                {value ? (
+                    <>
+                        <span className="flex-1 c-type-body text-c-text-primary truncate">{value}</span>
+                        <button
+                            type="button"
+                            onClick={handleClear}
+                            aria-label="Clear address"
+                            className="shrink-0 w-8 h-8 -mr-c-1 flex items-center justify-center rounded-c-pill text-c-text-tertiary hover:text-c-text-primary hover:bg-c-ground-elevated transition-colors"
+                        >
+                            ×
                         </button>
-
-                        <AnimatePresence>
-                            {customSliderOpen && (
-                                <motion.div
-                                    initial={{ height: 0, opacity: 0 }}
-                                    animate={{ height: 'auto', opacity: 1 }}
-                                    exit={{ height: 0, opacity: 0 }}
-                                    transition={{ duration: 0.2 }}
-                                    className="overflow-hidden"
-                                >
-                                    <div className="pt-4">
-                                        <div className="relative h-8">
-                                            <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 h-1 rounded-full bg-primary/20" />
-                                            <div
-                                                className="absolute left-0 top-1/2 -translate-y-1/2 h-1 rounded-full bg-primary"
-                                                style={{ width: `${(gateTime / 180) * 100}%` }}
-                                            />
-                                            <input
-                                                type="range" min={0} max={180} step={1} value={gateTime}
-                                                onChange={(e) => setGateTime(snapToNearest(Number(e.target.value)))}
-                                                className="absolute inset-0 z-20 w-full h-full opacity-0 cursor-pointer"
-                                                aria-label="Gate arrival buffer minutes"
-                                            />
-                                            <div
-                                                className="absolute z-10 w-5 h-5 rounded-full border-2 border-primary bg-background shadow-md pointer-events-none"
-                                                style={{ left: `${(gateTime / 180) * 100}%`, top: '50%', transform: 'translate(-50%, -50%)' }}
-                                            />
-                                            <div className="absolute left-0 right-0 top-1/2 -translate-y-1/2 pointer-events-none">
-                                                {GATE_TIME_SNAPS.map(snap => (
-                                                    <div key={snap}
-                                                        className={`absolute w-0.5 h-2 rounded-full transition-colors ${snap === gateTime ? 'bg-primary' : 'bg-border'}`}
-                                                        style={{ left: `${(snap / 180) * 100}%`, top: '50%', transform: 'translate(-50%, -50%)' }}
-                                                    />
-                                                ))}
-                                            </div>
-                                        </div>
-                                        <div className="mt-3 text-center">
-                                            <p className="text-sm font-bold text-foreground">{GATE_TIME_LABELS[gateTime]}</p>
-                                        </div>
-                                    </div>
-                                </motion.div>
-                            )}
-                        </AnimatePresence>
-                    </div>
-                </motion.div>
-
-                {/* 6. CTA */}
-                <motion.div custom={7} variants={stagger} initial="hidden" animate="visible">
-                    <button onClick={onRecalculate} disabled={isSubmitting || !hasAddress}
-                        className={`w-full py-4 rounded-2xl text-base font-semibold transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 ${
-                            isSubmitting || !hasAddress
-                                ? 'bg-muted text-muted-foreground cursor-not-allowed shadow-none'
-                                : 'bg-foreground hover:bg-foreground/90 text-background shadow-foreground/10'
-                        }`}>
-                        {isSubmitting ? (
-                            <>
-                                <motion.div animate={{ rotate: 360 }} transition={{ repeat: Infinity, duration: 1, ease: 'linear' }}
-                                    className="w-4 h-4 border-2 border-muted-foreground/30 border-t-muted-foreground rounded-full" />
-                                Calculating...
-                            </>
-                        ) : currentTripId ? (
-                            <>
-                                <RefreshCw className="w-4 h-4" />
-                                Update My Departure
-                            </>
-                        ) : (
-                            'Calculate My Departure'
-                        )}
-                    </button>
-                    {/* 8. Start over */}
-                    <button onClick={onReset}
-                        className="w-full text-center text-sm text-muted-foreground hover:text-foreground mt-3 transition-colors">
-                        Start over
-                    </button>
-                </motion.div>
-
+                    </>
+                ) : (
+                    <input
+                        ref={inputRef}
+                        type="text"
+                        value={query}
+                        onChange={handleInputChange}
+                        onFocus={() => { if (query.trim() && results.length) setOpen(true); }}
+                        onKeyDown={handleKeyDown}
+                        placeholder={placeholder}
+                        className="flex-1 bg-transparent outline-none c-type-body text-c-text-primary placeholder:text-c-text-tertiary"
+                        autoComplete="off"
+                    />
+                )}
             </div>
-        </motion.div>
+
+            {open && results.length > 0 && (
+                <div className="absolute z-30 mt-c-2 w-full bg-c-ground-elevated border border-c-border-hairline rounded-c-md shadow-c-lg overflow-hidden">
+                    {results.map((p, i) => {
+                        const main = p.structured_formatting?.main_text || p.description;
+                        const secondary = p.structured_formatting?.secondary_text || '';
+                        return (
+                            <button
+                                key={p.place_id}
+                                type="button"
+                                onMouseDown={() => handleSelect(p)}
+                                onMouseEnter={() => setHighlightIdx(i)}
+                                className={cn(
+                                    'w-full text-left px-c-4 py-c-3 c-type-body transition-colors',
+                                    i === highlightIdx ? 'bg-c-brand-primary-surface' : 'hover:bg-c-ground-sunken'
+                                )}
+                            >
+                                <span className="text-c-text-primary">{main}</span>
+                                {secondary && <span className="text-c-text-secondary"> · {secondary}</span>}
+                            </button>
+                        );
+                    })}
+                </div>
+            )}
+        </div>
     );
-}
+});
