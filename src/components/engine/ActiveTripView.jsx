@@ -588,12 +588,14 @@ function LeaveInHero({ parsed, tone = 'brand' }) {
 
 /* ── Trip context strip — horizontal metadata row above the
    countdown. Pulls date + boarding + departure + gate out of the
-   trip data and surfaces them at footnote weight. The Edit link on
-   the right replaces the previous bottom-row Edit button.
-   Defensive null handling everywhere: each segment self-hides when
-   its source data is missing, so the strip gracefully degrades to
-   fewer segments on a partial trip record. */
-function TripContextStrip({ trip, selectedFlight, boardingTime, onEdit }) {
+   trip data and surfaces them at footnote weight.
+
+   Affordance right-aligned varies by editState:
+     'editable' — Edit link (Pencil, brand). Phases: active, time-to-go.
+     'locked'   — "Untrack to edit" link (tertiary). Phases: en_route,
+                  at_airport, at_gate. Tap opens UntrackConfirmModal.
+     'none'     — no affordance (complete phase; trip is done). */
+function TripContextStrip({ trip, selectedFlight, boardingTime, editState = 'none', onEdit, onUntrack }) {
     const departureDate = trip?.departure_date || '';
     const dateLabel = (() => {
         if (!departureDate) return null;
@@ -615,7 +617,9 @@ function TripContextStrip({ trip, selectedFlight, boardingTime, onEdit }) {
         gate ? { label: 'Gate ', strongLabel: gate } : null,
     ].filter(Boolean);
 
-    if (segments.length === 0 && !onEdit) return null;
+    const showEditable = editState === 'editable' && !!onEdit;
+    const showLocked = editState === 'locked' && !!onUntrack;
+    if (segments.length === 0 && !showEditable && !showLocked) return null;
 
     return (
         <div className="flex items-center gap-c-3 c-type-footnote text-c-text-secondary">
@@ -632,7 +636,7 @@ function TripContextStrip({ trip, selectedFlight, boardingTime, onEdit }) {
                     </React.Fragment>
                 ))}
             </div>
-            {onEdit && (
+            {showEditable && (
                 <button
                     type="button"
                     onClick={onEdit}
@@ -640,6 +644,15 @@ function TripContextStrip({ trip, selectedFlight, boardingTime, onEdit }) {
                 >
                     <Pencil className="w-3.5 h-3.5" />
                     Edit
+                </button>
+            )}
+            {showLocked && (
+                <button
+                    type="button"
+                    onClick={onUntrack}
+                    className="shrink-0 inline-flex items-center text-c-text-tertiary c-type-footnote font-medium underline underline-offset-2 hover:text-c-text-secondary transition-colors"
+                >
+                    Untrack to edit
                 </button>
             )}
         </div>
@@ -669,6 +682,7 @@ function PhaseContent({
                     trip={trip}
                     selectedFlight={selectedFlight}
                     boardingTime={boardingTime}
+                    editState="editable"
                     onEdit={onEditTrip}
                 />
                 <div className="mt-c-6">
@@ -703,13 +717,22 @@ function PhaseContent({
         );
     }
 
-    // ── time-to-go (dark, urgent). Split rendering on the 30-second
-    // threshold: above it we still show a countdown (urgency tone); at
-    // or below, we collapse to the single-line "LEAVE NOW" hero.
+    // ── time-to-go (dark, urgent). Still editable — strip shows the
+    // Edit link. Split rendering on the 30-second threshold: above it
+    // we still show a countdown (urgency tone); at or below, we
+    // collapse to the single-line "LEAVE NOW" hero.
     if (phase === 'time-to-go') {
         const showCountdown = countdownParsed && countdownParsed.totalSec > 30 && !countdownParsed.isDate;
         return (
             <>
+                <TripContextStrip
+                    trip={trip}
+                    selectedFlight={selectedFlight}
+                    boardingTime={boardingTime}
+                    editState="editable"
+                    onEdit={onEditTrip}
+                />
+                <div className="mt-c-6">
                 {showCountdown ? (
                     <LeaveInHero parsed={countdownParsed} tone="urgent" />
                 ) : (
@@ -720,6 +743,7 @@ function PhaseContent({
                         LEAVE NOW
                     </p>
                 )}
+                </div>
                 {terminal && (
                     <p className="c-type-footnote text-white/70 mt-c-3">
                         Head to Terminal {terminal}{gate ? ` · Gate ${gate}` : ''}
@@ -738,12 +762,21 @@ function PhaseContent({
         );
     }
 
-    // ── en_route (dark, focused)
+    // ── en_route (dark, focused). Locked — the trip is in-flight, the
+    // strip shows "Untrack to edit" so the user can fall back to
+    // editing by un-tracking and re-planning.
     if (phase === 'en_route') {
         const driveMin = recommendation?.segments?.find(s => s.id === 'transport')?.duration_minutes;
         return (
             <>
-                <div className="c-type-caption text-c-brand-primary font-semibold uppercase tracking-wider mb-c-2">EN ROUTE</div>
+                <TripContextStrip
+                    trip={trip}
+                    selectedFlight={selectedFlight}
+                    boardingTime={boardingTime}
+                    editState="locked"
+                    onUntrack={onUntrack}
+                />
+                <div className="c-type-caption text-c-brand-primary font-semibold uppercase tracking-wider mb-c-2 mt-c-6">EN ROUTE</div>
                 <p className="c-type-hero text-white tabular-nums leading-none">
                     {driveMin ? formatDuration(driveMin) : '—'}
                 </p>
@@ -769,11 +802,18 @@ function PhaseContent({
         );
     }
 
-    // ── at_airport (dark)
+    // ── at_airport (dark). Locked phase.
     if (phase === 'at_airport') {
         return (
             <>
-                <div className="c-type-caption text-c-brand-primary font-semibold uppercase tracking-wider mb-c-2">AT THE AIRPORT</div>
+                <TripContextStrip
+                    trip={trip}
+                    selectedFlight={selectedFlight}
+                    boardingTime={boardingTime}
+                    editState="locked"
+                    onUntrack={onUntrack}
+                />
+                <div className="c-type-caption text-c-brand-primary font-semibold uppercase tracking-wider mb-c-2 mt-c-6">AT THE AIRPORT</div>
                 <p className="c-type-title-xl text-white font-bold leading-tight">
                     Head to TSA{gate ? ` → Gate ${gate}` : ''}
                 </p>
@@ -798,12 +838,19 @@ function PhaseContent({
         );
     }
 
-    // ── at_gate (dark, calm)
+    // ── at_gate (dark, calm). Locked phase.
     if (phase === 'at_gate') {
         const isDelayed = selectedFlight?.is_delayed;
         return (
             <>
-                <div className="c-type-caption text-c-confidence font-semibold uppercase tracking-wider mb-c-2">AT THE GATE</div>
+                <TripContextStrip
+                    trip={trip}
+                    selectedFlight={selectedFlight}
+                    boardingTime={boardingTime}
+                    editState="locked"
+                    onUntrack={onUntrack}
+                />
+                <div className="c-type-caption text-c-confidence font-semibold uppercase tracking-wider mb-c-2 mt-c-6">AT THE GATE</div>
                 <p className="c-type-title-xl text-white font-bold leading-tight">
                     You're set.
                 </p>
