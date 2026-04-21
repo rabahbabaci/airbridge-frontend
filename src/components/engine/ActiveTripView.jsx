@@ -169,11 +169,26 @@ function PhaseMap({ theme, homeCoords, airportCoords: airCoords, transport, heig
     // ── Fetch directions once per (origin, destination, transport).
     // Cached across mounts in the module-level directionsCache so
     // switching phases via URL param (which can remount the screen)
-    // doesn't burn a fresh Directions call. */
+    // doesn't burn a fresh Directions call.
+    //
+    // Diagnostic logging — if the rendered polyline is a straight line
+    // instead of a routed path, the console trail narrows the cause:
+    //   "[ActiveTripMap] directions skipped: …" → coords missing.
+    //   "[ActiveTripMap] directions status: REQUEST_DENIED" → Google
+    //     Cloud project doesn't have the Directions API enabled.
+    //   "[ActiveTripMap] directions status: OK, N points" → routed path
+    //     was fetched; a straight line then means a downstream render
+    //     bug. */
     useEffect(() => {
         if (hidden) return;
-        if (!GOOGLE_MAPS_API_KEY) return;
-        if (!homeCoords || !airCoords) return;
+        if (!GOOGLE_MAPS_API_KEY) {
+            console.info('[ActiveTripMap] directions skipped: no API key');
+            return;
+        }
+        if (!homeCoords || !airCoords) {
+            console.info('[ActiveTripMap] directions skipped: missing coords', { homeCoords, airCoords });
+            return;
+        }
 
         const cacheKey = directionsCacheKey(homeCoords, airCoords, transport);
         if (cacheKey && directionsCache.has(cacheKey)) {
@@ -204,17 +219,23 @@ function PhaseMap({ theme, homeCoords, airportCoords: airCoords, transport, heig
                                 lat: p.lat(),
                                 lng: p.lng(),
                             }));
+                            console.info(`[ActiveTripMap] directions status: OK, ${path.length} points`);
                             if (cacheKey) directionsCache.set(cacheKey, path);
                             setRoutePath(path);
                         } else {
-                            // Leaves routePath as null so the render falls back
-                            // to the home→airport straight geodesic line.
-                            console.warn('Directions lookup failed:', status);
+                            // Non-OK status is the signal most likely to
+                            // hit production: REQUEST_DENIED means the
+                            // Directions API is not enabled on the key's
+                            // Google Cloud project. Enable it at:
+                            // console.cloud.google.com/apis/library/directions-backend.googleapis.com
+                            // Leaves routePath as null so the render falls
+                            // back to the home→airport straight line.
+                            console.warn('[ActiveTripMap] directions status:', status);
                         }
                     }
                 );
             } catch (err) {
-                console.error('Directions init failed:', err);
+                console.error('[ActiveTripMap] directions init failed:', err);
             }
         })();
 
