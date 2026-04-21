@@ -67,30 +67,59 @@ function shortAddress(full) {
    Concourse warm-paper and navy grounds without fighting them. Kept
    minimal — we hide most POI + business layers so the polyline and
    markers are what the eye goes to. */
+// Hand-tuned light map style matching Concourse's warm-paper ground.
+// Previous pass ran too pale across the board — the land read the
+// same tone as the card surfaces floating on top, so the map looked
+// like a dimmed screenshot. Bumped land saturation, distinguished
+// water with a noticeable sky-slate, and pushed road hierarchy so
+// highways stand out against arterials.
 const LIGHT_MAP_STYLE = [
-    { elementType: 'geometry', stylers: [{ color: '#F8F6F1' }] },
-    { elementType: 'labels.text.fill', stylers: [{ color: '#6B7186' }] },
-    { elementType: 'labels.text.stroke', stylers: [{ color: '#F8F6F1' }] },
+    { elementType: 'geometry', stylers: [{ color: '#EAE3D2' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#5F6478' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#F4EEDE' }] },
     { featureType: 'poi', stylers: [{ visibility: 'off' }] },
     { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#FFFFFF' }] },
-    { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#EDE8DB' }] },
-    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#E5EDF5' }] },
-    { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#F0EDE6' }] },
-    { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#D9D4C6' }] },
+    { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#D1DEBB' }] },
+    { featureType: 'poi.park', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+    { featureType: 'landscape.man_made', elementType: 'geometry', stylers: [{ color: '#EFE7D4' }] },
+    { featureType: 'landscape.natural', elementType: 'geometry', stylers: [{ color: '#E5DCC4' }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#FDFAF3' }] },
+    { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#6F7488' }] },
+    { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#FFFBF0' }] },
+    { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#F0D8A8' }] },
+    { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#D9BC85' }] },
+    { featureType: 'road.local', elementType: 'labels', stylers: [{ visibility: 'simplified' }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#B6D3DE' }] },
+    { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#6B859A' }] },
+    { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#CBBF9E' }] },
+    { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#3D4050' }] },
 ];
 
+// Dark map — Concourse navy family. Previously the land was the same
+// navy as the page ground so the map read as a black rectangle on
+// phone previews. Bump land to a slightly lighter navy so the roads
+// and polyline can hover above it, and give water a deeper slate so
+// the Bay / coastlines pop.
 const DARK_MAP_STYLE = [
-    { elementType: 'geometry', stylers: [{ color: '#0B1220' }] },
-    { elementType: 'labels.text.fill', stylers: [{ color: '#6B7186' }] },
+    { elementType: 'geometry', stylers: [{ color: '#16233F' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#8892A8' }] },
     { elementType: 'labels.text.stroke', stylers: [{ color: '#0B1220' }] },
     { featureType: 'poi', stylers: [{ visibility: 'off' }] },
     { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#1A2540' }] },
-    { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#2A3550' }] },
-    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#070B14' }] },
-    { featureType: 'landscape', elementType: 'geometry', stylers: [{ color: '#111A2E' }] },
-    { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#1F2940' }] },
+    { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#1E3A2E' }] },
+    { featureType: 'poi.park', elementType: 'labels', stylers: [{ visibility: 'off' }] },
+    { featureType: 'landscape.man_made', elementType: 'geometry', stylers: [{ color: '#182742' }] },
+    { featureType: 'landscape.natural', elementType: 'geometry', stylers: [{ color: '#1A2A45' }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#2A3A5C' }] },
+    { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#A8ADBE' }] },
+    { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#304266' }] },
+    { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#4A5D82' }] },
+    { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#6A7DA3' }] },
+    { featureType: 'road.local', elementType: 'labels', stylers: [{ visibility: 'simplified' }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#04080F' }] },
+    { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#6B7186' }] },
+    { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#2A3550' }] },
+    { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#D0D4E0' }] },
 ];
 
 /* ── Phase map — Google Maps JS SDK embed. Static (no gestures), styled
