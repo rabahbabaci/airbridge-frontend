@@ -302,6 +302,22 @@ export default function Settings() {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
             });
+            // Backend differentiates:
+            //   404 {detail: "no_stripe_customer"} → user has no (or stale)
+            //       Stripe customer; show the specific message
+            //   504                                 → timeout; ask to retry
+            //   other non-2xx                      → generic retry message
+            if (res.status === 404) {
+                const body = await res.json().catch(() => ({}));
+                if (body?.detail === 'no_stripe_customer') {
+                    setPortalError(body.message || 'No active Stripe subscription found for this account.');
+                    return;
+                }
+            }
+            if (res.status === 504) {
+                setPortalError('Stripe is taking too long. Please try again.');
+                return;
+            }
             if (!res.ok) throw new Error(`Portal failed (${res.status})`);
             const data = await res.json();
             if (!data.portal_url) throw new Error('Missing portal URL');
