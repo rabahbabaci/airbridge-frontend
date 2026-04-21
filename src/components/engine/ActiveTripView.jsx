@@ -78,32 +78,32 @@ function shortAddress(full) {
    Concourse warm-paper and navy grounds without fighting them. Kept
    minimal — we hide most POI + business layers so the polyline and
    markers are what the eye goes to. */
-// Hand-tuned light map style matching Concourse's warm-paper ground.
-// Previous pass ran too pale across the board — the land read the
-// same tone as the card surfaces floating on top, so the map looked
-// like a dimmed screenshot. Bumped land saturation, distinguished
-// water with a noticeable sky-slate, and pushed road hierarchy so
-// highways stand out against arterials.
+// Light map style tuned toward "Apple Maps light" rather than
+// Concourse-warm-paper. Previous pass ran the land in #EAE3D2 (warm
+// beige), which read as brown/parchment next to the hero card. Shift
+// to a neutral slate-grey-green so the map reads as "map" rather
+// than "paper." Water cooler, parks a touch more vibrant, highways
+// softer cream so road labels stay legible.
 const LIGHT_MAP_STYLE = [
-    { elementType: 'geometry', stylers: [{ color: '#EAE3D2' }] },
-    { elementType: 'labels.text.fill', stylers: [{ color: '#5F6478' }] },
-    { elementType: 'labels.text.stroke', stylers: [{ color: '#F4EEDE' }] },
+    { elementType: 'geometry', stylers: [{ color: '#E8E9E4' }] },
+    { elementType: 'labels.text.fill', stylers: [{ color: '#5E6272' }] },
+    { elementType: 'labels.text.stroke', stylers: [{ color: '#F5F6F2' }] },
     { featureType: 'poi', stylers: [{ visibility: 'off' }] },
     { featureType: 'transit', stylers: [{ visibility: 'off' }] },
-    { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#D1DEBB' }] },
+    { featureType: 'poi.park', elementType: 'geometry', stylers: [{ color: '#C8DFB1' }] },
     { featureType: 'poi.park', elementType: 'labels', stylers: [{ visibility: 'off' }] },
-    { featureType: 'landscape.man_made', elementType: 'geometry', stylers: [{ color: '#EFE7D4' }] },
-    { featureType: 'landscape.natural', elementType: 'geometry', stylers: [{ color: '#E5DCC4' }] },
-    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#FDFAF3' }] },
-    { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#6F7488' }] },
-    { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#FFFBF0' }] },
-    { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#F0D8A8' }] },
-    { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#D9BC85' }] },
+    { featureType: 'landscape.man_made', elementType: 'geometry', stylers: [{ color: '#EDEEE8' }] },
+    { featureType: 'landscape.natural', elementType: 'geometry', stylers: [{ color: '#E1E3DC' }] },
+    { featureType: 'road', elementType: 'geometry', stylers: [{ color: '#FDFDFB' }] },
+    { featureType: 'road', elementType: 'labels.text.fill', stylers: [{ color: '#6A6F7E' }] },
+    { featureType: 'road.arterial', elementType: 'geometry', stylers: [{ color: '#FFFFFF' }] },
+    { featureType: 'road.highway', elementType: 'geometry', stylers: [{ color: '#FFE5A7' }] },
+    { featureType: 'road.highway', elementType: 'geometry.stroke', stylers: [{ color: '#E8C67D' }] },
     { featureType: 'road.local', elementType: 'labels', stylers: [{ visibility: 'simplified' }] },
-    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#B6D3DE' }] },
-    { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#6B859A' }] },
-    { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#CBBF9E' }] },
-    { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#3D4050' }] },
+    { featureType: 'water', elementType: 'geometry', stylers: [{ color: '#B5CFDE' }] },
+    { featureType: 'water', elementType: 'labels.text.fill', stylers: [{ color: '#6B849A' }] },
+    { featureType: 'administrative', elementType: 'geometry.stroke', stylers: [{ color: '#CBD0C4' }] },
+    { featureType: 'administrative.locality', elementType: 'labels.text.fill', stylers: [{ color: '#353844' }] },
 ];
 
 // Dark map — Concourse navy family. Previously the land was the same
