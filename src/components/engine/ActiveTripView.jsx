@@ -5,7 +5,7 @@ import {
     CaretLeft, DotsThree,
     House, Car, Train, Bus, Shield, SuitcaseRolling, Buildings,
     Airplane as AirplanePhosphor, MagnifyingGlass, Gear,
-    Rocket, Check, Star, ArrowSquareOut,
+    Rocket, Star, ArrowSquareOut,
 } from '@phosphor-icons/react';
 import { RefreshCw, Pencil, Settings as SettingsIcon } from 'lucide-react';
 
@@ -29,20 +29,17 @@ import airports from '@/data/airports.json';
    stakeholder walk-throughs. */
 const VALID_PHASES = ['active', 'time-to-go', 'en_route', 'at_airport', 'at_gate', 'complete'];
 
-const PROGRESS_STEPS = [
-    { key: 'at_home', label: 'At Home' },
-    { key: 'in_transit', label: 'In Transit' },
-    { key: 'at_airport', label: 'At Airport' },
-    { key: 'at_gate', label: 'At Gate' },
-];
-
-function phaseToProgressIndex(phase) {
+// Timeline step key to animate for each phase. null = no step pulses
+// (used on complete, where the trip is done).
+function phaseToCurrentTimelineStep(phase) {
     switch (phase) {
-        case 'en_route': return 1;
-        case 'at_airport': return 2;
-        case 'at_gate':
-        case 'complete': return 3;
-        default: return 0;
+        case 'active': return 'depart';
+        case 'time-to-go': return 'depart';
+        case 'en_route': return 'at_airport';
+        case 'at_airport': return 'tsa';
+        case 'at_gate': return 'gate';
+        case 'complete': return null;
+        default: return 'depart';
     }
 }
 
@@ -408,87 +405,6 @@ function PhaseTopBar({ theme, phase, trip, selectedFlight, onBack, onMore, origi
     );
 }
 
-/* ── Progress bar — 4 connected dots mapping phase → step. Spec:
-   - Completed phases render as solid filled brand-purple circles.
-   - Current phase renders filled and pulses (brand purple on most
-     phases, urgency red on time-to-go).
-   - Future phases render as hollow outlined dots on a hairline
-     stroke.
-   - Connector hairline between every dot, filled brand-purple for the
-     legs that are already behind the user.
-   - Label under each dot: tertiary for future phases, primary +
-     semibold for the current. */
-function ProgressDots({ phase }) {
-    const idx = phaseToProgressIndex(phase);
-    const isComplete = phase === 'complete';
-    const isTimeToGo = phase === 'time-to-go';
-
-    return (
-        <div className="flex items-start justify-between gap-c-2">
-            {PROGRESS_STEPS.map((step, i) => {
-                const isFilled = isComplete || i < idx;
-                const isCurrent = !isComplete && i === idx;
-                const showUrgent = isTimeToGo && isCurrent;
-                const isGateFinal = isComplete && i === PROGRESS_STEPS.length - 1;
-
-                return (
-                    <React.Fragment key={step.key}>
-                        <div className="flex flex-col items-center gap-c-1 shrink-0">
-                            {/* Dot */}
-                            <div
-                                className={cn(
-                                    'relative w-5 h-5 rounded-c-pill flex items-center justify-center transition-colors duration-[600ms]',
-                                    isGateFinal
-                                        ? 'bg-c-confidence'
-                                        : isFilled
-                                            ? 'bg-c-brand-primary'
-                                            : isCurrent && showUrgent
-                                                ? 'bg-c-urgency animate-phase-pulse'
-                                                : isCurrent
-                                                    ? 'bg-c-brand-primary animate-phase-pulse'
-                                                    : 'bg-transparent border-2 border-c-border-hairline'
-                                )}
-                            >
-                                {isGateFinal && (
-                                    <Check size={12} weight="bold" className="text-white" />
-                                )}
-                            </div>
-                            {/* Label */}
-                            <span
-                                className={cn(
-                                    'c-type-caption transition-colors duration-[600ms] whitespace-nowrap',
-                                    isCurrent
-                                        ? 'text-c-text-primary font-semibold'
-                                        : isFilled
-                                            ? 'text-c-text-secondary font-medium'
-                                            : 'text-c-text-tertiary font-medium'
-                                )}
-                            >
-                                {step.label}
-                            </span>
-                        </div>
-                        {/* Connector between dots — filled if the preceding
-                           leg is complete, hairline if upcoming. Aligned
-                           with the dot centre-y (dot is w-5 h-5 = 20px,
-                           centre at 10px; mt-[9px] places the 2px line on
-                           the centreline).*/}
-                        {i < PROGRESS_STEPS.length - 1 && (
-                            <div
-                                className={cn(
-                                    'flex-1 h-0.5 mt-[9px] transition-colors duration-[600ms]',
-                                    i < idx || isComplete
-                                        ? 'bg-c-brand-primary'
-                                        : 'bg-c-border-hairline'
-                                )}
-                            />
-                        )}
-                    </React.Fragment>
-                );
-            })}
-        </div>
-    );
-}
-
 /* ── Phase content — per-phase hero + body. Kept as one component with
    a switch so the state-to-screen mapping is all visible in one place. */
 function PhaseContent({
@@ -702,7 +618,7 @@ function PhaseContent({
 /* ── Active-phase timeline. Compact segment list shown inside the hero
    card during planning. Reuses the same segment shapes buildTimelineRows
    would — kept local for simpler DS-token styling in light mode. */
-function ActiveTimeline({ recommendation, selectedFlight, transport, homeAddress }) {
+function ActiveTimeline({ phase, recommendation, selectedFlight, transport, homeAddress, bufferMinutes }) {
     const rows = useMemo(() => {
         const segments = recommendation?.segments || [];
         const leaveAt = recommendation?.leave_home_at;
@@ -714,33 +630,39 @@ function ActiveTimeline({ recommendation, selectedFlight, transport, homeAddress
         const airportSeg = segments.find(s => s.id === 'at_airport');
         const bagSeg = segments.find(s => s.id === 'bag_drop' || s.id === 'checkin');
         const tsaSeg = segments.find(s => s.id === 'tsa');
+        const parkingSeg = segments.find(s => s.id === 'parking');
+        const isDriving = (transport || '').toLowerCase() === 'driving';
         const TRANSPORT_ICONS = { rideshare: Car, driving: Car, train: Train, bus: Bus };
         const TransportIcon = TRANSPORT_ICONS[(transport || '').toLowerCase()] || Car;
         const verbMap = { rideshare: 'Ride', driving: 'Drive', train: 'Train', bus: 'Bus' };
         const verb = verbMap[(transport || '').toLowerCase()] || 'Ride';
 
-        // `connectorPillAfter` — duration riding the horizontal connector
-        // line between this row's icon and the next. Only for meaningful
-        // in-transit time (drive, airport walk, gate walk). Skip for
-        // service phases (bag drop, TSA) — their duration is time AT the
-        // phase, not between phases.
+        // Sub-detail rules (Fix 7):
+        //   Ride to SFO → none (address was redundant context)
+        //   At SFO      → "+X min parking" only when driving, else none
+        //   Bag drop    → "X drop" stays (quantifier, useful)
+        //   TSA         → live wait time in amber (Fix 4 / 6 inherited)
+        //   Gate        → "+X min buffer" in confidence when > 0
         const list = [];
 
         list.push({
             key: 'depart',
             Icon: transportSeg ? TransportIcon : House,
             name: transportSeg ? `${verb} to ${airportCode}` : 'Leave home',
-            subtitle: homeAddress ? shortAddress(homeAddress) : null,
+            subtitle: null,
             subtitleTone: 'neutral',
             connectorPillAfter: transportSeg?.duration_minutes ? formatDuration(transportSeg.duration_minutes) : null,
         });
 
         if (airportSeg) {
+            const parkingSubtitle = isDriving && parkingSeg?.duration_minutes
+                ? `+${formatDuration(parkingSeg.duration_minutes)} parking`
+                : null;
             list.push({
                 key: 'at_airport',
                 Icon: Buildings,
                 name: `At ${airportCode}`,
-                subtitle: null,
+                subtitle: parkingSubtitle,
                 subtitleTone: 'neutral',
                 // at_airport's duration is walking-to-concourse time —
                 // surface on the outgoing connector instead of as a row
@@ -775,47 +697,77 @@ function ActiveTimeline({ recommendation, selectedFlight, transport, homeAddress
         }
 
         if (walkSeg) {
+            const bufferSubtitle = bufferMinutes > 0 ? `+${formatDuration(bufferMinutes)} buffer` : null;
             list.push({
                 key: 'gate',
                 Icon: Rocket,
                 name: `Gate ${selectedFlight?.departure_gate || ''}`.trim() || 'At gate',
-                subtitle: null,
-                subtitleTone: 'neutral',
+                subtitle: bufferSubtitle,
+                subtitleTone: 'confidence',
                 connectorPillAfter: null,
             });
         }
 
         return list;
-    }, [recommendation, selectedFlight, transport, homeAddress]);
+    }, [recommendation, selectedFlight, transport, homeAddress, bufferMinutes]);
 
     if (rows.length === 0) return null;
+
+    const currentStepKey = phaseToCurrentTimelineStep(phase);
+    const isUrgent = phase === 'time-to-go';
 
     const subtitleClass = (tone) => tone === 'warning' ? 'text-c-warning'
         : tone === 'confidence' ? 'text-c-confidence'
         : 'text-c-text-tertiary';
 
-    // ── Vertical layout (mobile, < md). Same as before. */
+    // Icon chip bumped 32px → 52px (Fix 6). Vertical connector moves
+    // to left: 25px (half of 52px) so the line threads through icon
+    // centres. Horizontal connector y-coordinate moves to 26px.
+    const CHIP_SIZE = 52;
+    const CHIP_HALF = CHIP_SIZE / 2; // 26
+
+    // Per-row chip styling — current phase gets a solid brand fill +
+    // pulse animation; others stay tinted surface. time-to-go swaps
+    // to urgency red on the active step.
+    const chipClass = (row) => {
+        const isCurrent = row.key === currentStepKey;
+        if (!isCurrent) return 'bg-c-brand-primary-surface';
+        if (isUrgent) return 'bg-c-urgency animate-phase-pulse';
+        return 'bg-c-brand-primary animate-phase-pulse';
+    };
+    const chipIconClass = (row) => {
+        const isCurrent = row.key === currentStepKey;
+        return isCurrent ? 'text-white' : 'text-c-brand-primary';
+    };
+
+    // ── Vertical layout (mobile, < md).
     const vertical = (
         <div className="md:hidden">
             {rows.map((row, i) => (
-                <div key={row.key} className="relative flex items-start gap-c-3 py-c-3">
+                <div key={row.key} className="relative flex items-start gap-c-4 py-c-3">
                     {i < rows.length - 1 && (
                         <span
                             aria-hidden="true"
                             className="absolute w-0.5"
                             style={{
-                                left: '15px',
-                                top: '44px',
+                                left: `${CHIP_HALF - 1}px`,
+                                top: `${CHIP_SIZE + 8}px`,
                                 bottom: '0',
                                 backgroundColor: 'rgb(79 63 211 / 0.25)',
                             }}
                         />
                     )}
-                    <span className="relative z-10 shrink-0 w-8 h-8 rounded-c-md bg-c-brand-primary-surface flex items-center justify-center">
-                        <row.Icon size={16} weight="regular" className="text-c-brand-primary" />
+                    <span
+                        className={cn(
+                            'relative z-10 shrink-0 rounded-c-md flex items-center justify-center',
+                            chipClass(row)
+                        )}
+                        style={{ width: `${CHIP_SIZE}px`, height: `${CHIP_SIZE}px` }}
+                    >
+                        <row.Icon size={24} weight="regular" className={chipIconClass(row)} />
                     </span>
-                    <div className="flex-1 min-w-0">
-                        <p className="c-type-footnote font-semibold text-c-text-primary">{row.name}</p>
+                    <div className="flex-1 min-w-0 pt-c-2">
+                        <p className="c-type-body font-semibold text-c-text-primary">{row.name}</p>
                         {row.subtitle && (
                             <p className={cn('c-type-caption mt-0.5 inline-flex items-center gap-c-1', subtitleClass(row.subtitleTone))}>
                                 {row.isLiveData && <LivePulseDot />}
@@ -833,11 +785,8 @@ function ActiveTimeline({ recommendation, selectedFlight, transport, homeAddress
         </div>
     );
 
-    // ── Horizontal layout (tablet / desktop, md:+). Flex-segments
-    // approach mirroring the Results timeline: each column renders its
-    // own left + right connector halves, adjacent halves abut at the
-    // column boundary to form one continuous line. Transit pills ride
-    // the column boundaries at the icon centre-y. */
+    // ── Horizontal layout (md:+). Flex-segments, each column renders
+    // its own connector halves, abutting to form a continuous line.
     const horizontal = (
         <div className="hidden md:flex items-start">
             {rows.map((row, idx) => {
@@ -849,28 +798,34 @@ function ActiveTimeline({ recommendation, selectedFlight, transport, homeAddress
                             <span
                                 aria-hidden="true"
                                 className="absolute h-0.5"
-                                style={{ top: '15px', left: '0', right: '50%', backgroundColor: 'rgb(79 63 211 / 0.25)' }}
+                                style={{ top: `${CHIP_HALF - 1}px`, left: '0', right: '50%', backgroundColor: 'rgb(79 63 211 / 0.25)' }}
                             />
                         )}
                         {!isLast && (
                             <span
                                 aria-hidden="true"
                                 className="absolute h-0.5"
-                                style={{ top: '15px', left: '50%', right: '0', backgroundColor: 'rgb(79 63 211 / 0.25)' }}
+                                style={{ top: `${CHIP_HALF - 1}px`, left: '50%', right: '0', backgroundColor: 'rgb(79 63 211 / 0.25)' }}
                             />
                         )}
-                        <span className="relative z-10 shrink-0 w-8 h-8 rounded-c-md bg-c-brand-primary-surface flex items-center justify-center">
-                            <row.Icon size={16} weight="regular" className="text-c-brand-primary" />
+                        <span
+                            className={cn(
+                                'relative z-10 shrink-0 rounded-c-md flex items-center justify-center',
+                                chipClass(row)
+                            )}
+                            style={{ width: `${CHIP_SIZE}px`, height: `${CHIP_SIZE}px` }}
+                        >
+                            <row.Icon size={24} weight="regular" className={chipIconClass(row)} />
                         </span>
                         {!isLast && row.connectorPillAfter && (
                             <span
                                 className="absolute z-20 inline-flex items-center px-c-2 py-0.5 rounded-c-pill bg-c-ground-elevated border border-c-brand-primary/30 c-type-caption text-c-text-primary font-medium whitespace-nowrap"
-                                style={{ top: '16px', left: '100%', transform: 'translate(-50%, -50%)' }}
+                                style={{ top: `${CHIP_HALF}px`, left: '100%', transform: 'translate(-50%, -50%)' }}
                             >
                                 {row.connectorPillAfter}
                             </span>
                         )}
-                        <p className="mt-c-2 c-type-caption font-semibold text-c-text-primary leading-tight">
+                        <p className="mt-c-3 c-type-footnote font-semibold text-c-text-primary leading-tight">
                             {row.name}
                         </p>
                         {row.subtitle && (
@@ -1212,13 +1167,13 @@ export default function ActiveTripView({
                 />
             </section>
 
-            {/* Progress bar — below the hero card. */}
-            <div className="px-c-6 mt-c-6">
-                <ProgressDots phase={phase} />
-            </div>
+            {/* 4-dot phase bar removed — it duplicated the journey
+               steps the ActiveTimeline already renders. Current-phase
+               indication moves into the timeline itself (see
+               ActiveTimeline's currentStepKey pulse treatment). */}
 
-            {/* Filler for scroll — content region is phase-content inside the hero;
-                extra breathing room below the progress so TabBar doesn't crowd it. */}
+            {/* Filler for scroll so the TabBar doesn't crowd the hero
+               card's bottom. */}
             <div className="h-c-12" />
 
             <UntrackConfirmModal
