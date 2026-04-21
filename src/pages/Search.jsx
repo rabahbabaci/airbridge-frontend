@@ -4,6 +4,7 @@ import { createPageUrl } from '@/utils';
 import { useAuth } from '@/lib/AuthContext';
 import { API_BASE } from '@/config';
 import { mapFlights } from '@/utils/mapFlight';
+import { handleUpstreamError } from '@/utils/upstreamError';
 import airports from '@/data/airports.json';
 import {
     Airplane,
@@ -387,6 +388,13 @@ export default function Search() {
                 lookupMode = 'flight_number';
             }
             const res = await fetch(url, { headers: authHeaders });
+            // 503 from backend = AeroDataBox upstream outage / rate limit.
+            // Show toast instead of the inline searchError banner — the two
+            // would stack awkwardly and the toast conveys transience better.
+            if (handleUpstreamError(res)) {
+                setSearching(false);
+                return;
+            }
             if (!res.ok) {
                 const data = await res.json().catch(() => null);
                 setSearchError(data?.detail || 'Could not look up flights. Please try again.');
