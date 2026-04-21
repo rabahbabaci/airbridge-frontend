@@ -834,7 +834,7 @@ function LauncherIcons({ transport, recommendation, selectedFlight, layout = 'he
         ));
         if (isStrip) {
             return (
-                <div className="py-c-4 flex flex-col items-center gap-c-2">
+                <div className="py-c-4 flex flex-col items-start gap-c-2">
                     {contextLabel && (
                         <span
                             className="text-c-text-tertiary font-semibold uppercase"
@@ -843,7 +843,7 @@ function LauncherIcons({ transport, recommendation, selectedFlight, layout = 'he
                             {contextLabel}
                         </span>
                     )}
-                    <div className="flex flex-wrap items-center justify-center gap-c-2">
+                    <div className="flex flex-wrap items-center gap-c-3">
                         {chipEls}
                     </div>
                 </div>
