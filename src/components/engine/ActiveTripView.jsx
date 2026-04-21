@@ -68,6 +68,12 @@ function airportCoords(iata) {
     return { lat: a.lat, lng: a.lng };
 }
 
+function cityForIata(iata) {
+    if (!iata) return null;
+    const a = airports.find(x => x.iata === iata);
+    return a?.city || null;
+}
+
 function shortAddress(full) {
     if (!full) return '';
     const parts = full.split(',').map(s => s.trim());
@@ -389,16 +395,13 @@ function PhaseTopBar({ theme, phase, trip, selectedFlight, onBack, onMore, origi
     const isDark = theme === 'dark';
 
     const flightNumber = trip?.flight_number || selectedFlight?.flight_number || '';
-    const route = selectedFlight?.origin_code && selectedFlight?.destination_code
-        ? `${selectedFlight.origin_code} → ${selectedFlight.destination_code}`
-        : (originCity && destCity ? `${originCity} → ${destCity}` : '');
+    const originCode = selectedFlight?.origin_code || '';
+    const destCode = selectedFlight?.destination_code || '';
+    const hasCodes = Boolean(originCode && destCode);
+    const hasCities = Boolean(originCity && destCity);
 
     const textClass = isDark ? 'text-white' : 'text-c-text-primary';
-    const surfaceClass = isDim
-        ? 'bg-transparent'
-        : isDark
-            ? 'c-glass border-b border-[color:var(--c-glass-border)]'
-            : 'c-glass border-b border-[color:var(--c-glass-border)]';
+    const surfaceClass = isDim ? 'bg-transparent' : 'c-glass border-b border-[color:var(--c-glass-border)]';
 
     return (
         <div
@@ -411,28 +414,53 @@ function PhaseTopBar({ theme, phase, trip, selectedFlight, onBack, onMore, origi
             {/* Inner row capped at max-w-5xl and centred — on wide desktop
                the back chevron and kebab otherwise fly to the viewport
                edges. Mobile keeps the full-width flex layout via px-c-4. */}
-            <div className="mx-auto w-full max-w-5xl h-14 flex items-center justify-between px-c-4">
+            <div className="mx-auto w-full max-w-5xl h-14 flex items-center justify-between px-c-4 gap-c-2">
                 <button
                     type="button"
                     onClick={onBack}
                     aria-label="Back"
                     className={cn(
-                        'w-10 h-10 rounded-c-pill flex items-center justify-center transition-colors',
+                        'shrink-0 w-10 h-10 rounded-c-pill flex items-center justify-center transition-colors',
                         textClass,
                         isDim ? 'hover:bg-white/10' : 'hover:bg-black/5'
                     )}
                 >
                     <CaretLeft size={22} weight="bold" />
                 </button>
-                <div className={cn('flex-1 text-center px-c-2 min-w-0 truncate c-type-footnote font-semibold', textClass)}>
-                    {flightNumber}{route ? ` · ${route}` : ''}
+                {/* Title row — flight number plus route. City names on md:+
+                   (full San Francisco → San Diego with ellipsis truncation
+                   if the viewport can't fit both at once); airport codes on
+                   mobile where any 3-char pair fits comfortably. */}
+                <div className={cn('flex-1 min-w-0 flex items-center justify-center gap-c-1 c-type-footnote font-semibold', textClass)}>
+                    {flightNumber && (
+                        <span className="shrink-0">{flightNumber}</span>
+                    )}
+                    {(flightNumber && (hasCodes || hasCities)) && (
+                        <span className="shrink-0 opacity-60">·</span>
+                    )}
+                    {/* Mobile: compact codes. */}
+                    {hasCodes && (
+                        <span className="md:hidden shrink-0">{originCode} → {destCode}</span>
+                    )}
+                    {/* Tablet+: full city names with ellipsis on overflow. */}
+                    {hasCities && (
+                        <span className="hidden md:flex items-center gap-c-1 min-w-0 flex-1">
+                            <span className="truncate">{originCity}</span>
+                            <span className="shrink-0 opacity-60">→</span>
+                            <span className="truncate">{destCity}</span>
+                        </span>
+                    )}
+                    {/* Fallback for md:+ when cities didn't resolve — show codes. */}
+                    {!hasCities && hasCodes && (
+                        <span className="hidden md:inline shrink-0">{originCode} → {destCode}</span>
+                    )}
                 </div>
                 <button
                     type="button"
                     onClick={onMore}
                     aria-label="More options"
                     className={cn(
-                        'w-10 h-10 rounded-c-pill flex items-center justify-center transition-colors',
+                        'shrink-0 w-10 h-10 rounded-c-pill flex items-center justify-center transition-colors',
                         textClass,
                         isDim ? 'hover:bg-white/10' : 'hover:bg-black/5',
                         isDim ? 'opacity-60' : ''
@@ -1248,8 +1276,8 @@ export default function ActiveTripView({
                 phase={phase}
                 trip={trip}
                 selectedFlight={selectedFlight}
-                originCity={null}
-                destCity={null}
+                originCity={cityForIata(selectedFlight?.origin_code)}
+                destCity={cityForIata(selectedFlight?.destination_code)}
                 onBack={handleBack}
                 onMore={() => setMenuOpen((v) => !v)}
             />
