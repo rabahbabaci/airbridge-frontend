@@ -440,11 +440,12 @@ function PhaseTopBar({ theme, phase, trip, selectedFlight, onBack, onMore, origi
     );
 }
 
-/* ── Hero countdown — "Leave in 11h 47m 52s" with stable letter
-   positions. Each numeric group sits in its own inline-block with a
-   pinned min-width so the "h"/"m"/"s" unit letters never shift as the
-   digits tick from 9→10 or 59→0. On mobile the "Leave in" label stacks
-   above the digits; on md:+ it sits inline at the same hero size. */
+/* ── Hero countdown — "Leave in 11h 47m 52s" with per-digit locked
+   slots. Each DIGIT sits in its own inline-block at `width: 1ch` with
+   tabular-nums, so the glyph for "4 → 5" or "9 → 10" never moves
+   subsequent character positions. Unit letters ("h", "m", "s") have
+   fixed horizontal margins so the gap to the next numeric group
+   doesn't jitter either. */
 function CountdownSlots({ parsed }) {
     if (!parsed || parsed.isDate) {
         return parsed?.text || '—';
@@ -453,27 +454,44 @@ function CountdownSlots({ parsed }) {
     const showH = h > 0;
     const showM = showH || m > 0;
     const pad2 = (n) => String(n).padStart(2, '0');
-    const numClass = 'inline-block text-right tabular-nums';
-    const numStyle = { minWidth: '1.4em' };
+
+    const digitStyle = { display: 'inline-block', width: '1ch', textAlign: 'center' };
+    const unitStyle = { display: 'inline-block', marginRight: '0.25em', marginLeft: '0.05em' };
+
+    const renderDigits = (valStr) => valStr.split('').map((d, i) => (
+        <span key={i} style={digitStyle} className="tabular-nums">{d}</span>
+    ));
+
     return (
-        <>
+        <span className="whitespace-nowrap">
             {showH && (
                 <>
-                    <span className={numClass} style={numStyle}>{h}</span>
-                    <span className="inline-block">h </span>
+                    {renderDigits(String(h))}
+                    <span style={unitStyle}>h</span>
                 </>
             )}
             {showM && (
                 <>
-                    <span className={numClass} style={numStyle}>{showH ? pad2(m) : m}</span>
-                    <span className="inline-block">m </span>
+                    {renderDigits(showH ? pad2(m) : String(m))}
+                    <span style={unitStyle}>m</span>
                 </>
             )}
-            <span className={numClass} style={numStyle}>{showM ? pad2(s) : s}</span>
-            <span className="inline-block">s</span>
-        </>
+            {renderDigits(showM ? pad2(s) : String(s))}
+            <span style={{ display: 'inline-block', marginLeft: '0.05em' }}>s</span>
+        </span>
     );
 }
+
+// Hero countdown font-size clamps between a readable floor and the
+// spec'd 72px ceiling. At mobile widths (375–414px) 9vw resolves to
+// 34–37px — comfortably fits "8h 45m 41s" on one line. At md:+ the
+// clamp tops out at 72px giving the display hero presence.
+const HERO_FONT_STYLE = {
+    fontSize: 'clamp(36px, 9vw, 72px)',
+    lineHeight: 1,
+    fontWeight: 700,
+    letterSpacing: '-0.02em',
+};
 
 function LeaveInHero({ parsed, tone = 'brand' }) {
     // tone 'brand' → light-theme purple. tone 'urgent' → red in the
@@ -482,9 +500,17 @@ function LeaveInHero({ parsed, tone = 'brand' }) {
     const labelColor = tone === 'urgent' ? 'text-c-urgency' : 'text-c-brand-primary';
     return (
         <div className="flex flex-col md:flex-row md:items-baseline md:gap-c-3">
-            <span className={cn('c-type-headline md:hidden', labelColor)}>Leave in</span>
-            <span className={cn('hidden md:inline c-type-hero leading-none', heroColor)}>Leave in</span>
-            <span className={cn('c-type-hero leading-none tabular-nums', heroColor)}>
+            {/* Mobile-only smaller label stack above the digits. */}
+            <span className={cn('c-type-headline md:hidden font-semibold inline-flex items-center gap-c-2', labelColor)}>
+                <LivePulseDot />
+                Leave in
+            </span>
+            {/* Desktop inline "Leave in" at hero size. */}
+            <span className={cn('hidden md:inline-flex items-baseline gap-c-2', heroColor)} style={HERO_FONT_STYLE}>
+                <LivePulseDot />
+                Leave in
+            </span>
+            <span className={cn('tabular-nums', heroColor)} style={HERO_FONT_STYLE}>
                 <CountdownSlots parsed={parsed} />
             </span>
         </div>
@@ -555,7 +581,10 @@ function PhaseContent({
                 {showCountdown ? (
                     <LeaveInHero parsed={countdownParsed} tone="urgent" />
                 ) : (
-                    <p className="font-extrabold text-c-urgency leading-none tabular-nums" style={{ fontSize: '72px' }}>
+                    <p
+                        className="font-extrabold text-c-urgency leading-none tabular-nums"
+                        style={{ fontSize: 'clamp(40px, 11vw, 72px)', fontWeight: 800, letterSpacing: '-0.02em' }}
+                    >
                         LEAVE NOW
                     </p>
                 )}
