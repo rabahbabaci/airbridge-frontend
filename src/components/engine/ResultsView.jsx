@@ -438,6 +438,21 @@ export default function ResultsView({
                             transport={transport}
                         />
 
+                        {/* Mobile-only action strip. On phone widths the
+                           launcher chips move out of the hero card and live
+                           on the page background here — between hero and
+                           timeline — so the hero can stay short and the
+                           chips don't fight the pill row for horizontal
+                           space. Desktop keeps the in-hero layout. */}
+                        <div className="md:hidden">
+                            <LauncherIcons
+                                transport={transport}
+                                recommendation={recommendation}
+                                selectedFlight={selectedFlight}
+                                layout="strip"
+                            />
+                        </div>
+
                         {/* ── Journey timeline (restored from main) ───────
                            Shape ported from the main-branch JourneyVisualization
                            that the product team had already vetted: continuous
@@ -690,11 +705,16 @@ function HeroCard({
             </div>
             <p className="c-type-hero text-c-brand-primary tracking-tight">{leaveTime}</p>
 
-            {/* Flight identifier cluster — now with city names */}
+            {/* Flight identifier cluster. AS 20 + route are shown on
+               desktop for dense context; on mobile they're dropped because
+               the page header strip already shows date · flight · route ·
+               time and the hero would just be duplicating. Terminal/gate
+               and on-time status stay visible on all viewports since they
+               change moment-to-moment and matter right here. */}
             <div className="flex flex-wrap items-center gap-c-2 mt-c-4">
-                <IdBadge>{selectedFlight?.flight_number}</IdBadge>
+                <IdBadge className="hidden md:inline-flex">{selectedFlight?.flight_number}</IdBadge>
                 {selectedFlight?.origin_code && selectedFlight?.destination_code && (
-                    <span className="c-type-footnote text-c-text-secondary">
+                    <span className="hidden md:inline c-type-footnote text-c-text-secondary">
                         {selectedFlight.origin_code}{originCity ? ` · ${originCity}` : ''}
                         {' → '}
                         {selectedFlight.destination_code}{destCity ? ` · ${destCity}` : ''}
@@ -711,28 +731,37 @@ function HeroCard({
                 </span>
             </div>
 
-            {/* Pill row + inline launcher icons. Boarding + buffer sit on
-               the left; the transport-mode brand shortcuts float on the
-               right via ml-auto. Single row — no divider, no "Open in"
-               label needed because the icons are self-explanatory in
-               context. */}
+            {/* Pill row + (desktop-only) inline launcher icons. On mobile
+               the launchers move out of the hero into a standalone action
+               strip below — see ResultsView render. */}
             <div className="flex flex-wrap items-end gap-c-2 mt-c-5">
                 {boardingTime && <HeroPill icon={Clock}>Boarding {boardingTime}</HeroPill>}
                 {bufferMinutes > 0 && (
                     <HeroPill icon={Timer}>+{formatDuration(bufferMinutes)} buffer</HeroPill>
                 )}
-                <LauncherIcons
-                    transport={transport}
-                    recommendation={recommendation}
-                    selectedFlight={selectedFlight}
-                />
+                <div className="hidden md:flex md:ml-auto">
+                    <LauncherIcons
+                        transport={transport}
+                        recommendation={recommendation}
+                        selectedFlight={selectedFlight}
+                    />
+                </div>
             </div>
         </div>
     );
 }
 
 /* ── Launcher icons — brand-icon shortcuts inside HeroCard pill row ─── */
-function LauncherIcons({ transport, recommendation, selectedFlight }) {
+function LauncherIcons({ transport, recommendation, selectedFlight, layout = 'hero' }) {
+    // `layout='hero'`  — inline cluster inside HeroCard's pill row
+    //                    (right-aligned column with small caption label on
+    //                    top, chips below). Default; used on desktop.
+    // `layout='strip'` — standalone action strip between HeroCard and the
+    //                    timeline card. Label is bigger caps ("NAVIGATE TO
+    //                    AIRPORT"), centred, chips centred below. Used on
+    //                    mobile where the hero would be too narrow to hold
+    //                    the launcher cluster comfortably.
+    const isStrip = layout === 'strip';
     const t = (transport || '').toLowerCase();
     const isRideshare = t === 'rideshare';
     const isDriving = t === 'driving';
@@ -789,6 +818,37 @@ function LauncherIcons({ transport, recommendation, selectedFlight }) {
             },
         ].filter(Boolean);
         if (rideshareChips.length === 0) return null;
+        const chipEls = rideshareChips.map(({ href, Icon, label, bg, iconColor }) => (
+            <a
+                key={label}
+                href={href}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={label}
+                title={label}
+                className="inline-flex items-center justify-center h-11 px-c-4 rounded-c-md shadow-c-sm hover:scale-[1.04] active:scale-95 transition-transform"
+                style={{ backgroundColor: bg }}
+            >
+                <Icon size={30} color={iconColor} />
+            </a>
+        ));
+        if (isStrip) {
+            return (
+                <div className="py-c-4 flex flex-col items-center gap-c-2">
+                    {contextLabel && (
+                        <span
+                            className="text-c-text-tertiary font-semibold uppercase"
+                            style={{ fontSize: '11px', letterSpacing: '0.08em' }}
+                        >
+                            {contextLabel}
+                        </span>
+                    )}
+                    <div className="flex flex-wrap items-center justify-center gap-c-2">
+                        {chipEls}
+                    </div>
+                </div>
+            );
+        }
         return (
             <div className="w-full md:w-auto md:ml-auto flex flex-col items-start md:items-end gap-c-1 min-w-0">
                 {contextLabel && (
@@ -800,20 +860,7 @@ function LauncherIcons({ transport, recommendation, selectedFlight }) {
                     </span>
                 )}
                 <div className="flex flex-wrap items-center gap-c-2">
-                    {rideshareChips.map(({ href, Icon, label, bg, iconColor }) => (
-                        <a
-                            key={label}
-                            href={href}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            aria-label={label}
-                            title={label}
-                            className="inline-flex items-center justify-center h-11 px-c-4 rounded-c-md shadow-c-sm hover:scale-[1.04] active:scale-95 transition-transform"
-                            style={{ backgroundColor: bg }}
-                        >
-                            <Icon size={30} color={iconColor} />
-                        </a>
-                    ))}
+                    {chipEls}
                 </div>
             </div>
         );
@@ -836,6 +883,39 @@ function LauncherIcons({ transport, recommendation, selectedFlight }) {
 
     if (launchers.length === 0) return null;
 
+    const driveChipEls = launchers.map(({ href, Icon, label, short }) => (
+        <a
+            key={label}
+            href={href}
+            target="_blank"
+            rel="noopener noreferrer"
+            aria-label={label}
+            title={label}
+            className="inline-flex flex-col items-center justify-center h-11 px-c-3 rounded-c-md bg-c-ground-elevated border border-c-border-hairline shadow-c-sm hover:scale-[1.04] active:scale-95 transition-transform"
+        >
+            <Icon size={20} />
+            <span className="mt-0.5 text-c-text-secondary font-bold uppercase tracking-wider" style={{ fontSize: '9px', lineHeight: 1 }}>{short}</span>
+        </a>
+    ));
+
+    if (isStrip) {
+        return (
+            <div className="py-c-4 flex flex-col items-center gap-c-2">
+                {contextLabel && (
+                    <span
+                        className="text-c-text-tertiary font-semibold uppercase"
+                        style={{ fontSize: '11px', letterSpacing: '0.08em' }}
+                    >
+                        {contextLabel}
+                    </span>
+                )}
+                <div className="flex flex-wrap items-center justify-center gap-c-2">
+                    {driveChipEls}
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="ml-auto flex flex-col items-end gap-c-1">
             {contextLabel && (
@@ -847,33 +927,21 @@ function LauncherIcons({ transport, recommendation, selectedFlight }) {
                 </span>
             )}
             <div className="flex flex-wrap items-center gap-c-2">
-                {launchers.map(({ href, Icon, label, short }) => (
-                    <a
-                        key={label}
-                        href={href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label={label}
-                        title={label}
-                        className="inline-flex flex-col items-center justify-center h-11 px-c-3 rounded-c-md bg-c-ground-elevated border border-c-border-hairline shadow-c-sm hover:scale-[1.04] active:scale-95 transition-transform"
-                    >
-                        <Icon size={20} />
-                        <span className="mt-0.5 text-c-text-secondary font-bold uppercase tracking-wider" style={{ fontSize: '9px', lineHeight: 1 }}>{short}</span>
-                    </a>
-                ))}
+                {driveChipEls}
             </div>
         </div>
     );
 }
 
-function IdBadge({ children, variant = 'default' }) {
+function IdBadge({ children, variant = 'default', className }) {
     if (!children) return null;
     return (
         <span className={cn(
             'inline-flex items-center px-c-2 py-c-1 rounded-c-xs c-type-footnote font-semibold',
             variant === 'subtle'
                 ? 'bg-c-ground-elevated text-c-text-secondary border border-c-border-hairline'
-                : 'bg-c-brand-primary text-c-text-inverse'
+                : 'bg-c-brand-primary text-c-text-inverse',
+            className
         )}>
             {children}
         </span>
