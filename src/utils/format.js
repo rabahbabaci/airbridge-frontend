@@ -44,6 +44,25 @@ export function formatCountdownText(leaveAtISO) {
     return `Leave on ${dateStr} at ${timeStr}`;
 }
 
+// Second-resolution variant for Active Trip's hero countdown. When
+// < 1 hour remains, secondhand motion communicates urgency in a way
+// a minute-resolution readout can't. Falls back to the plain
+// formatCountdownText when the user is >= 1 hour out (or >= 1 day, in
+// which case we show the date instead).
+export function formatCountdownTextWithSeconds(leaveAtISO) {
+    const diffMs = new Date(leaveAtISO) - Date.now();
+    if (diffMs <= 0) return null;
+    const totalSec = Math.floor(diffMs / 1000);
+    if (totalSec < 60) return `Leave in ${totalSec}s`;
+    const totalMin = Math.floor(totalSec / 60);
+    if (totalMin < 60) {
+        const m = totalMin;
+        const s = totalSec % 60;
+        return `Leave in ${m}m ${s}s`;
+    }
+    return formatCountdownText(leaveAtISO);
+}
+
 export function parseTimeToDate(localTimeStr) {
     if (!localTimeStr) return null;
     const match = localTimeStr.match(/(\d{4})-(\d{2})-(\d{2})[T\s](\d{2}):(\d{2})/);

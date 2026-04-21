@@ -9,7 +9,7 @@ import {
 } from '@phosphor-icons/react';
 import { RefreshCw, Pencil, Settings as SettingsIcon } from 'lucide-react';
 
-import { formatCountdownText, formatLocalTime, formatDuration } from '@/utils/format';
+import { formatCountdownTextWithSeconds, formatLocalTime, formatDuration } from '@/utils/format';
 import { useAuth } from '@/lib/AuthContext';
 import { API_BASE, GOOGLE_MAPS_API_KEY } from '@/config';
 import { createPageUrl } from '@/utils';
@@ -375,7 +375,8 @@ function PhaseContent({
                 </p>
                 {terminal && (
                     <p className="c-type-footnote text-c-text-secondary mt-c-3">
-                        On your way to Terminal {terminal}
+                        On your way to{' '}
+                        <span className="font-semibold text-c-text-primary">Terminal {terminal}</span>
                     </p>
                 )}
                 <div className="mt-c-5">
@@ -658,7 +659,9 @@ function ActiveTimeline({ recommendation, selectedFlight, transport, homeAddress
                         {row.subtitle && (
                             <p className={cn(
                                 'c-type-caption mt-0.5',
-                                row.subtitleTone === 'warning' ? 'text-c-warning' : 'text-c-text-tertiary'
+                                row.subtitleTone === 'warning' ? 'text-c-warning'
+                                    : row.subtitleTone === 'confidence' ? 'text-c-confidence'
+                                    : 'text-c-text-tertiary'
                             )}>
                                 {row.subtitle}
                             </p>
@@ -748,7 +751,11 @@ export default function ActiveTripView({
     useEffect(() => {
         if (!recommendation?.leave_home_at) return;
         const tick = () => {
-            setCountdownText(formatCountdownText(recommendation.leave_home_at));
+            // Seconds-resolution countdown — when < 1 hour remains, the
+            // ticking "Xm Ys" readout is the visual urgency signal. Above
+            // that, it falls back to "Xh Ym" which updates at minute
+            // granularity naturally.
+            setCountdownText(formatCountdownTextWithSeconds(recommendation.leave_home_at));
             const diffMin = (new Date(recommendation.leave_home_at) - Date.now()) / 60000;
             if (diffMin <= 0) setUrgencyLevel('critical');
             else if (diffMin < 15) setUrgencyLevel('critical');
