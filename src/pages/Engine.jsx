@@ -275,12 +275,19 @@ export default function Engine() {
     }, []);
 
     // ── View mode hydration from Trips page or app-open routing ─────────────
+    // Phase 3 — single-fetch mount path. On viewTrip, fire ONE GET /v1/trips/{id}
+    // and hydrate selectedFlight + recommendation from the fat response
+    // (flight_info + flight_status + latest_recommendation + projected_timeline).
+    // Replaces the pre-Phase-3 POST /v1/recommendations + GET /v1/flights/{n}/{date}
+    // round-trips. Legacy fallback to POST /v1/recommendations preserved for trips
+    // that were tracked before Phase 3 shipped (no latest_recommendation yet).
     const viewTripRef = useRef(location.state?.viewTrip);
     useEffect(() => {
         const trip = viewTripRef.current;
         if (!trip || editTripRef.current) return;
 
-        // Render immediately from passed trip data
+        // Render immediately from passed trip data — the detail fetch below
+        // overwrites state with the authoritative record.
         setActiveTripData({
             trip_id: trip.trip_id,
             flight_number: trip.flight_number,
@@ -295,7 +302,8 @@ export default function Engine() {
         setViewMode('active_trip');
         setCheckingActiveTrip(false);
 
-        // Parse transport from preferences for ActionCards
+        // Parse transport from the router-state preferences for immediate render.
+        // Detail response below re-hydrates with the authoritative value.
         if (trip.preferences_json) {
             try {
                 const prefs = typeof trip.preferences_json === 'string'
@@ -305,46 +313,108 @@ export default function Engine() {
             } catch { /* use default */ }
         }
 
-        // Background: fetch recommendation and flight data
-        if (token) {
-            (async () => {
-                // Fetch recommendation
-                try {
-                    const recRes = await fetch(`${API_BASE}/v1/recommendations`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
-                        body: JSON.stringify({ trip_id: trip.trip_id }),
-                    });
-                    if (recRes.ok) {
-                        const rec = await recRes.json();
-                        setActiveTripRec(rec);
-                        setRecommendation(rec);
-                    }
-                } catch {
-                    console.error('Failed to fetch recommendation for viewTrip');
-                }
+        if (!token) return;
 
-                // Fetch flight details
-                if (trip.flight_number && trip.departure_date) {
-                    try {
-                        const flightRes = await fetch(
-                            `${API_BASE}/v1/flights/${encodeURIComponent(trip.flight_number)}/${trip.departure_date}`,
-                            { headers: { Authorization: `Bearer ${token}` } }
-                        );
-                        if (flightRes.ok) {
-                            const flightData = await flightRes.json();
-                            const flights = mapFlights(flightData.flights || []);
-                            const matchedFlight = flights.find(f =>
-                                f.departure_time_utc === trip.selected_departure_utc
-                            ) || flights[0];
-                            if (matchedFlight) setSelectedFlight(matchedFlight);
-                        }
-                    } catch {
-                        console.error('Failed to fetch flight data for viewTrip');
-                    }
+        (async () => {
+            // Single round-trip: GET /v1/trips/{id} returns flight_info,
+            // flight_status, latest_recommendation, projected_timeline, and
+            // the denormalized scalars. No AeroDataBox call fires.
+            let detail = null;
+            try {
+                const res = await fetch(`${API_BASE}/v1/trips/${trip.trip_id}`, {
+                    headers: { Authorization: `Bearer ${token}` },
+                });
+                if (res.ok) detail = await res.json();
+            } catch (err) {
+                console.error('Failed to fetch trip detail for viewTrip:', err);
+            }
+
+            if (!detail) return;
+
+            // Refresh activeTripData with the authoritative record (status may
+            // have advanced since the Trips page was loaded).
+            setActiveTripData({
+                trip_id: detail.trip_id,
+                flight_number: detail.flight_number,
+                departure_date: detail.departure_date,
+                home_address: detail.home_address,
+                status: detail.status,
+                selected_departure_utc: detail.selected_departure_utc,
+                preferences_json: detail.preferences_json,
+            });
+
+            // Preferences → transport (handle both string and already-parsed).
+            let prefs = null;
+            if (detail.preferences_json) {
+                try {
+                    prefs = typeof detail.preferences_json === 'string'
+                        ? JSON.parse(detail.preferences_json)
+                        : detail.preferences_json;
+                    if (prefs?.transport_mode) setTransport(prefs.transport_mode);
+                } catch { /* already set from list row above */ }
+            }
+
+            // selectedFlight shim: flight_info (frozen) + flight_status (live)
+            // assembled into the legacy mapFlights() shape that ActiveTripView
+            // already reads.
+            const fi = detail.flight_info;
+            const fs = detail.flight_status;
+            if (fi) {
+                setSelectedFlight({
+                    flight_number: fi.flight_number,
+                    origin_code: fi.origin_iata,
+                    destination_code: fi.destination_iata,
+                    destination_name: fi.destination_name,
+                    departure_terminal: fi.terminal,
+                    departure_gate: fs?.gate,
+                    departure_time: fi.scheduled_departure_local,
+                    departure_time_utc: fi.scheduled_departure_at,
+                    is_delayed: (fs?.delay_minutes ?? 0) > 0,
+                });
+            }
+
+            // recommendation shim: latest_recommendation carries segments + map
+            // coords; projected_timeline.leave_home_at drives the countdown.
+            const lr = detail.latest_recommendation;
+            const segs = Array.isArray(lr?.segments) ? lr.segments : [];
+            const hasLatestRec = segs.length > 0;
+
+            if (hasLatestRec) {
+                const rec = {
+                    leave_home_at: detail.projected_timeline?.leave_home_at,
+                    segments: segs,
+                    home_coordinates: lr.home_coordinates,
+                    terminal_coordinates: lr.terminal_coordinates,
+                    gate_time_minutes: prefs?.gate_time_minutes,
+                };
+                setActiveTripRec(rec);
+                setRecommendation(rec);
+                return;
+            }
+
+            // Legacy fallback — trip predates Phase 3 or the polling agent
+            // hasn't recomputed yet (<= 5 min window for an active trip).
+            // Fires POST /v1/recommendations once to hydrate; the polling
+            // agent's next active-phase tick will persist latest_recommendation
+            // server-side, eliminating this path on future mounts.
+            // TODO: remove legacy fallback after 2026-05-15 — by then every
+            // active trip should have been re-polled and populated.
+            console.warn('legacy trip without latest_recommendation, computing live');
+            try {
+                const recRes = await fetch(`${API_BASE}/v1/recommendations`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+                    body: JSON.stringify({ trip_id: trip.trip_id }),
+                });
+                if (recRes.ok) {
+                    const rec = await recRes.json();
+                    setActiveTripRec(rec);
+                    setRecommendation(rec);
                 }
-            })();
-        }
+            } catch (err) {
+                console.error('Legacy fallback recommendation fetch failed:', err);
+            }
+        })();
     }, [token]);
 
     // ── Prefill from /Search handoff ──────────────────────────────────────
