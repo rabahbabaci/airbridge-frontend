@@ -843,7 +843,7 @@ function LauncherIcons({ transport, recommendation, selectedFlight, layout = 'he
                             {contextLabel}
                         </span>
                     )}
-                    <div className="w-full flex flex-wrap items-center justify-start gap-c-3">
+                    <div className="w-full flex flex-wrap justify-start gap-c-3">
                         {chipEls}
                     </div>
                 </div>
