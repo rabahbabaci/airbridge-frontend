@@ -379,57 +379,74 @@ function PhaseTopBar({ theme, phase, trip, selectedFlight, onBack, onMore, origi
     );
 }
 
-/* ── Progress bar — 4 connected dots mapping phase to step. Complete
-   state fills all four with a confidence-green check on the last. */
+/* ── Progress bar — 4 connected dots mapping phase → step. Spec:
+   - Completed phases render as solid filled brand-purple circles.
+   - Current phase renders filled and pulses (brand purple on most
+     phases, urgency red on time-to-go).
+   - Future phases render as hollow outlined dots on a hairline
+     stroke.
+   - Connector hairline between every dot, filled brand-purple for the
+     legs that are already behind the user.
+   - Label under each dot: tertiary for future phases, primary +
+     semibold for the current. */
 function ProgressDots({ phase }) {
     const idx = phaseToProgressIndex(phase);
     const isComplete = phase === 'complete';
     const isTimeToGo = phase === 'time-to-go';
 
     return (
-        <div className="flex items-center justify-between gap-c-2 px-c-1">
+        <div className="flex items-start justify-between gap-c-2">
             {PROGRESS_STEPS.map((step, i) => {
                 const isFilled = isComplete || i < idx;
                 const isCurrent = !isComplete && i === idx;
-                const isUpcoming = !isFilled && !isCurrent;
-                const showUrgent = isTimeToGo && i === 0;
+                const showUrgent = isTimeToGo && isCurrent;
+                const isGateFinal = isComplete && i === PROGRESS_STEPS.length - 1;
+
                 return (
                     <React.Fragment key={step.key}>
                         <div className="flex flex-col items-center gap-c-1 shrink-0">
+                            {/* Dot */}
                             <div
                                 className={cn(
-                                    'w-6 h-6 rounded-c-pill flex items-center justify-center transition-colors duration-[600ms]',
-                                    isComplete && i === PROGRESS_STEPS.length - 1
+                                    'relative w-5 h-5 rounded-c-pill flex items-center justify-center transition-colors duration-[600ms]',
+                                    isGateFinal
                                         ? 'bg-c-confidence'
                                         : isFilled
                                             ? 'bg-c-brand-primary'
                                             : isCurrent && showUrgent
-                                                ? 'bg-c-urgency animate-pulse'
+                                                ? 'bg-c-urgency animate-phase-pulse'
                                                 : isCurrent
-                                                    ? 'bg-c-brand-primary'
-                                                    : 'bg-c-border-hairline'
+                                                    ? 'bg-c-brand-primary animate-phase-pulse'
+                                                    : 'bg-transparent border-2 border-c-border-hairline'
                                 )}
                             >
-                                {isComplete && i === PROGRESS_STEPS.length - 1 ? (
-                                    <Check size={14} weight="bold" className="text-white" />
-                                ) : (isFilled || isCurrent) ? (
-                                    <div className="w-2 h-2 rounded-c-pill bg-white" />
-                                ) : null}
+                                {isGateFinal && (
+                                    <Check size={12} weight="bold" className="text-white" />
+                                )}
                             </div>
+                            {/* Label */}
                             <span
                                 className={cn(
-                                    'c-type-caption font-medium transition-colors duration-[600ms]',
-                                    isFilled || isCurrent ? 'text-c-text-primary' : 'text-c-text-tertiary',
-                                    isUpcoming ? 'opacity-60' : ''
+                                    'c-type-caption transition-colors duration-[600ms] whitespace-nowrap',
+                                    isCurrent
+                                        ? 'text-c-text-primary font-semibold'
+                                        : isFilled
+                                            ? 'text-c-text-secondary font-medium'
+                                            : 'text-c-text-tertiary font-medium'
                                 )}
                             >
                                 {step.label}
                             </span>
                         </div>
+                        {/* Connector between dots — filled if the preceding
+                           leg is complete, hairline if upcoming. Aligned
+                           with the dot centre-y (dot is w-5 h-5 = 20px,
+                           centre at 10px; mt-[9px] places the 2px line on
+                           the centreline).*/}
                         {i < PROGRESS_STEPS.length - 1 && (
                             <div
                                 className={cn(
-                                    'flex-1 h-0.5 transition-colors duration-[600ms]',
+                                    'flex-1 h-0.5 mt-[9px] transition-colors duration-[600ms]',
                                     i < idx || isComplete
                                         ? 'bg-c-brand-primary'
                                         : 'bg-c-border-hairline'

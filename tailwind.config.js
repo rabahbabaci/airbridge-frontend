@@ -182,11 +182,27 @@ module.exports = {
   			'accordion-up': {
   				from: { height: 'var(--radix-accordion-content-height)' },
   				to: { height: '0' }
+  			},
+  			// Active-Trip phase-indicator dot: gentle 1.5s breathing
+  			// cycle — scale-up + slight opacity dip. Used on the
+  			// currently-active step only.
+  			'phase-pulse': {
+  				'0%, 100%': { transform: 'scale(1)', opacity: '1' },
+  				'50%': { transform: 'scale(1.15)', opacity: '0.6' }
+  			},
+  			// Live-data amber dot: 2s cycle, subtler opacity swing, no
+  			// scale — tells users "this number is moving" without
+  			// competing with the phase pulse.
+  			'live-pulse': {
+  				'0%, 100%': { opacity: '1' },
+  				'50%': { opacity: '0.4' }
   			}
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
-  			'accordion-up': 'accordion-up 0.2s ease-out'
+  			'accordion-up': 'accordion-up 0.2s ease-out',
+  			'phase-pulse': 'phase-pulse 1.5s ease-in-out infinite',
+  			'live-pulse': 'live-pulse 2s ease-in-out infinite'
   		}
   	}
   },
