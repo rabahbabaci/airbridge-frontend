@@ -362,8 +362,8 @@ function PhaseMap({ theme, homeCoords, airportCoords: airCoords, transport, heig
 
     return (
         <div
-            className="relative w-full overflow-hidden transition-colors duration-[600ms]"
-            style={{ height: `${height}px`, backgroundColor: isDark ? '#0B1220' : '#FCFAF6' }}
+            className="relative w-full overflow-hidden transition-colors duration-c-urgent"
+            style={{ height: `${height}px`, backgroundColor: 'var(--c-ground)' }}
         >
             {GOOGLE_MAPS_API_KEY && (homeCoords || airCoords) ? (
                 <div ref={containerRef} className="absolute inset-0" />
@@ -406,7 +406,7 @@ function PhaseTopBar({ theme, phase, trip, selectedFlight, onBack, onMore, origi
     return (
         <div
             className={cn(
-                'absolute top-0 inset-x-0 z-30 transition-colors duration-[600ms]',
+                'absolute top-0 inset-x-0 z-30 transition-colors duration-c-urgent',
                 surfaceClass
             )}
             style={{ paddingTop: 'env(safe-area-inset-top)' }}
@@ -1398,7 +1398,7 @@ export default function ActiveTripView({
             animate={{ opacity: 1 }}
             transition={{ duration: 0.4 }}
             data-theme={theme}
-            className="relative min-h-screen pb-28 transition-colors duration-[600ms]"
+            className="relative min-h-screen pb-28 transition-colors duration-c-urgent"
             style={{ backgroundColor: 'var(--c-ground)' }}
         >
             {/* Map region (hidden on complete). Top-of-screen, full-bleed. */}
@@ -1464,7 +1464,7 @@ export default function ActiveTripView({
                padding all round. */}
             <section
                 className={cn(
-                    'relative z-10 mx-c-4 md:mx-auto md:max-w-5xl rounded-c-lg shadow-c-md transition-colors duration-[600ms]',
+                    'relative z-10 mx-c-4 md:mx-auto md:max-w-5xl rounded-c-lg shadow-c-md transition-colors duration-c-urgent',
                     'px-c-6 pb-c-6 pt-c-8 md:p-c-6',
                     theme === 'dark' ? 'bg-c-ground-elevated border border-white/5' : 'bg-c-ground-elevated border border-c-border-hairline'
                 )}
