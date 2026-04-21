@@ -27,7 +27,7 @@ export default function TabBar({ tabs, value, onChange, className }) {
             )}
             aria-label="Primary"
         >
-            <div className="mx-c-4 mb-c-3 c-glass border border-[color:var(--c-glass-border)] rounded-c-pill shadow-c-glass flex items-center">
+            <div className="mx-c-4 md:mx-auto md:max-w-5xl mb-c-3 c-glass border border-[color:var(--c-glass-border)] rounded-c-pill shadow-c-glass flex items-center">
                 {tabs.map((tab) => {
                     const active = tab.value === value;
                     return (

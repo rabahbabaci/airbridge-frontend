@@ -403,39 +403,44 @@ function PhaseTopBar({ theme, phase, trip, selectedFlight, onBack, onMore, origi
     return (
         <div
             className={cn(
-                'absolute top-0 inset-x-0 z-30 h-14 flex items-center justify-between px-c-4 transition-colors duration-[600ms]',
+                'absolute top-0 inset-x-0 z-30 transition-colors duration-[600ms]',
                 surfaceClass
             )}
             style={{ paddingTop: 'env(safe-area-inset-top)' }}
         >
-            <button
-                type="button"
-                onClick={onBack}
-                aria-label="Back"
-                className={cn(
-                    'w-10 h-10 rounded-c-pill flex items-center justify-center transition-colors',
-                    textClass,
-                    isDim ? 'hover:bg-white/10' : 'hover:bg-black/5'
-                )}
-            >
-                <CaretLeft size={22} weight="bold" />
-            </button>
-            <div className={cn('flex-1 text-center px-c-2 min-w-0 truncate c-type-footnote font-semibold', textClass)}>
-                {flightNumber}{route ? ` · ${route}` : ''}
+            {/* Inner row capped at max-w-5xl and centred — on wide desktop
+               the back chevron and kebab otherwise fly to the viewport
+               edges. Mobile keeps the full-width flex layout via px-c-4. */}
+            <div className="mx-auto w-full max-w-5xl h-14 flex items-center justify-between px-c-4">
+                <button
+                    type="button"
+                    onClick={onBack}
+                    aria-label="Back"
+                    className={cn(
+                        'w-10 h-10 rounded-c-pill flex items-center justify-center transition-colors',
+                        textClass,
+                        isDim ? 'hover:bg-white/10' : 'hover:bg-black/5'
+                    )}
+                >
+                    <CaretLeft size={22} weight="bold" />
+                </button>
+                <div className={cn('flex-1 text-center px-c-2 min-w-0 truncate c-type-footnote font-semibold', textClass)}>
+                    {flightNumber}{route ? ` · ${route}` : ''}
+                </div>
+                <button
+                    type="button"
+                    onClick={onMore}
+                    aria-label="More options"
+                    className={cn(
+                        'w-10 h-10 rounded-c-pill flex items-center justify-center transition-colors',
+                        textClass,
+                        isDim ? 'hover:bg-white/10' : 'hover:bg-black/5',
+                        isDim ? 'opacity-60' : ''
+                    )}
+                >
+                    <DotsThree size={24} weight="bold" />
+                </button>
             </div>
-            <button
-                type="button"
-                onClick={onMore}
-                aria-label="More options"
-                className={cn(
-                    'w-10 h-10 rounded-c-pill flex items-center justify-center transition-colors',
-                    textClass,
-                    isDim ? 'hover:bg-white/10' : 'hover:bg-black/5',
-                    isDim ? 'opacity-60' : ''
-                )}
-            >
-                <DotsThree size={24} weight="bold" />
-            </button>
         </div>
     );
 }
@@ -1277,7 +1282,7 @@ export default function ActiveTripView({
             {/* Hero card — floating glass/elevated surface overlapping the map bottom. */}
             <section
                 className={cn(
-                    'relative z-10 mx-c-4 rounded-c-lg shadow-c-md transition-colors duration-[600ms]',
+                    'relative z-10 mx-c-4 md:mx-auto md:max-w-5xl rounded-c-lg shadow-c-md transition-colors duration-[600ms]',
                     theme === 'dark' ? 'bg-c-ground-elevated border border-white/5' : 'bg-c-ground-elevated border border-c-border-hairline'
                 )}
                 style={{ marginTop: mapHidden ? 80 : `-${Math.round(mapHeight * 0.17)}px`, padding: '24px' }}
