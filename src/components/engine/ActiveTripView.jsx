@@ -43,6 +43,20 @@ function phaseToCurrentTimelineStep(phase) {
     }
 }
 
+// Caption under the current-phase timeline step. Reads as "this is
+// where you are on the journey right now" in addition to the pulse.
+function phaseToCurrentStepCaption(phase) {
+    switch (phase) {
+        case 'active': return 'Starting here';
+        case 'time-to-go': return 'Leave now';
+        case 'en_route': return 'In transit';
+        case 'at_airport': return 'You\u2019re here';
+        case 'at_gate': return 'You\u2019re here';
+        case 'complete': return null;
+        default: return null;
+    }
+}
+
 function phaseTheme(phase) {
     return phase === 'active' ? 'light' : 'dark';
 }
@@ -765,11 +779,17 @@ function ActiveTimeline({ phase, recommendation, selectedFlight, transport, home
     if (rows.length === 0) return null;
 
     const currentStepKey = phaseToCurrentTimelineStep(phase);
+    const currentStepCaption = phaseToCurrentStepCaption(phase);
     const isUrgent = phase === 'time-to-go';
 
     const subtitleClass = (tone) => tone === 'warning' ? 'text-c-warning'
         : tone === 'confidence' ? 'text-c-confidence'
         : 'text-c-text-tertiary';
+
+    // "You're here" caption colour: urgency red in time-to-go, brand
+    // purple elsewhere. Kept tight at ~11px so it reads as a tag, not
+    // a label peer to the phase name.
+    const captionColor = isUrgent ? 'text-c-urgency' : 'text-c-brand-primary';
 
     // Icon chip bumped 32px → 52px (Fix 6). Vertical connector moves
     // to left: 25px (half of 52px) so the line threads through icon
@@ -823,6 +843,12 @@ function ActiveTimeline({ phase, recommendation, selectedFlight, transport, home
                             <p className={cn('c-type-caption mt-0.5 inline-flex items-center gap-c-1', subtitleClass(row.subtitleTone))}>
                                 {row.isLiveData && <LivePulseDot />}
                                 {row.subtitle}
+                            </p>
+                        )}
+                        {row.key === currentStepKey && currentStepCaption && (
+                            <p className={cn('mt-c-1 font-bold uppercase', captionColor)}
+                                style={{ fontSize: '11px', letterSpacing: '0.08em' }}>
+                                {currentStepCaption}
                             </p>
                         )}
                         {row.connectorPillAfter && (
@@ -885,6 +911,17 @@ function ActiveTimeline({ phase, recommendation, selectedFlight, transport, home
                                 {row.subtitle}
                             </p>
                         )}
+                        {/* Reserved caption row — keeps column bottoms
+                           aligned even though only the current step
+                           actually shows the caption. */}
+                        <div className="mt-c-1" style={{ minHeight: '14px' }}>
+                            {row.key === currentStepKey && currentStepCaption && (
+                                <p className={cn('font-bold uppercase leading-none', captionColor)}
+                                    style={{ fontSize: '11px', letterSpacing: '0.08em' }}>
+                                    {currentStepCaption}
+                                </p>
+                            )}
+                        </div>
                     </div>
                 );
             })}
