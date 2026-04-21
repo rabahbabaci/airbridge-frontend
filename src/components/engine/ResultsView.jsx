@@ -797,7 +797,7 @@ function LauncherIcons({ transport, recommendation, selectedFlight }) {
                             rel="noopener noreferrer"
                             aria-label={label}
                             title={label}
-                            className="inline-flex items-center justify-center h-11 px-c-4 rounded-c-md shadow-c-sm hover:opacity-90 active:scale-95 transition-all"
+                            className="inline-flex items-center justify-center h-11 px-c-4 rounded-c-md shadow-c-sm hover:scale-[1.04] active:scale-95 transition-transform"
                             style={{ backgroundColor: bg }}
                         >
                             <Icon size={30} color={iconColor} />
@@ -844,7 +844,7 @@ function LauncherIcons({ transport, recommendation, selectedFlight }) {
                         rel="noopener noreferrer"
                         aria-label={label}
                         title={label}
-                        className="inline-flex flex-col items-center justify-center h-11 px-c-3 rounded-c-md bg-c-ground-elevated border border-c-border-hairline shadow-c-sm hover:bg-c-ground-sunken active:scale-95 transition-all"
+                        className="inline-flex flex-col items-center justify-center h-11 px-c-3 rounded-c-md bg-c-ground-elevated border border-c-border-hairline shadow-c-sm hover:scale-[1.04] active:scale-95 transition-transform"
                     >
                         <Icon size={20} />
                         <span className="mt-0.5 text-c-text-secondary font-bold uppercase tracking-wider" style={{ fontSize: '9px', lineHeight: 1 }}>{short}</span>
