@@ -26,7 +26,7 @@ export default function TopBar({
     return (
         <header
             className={cn(
-                'relative flex items-center h-14 px-c-4',
+                'relative flex items-center h-14 px-c-4 pt-[env(safe-area-inset-top)]',
                 translucent ? 'c-glass' : 'bg-c-ground border-b border-c-border-hairline',
                 className
             )}
@@ -37,7 +37,7 @@ export default function TopBar({
                         type="button"
                         onClick={onBack}
                         aria-label="Back"
-                        className="w-11 h-11 -ml-c-2 flex items-center justify-center rounded-c-pill text-c-text-primary hover:bg-c-ground-sunken transition-colors duration-c-fast"
+                        className="w-11 h-11 flex items-center justify-center rounded-c-pill text-c-text-primary hover:bg-c-ground-sunken transition-colors duration-c-fast"
                     >
                         <CaretLeft size={22} weight="regular" />
                     </button>

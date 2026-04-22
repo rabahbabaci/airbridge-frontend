@@ -437,9 +437,9 @@ export default function DesignSystem() {
                     value={tabValue}
                     onChange={setTabValue}
                     tabs={[
-                        { value: 'search', label: 'Search', icon: <MagnifyingGlass size={22} weight="regular" />, iconActive: <MagnifyingGlass size={22} weight="bold" /> },
-                        { value: 'trip', label: 'My Trip', icon: <Airplane size={22} weight="regular" />, iconActive: <Airplane size={22} weight="bold" />, badge: true },
-                        { value: 'settings', label: 'Settings', icon: <Gear size={22} weight="regular" />, iconActive: <Gear size={22} weight="bold" /> },
+                        { value: 'search', label: 'Search', icon: <MagnifyingGlass size={26} weight="regular" />, iconActive: <MagnifyingGlass size={26} weight="bold" /> },
+                        { value: 'trip', label: 'My Trip', icon: <Airplane size={26} weight="regular" />, iconActive: <Airplane size={26} weight="bold" />, badge: true },
+                        { value: 'settings', label: 'Settings', icon: <Gear size={26} weight="regular" />, iconActive: <Gear size={26} weight="bold" /> },
                     ]}
                 />
 
@@ -487,21 +487,21 @@ function DemoTabBar({ value, onChange }) {
         {
             value: 'search',
             label: 'Search',
-            icon: <MagnifyingGlass size={22} weight="regular" />,
-            iconActive: <MagnifyingGlass size={22} weight="bold" />,
+            icon: <MagnifyingGlass size={26} weight="regular" />,
+            iconActive: <MagnifyingGlass size={26} weight="bold" />,
         },
         {
             value: 'trip',
             label: 'My Trip',
-            icon: <Airplane size={22} weight="regular" />,
-            iconActive: <Airplane size={22} weight="bold" />,
+            icon: <Airplane size={26} weight="regular" />,
+            iconActive: <Airplane size={26} weight="bold" />,
             badge: true,
         },
         {
             value: 'settings',
             label: 'Settings',
-            icon: <Gear size={22} weight="regular" />,
-            iconActive: <Gear size={22} weight="bold" />,
+            icon: <Gear size={26} weight="regular" />,
+            iconActive: <Gear size={26} weight="bold" />,
         },
     ];
     // Render TabBar-styled markup inline so it's positioned inside the demo container,

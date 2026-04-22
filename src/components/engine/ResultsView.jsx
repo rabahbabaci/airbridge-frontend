@@ -386,20 +386,20 @@ export default function ResultsView({
         {
             value: 'search',
             label: 'Search',
-            icon: <MagnifyingGlass size={22} weight="regular" />,
-            iconActive: <MagnifyingGlass size={22} weight="bold" />,
+            icon: <MagnifyingGlass size={26} weight="regular" />,
+            iconActive: <MagnifyingGlass size={26} weight="bold" />,
         },
         {
             value: 'trip',
             label: 'My Trip',
-            icon: <AirplanePhosphor size={22} weight="regular" />,
-            iconActive: <AirplanePhosphor size={22} weight="bold" />,
+            icon: <AirplanePhosphor size={26} weight="regular" />,
+            iconActive: <AirplanePhosphor size={26} weight="bold" />,
         },
         {
             value: 'settings',
             label: 'Settings',
-            icon: <Gear size={22} weight="regular" />,
-            iconActive: <Gear size={22} weight="bold" />,
+            icon: <Gear size={26} weight="regular" />,
+            iconActive: <Gear size={26} weight="bold" />,
         },
     ];
 
@@ -597,8 +597,11 @@ export default function ResultsView({
                             </div>
                         </section>
 
-                        {/* ── Boarding + Flight row ────────────────────── */}
-                        <section className="grid grid-cols-1 md:grid-cols-2 gap-c-3">
+                        {/* ── Boarding + Flight row ──────────────────────
+                           Side-by-side on every viewport per brief §4.5
+                           ("Boarding + Departure card row (2 cards side by
+                           side)") — no mobile-stacked variant. */}
+                        <section className="grid grid-cols-2 gap-c-3">
                             <InfoCard
                                 eyebrow="BOARDING"
                                 EyebrowIcon={Clock}
@@ -883,7 +886,12 @@ function LauncherIcons({ transport, recommendation, selectedFlight, layout = 'he
 
     if (launchers.length === 0) return null;
 
-    const driveChipEls = launchers.map(({ href, Icon, label, short }) => (
+    // Drive / Transit launchers — icon-only, left-aligned, sized to match
+    // the rideshare Uber/Lyft chips. Brief §4.5 is silent on the precise
+    // treatment; brand marks at size 30 inside a 44-tall pill are legible
+    // without labels, and matching the rideshare silhouette gives the two
+    // transport modes a consistent "deep-link to external app" visual.
+    const driveChipEls = launchers.map(({ href, Icon, label }) => (
         <a
             key={label}
             href={href}
@@ -891,16 +899,15 @@ function LauncherIcons({ transport, recommendation, selectedFlight, layout = 'he
             rel="noopener noreferrer"
             aria-label={label}
             title={label}
-            className="inline-flex flex-col items-center justify-center h-11 px-c-3 rounded-c-md bg-c-ground-elevated border border-c-border-hairline shadow-c-sm hover:scale-[1.04] active:scale-95 transition-transform"
+            className="inline-flex items-center justify-center h-11 px-c-4 rounded-c-md bg-c-ground-elevated border border-c-border-hairline shadow-c-sm hover:scale-[1.04] active:scale-95 transition-transform"
         >
-            <Icon size={20} />
-            <span className="mt-0.5 text-c-text-secondary font-bold uppercase tracking-wider" style={{ fontSize: '9px', lineHeight: 1 }}>{short}</span>
+            <Icon size={30} />
         </a>
     ));
 
     if (isStrip) {
         return (
-            <div className="py-c-4 flex flex-col items-center gap-c-2">
+            <div className="w-full flex flex-col items-start gap-c-3">
                 {contextLabel && (
                     <span
                         className="text-c-text-tertiary font-semibold uppercase"
@@ -909,7 +916,7 @@ function LauncherIcons({ transport, recommendation, selectedFlight, layout = 'he
                         {contextLabel}
                     </span>
                 )}
-                <div className="flex flex-wrap items-center justify-center gap-c-2">
+                <div className="w-full flex flex-wrap justify-start gap-c-3">
                     {driveChipEls}
                 </div>
             </div>

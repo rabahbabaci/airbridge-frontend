@@ -220,20 +220,20 @@ export default function Trips() {
         {
             value: 'search',
             label: 'Search',
-            icon: <MagnifyingGlass size={22} weight="regular" />,
-            iconActive: <MagnifyingGlass size={22} weight="bold" />,
+            icon: <MagnifyingGlass size={26} weight="regular" />,
+            iconActive: <MagnifyingGlass size={26} weight="bold" />,
         },
         {
             value: 'trip',
             label: 'My Trip',
-            icon: <Airplane size={22} weight="regular" />,
-            iconActive: <Airplane size={22} weight="bold" />,
+            icon: <Airplane size={26} weight="regular" />,
+            iconActive: <Airplane size={26} weight="bold" />,
         },
         {
             value: 'settings',
             label: 'Settings',
-            icon: <Gear size={22} weight="regular" />,
-            iconActive: <Gear size={22} weight="bold" />,
+            icon: <Gear size={26} weight="regular" />,
+            iconActive: <Gear size={26} weight="bold" />,
         },
     ];
 

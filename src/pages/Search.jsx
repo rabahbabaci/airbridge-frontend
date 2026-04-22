@@ -236,7 +236,6 @@ function DatePills({ value, onChange }) {
     const isToday = value === today;
     const isTomorrow = value === tomorrow;
     const isCustom = !!value && !isToday && !isTomorrow;
-    const datePickerRef = useRef(null);
 
     const pillClass = (active) =>
         cn(
@@ -246,18 +245,6 @@ function DatePills({ value, onChange }) {
                 : 'bg-c-ground-sunken text-c-text-secondary hover:text-c-text-primary'
         );
 
-    const openNativePicker = () => {
-        const el = datePickerRef.current;
-        if (!el) return;
-        // showPicker is the reliable way on iOS Safari + modern Chrome/Edge.
-        // Fallback: focus + click for older browsers (Firefox).
-        if (typeof el.showPicker === 'function') {
-            try { el.showPicker(); return; } catch { /* fall through */ }
-        }
-        el.focus();
-        el.click();
-    };
-
     return (
         <div className="flex items-center gap-c-2">
             <button type="button" className={pillClass(isToday)} onClick={() => onChange(today)}>
@@ -266,35 +253,27 @@ function DatePills({ value, onChange }) {
             <button type="button" className={pillClass(isTomorrow)} onClick={() => onChange(tomorrow)}>
                 Tomorrow
             </button>
-            <button
-                type="button"
-                className={cn(pillClass(isCustom), 'inline-flex items-center justify-center relative')}
-                onClick={openNativePicker}
+            {/* Pick-a-date: a <label> wrapping an absolutely-positioned full-size
+               date input is the iOS-reliable way to trigger the native picker.
+               Tapping anywhere on the label forwards the tap to the input (via
+               implicit label/input association), WKWebView responds with its
+               native date UI. The previous `<button onClick={showPicker()}>`
+               pattern was broken by `pointer-events: none` on the hidden input
+               and by inconsistent `showPicker()` support in Capacitor's
+               WKWebView. */}
+            <label
+                className={cn(pillClass(isCustom), 'inline-flex items-center justify-center relative cursor-pointer')}
                 aria-label="Pick a date"
             >
-                {isCustom ? formatFriendlyDate(value) : 'Pick a date'}
-                {/* Hidden but focusable — visibility: hidden (not display: none)
-                   keeps the element in the accessibility tree so showPicker() and
-                   click() succeed on iOS Safari and older browsers. */}
+                <span>{isCustom ? formatFriendlyDate(value) : 'Pick a date'}</span>
                 <input
-                    ref={datePickerRef}
                     type="date"
                     min={today}
                     value={isCustom ? value : ''}
                     onChange={(e) => { if (e.target.value) onChange(e.target.value); }}
-                    tabIndex={-1}
-                    aria-hidden="true"
-                    style={{
-                        position: 'absolute',
-                        width: 1,
-                        height: 1,
-                        opacity: 0,
-                        pointerEvents: 'none',
-                        left: '50%',
-                        bottom: 0,
-                    }}
+                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
                 />
-            </button>
+            </label>
         </div>
     );
 }
@@ -424,20 +403,20 @@ export default function Search() {
         {
             value: 'search',
             label: 'Search',
-            icon: <MagnifyingGlass size={22} weight="regular" />,
-            iconActive: <MagnifyingGlass size={22} weight="bold" />,
+            icon: <MagnifyingGlass size={26} weight="regular" />,
+            iconActive: <MagnifyingGlass size={26} weight="bold" />,
         },
         {
             value: 'trip',
             label: 'My Trip',
-            icon: <Airplane size={22} weight="regular" />,
-            iconActive: <Airplane size={22} weight="bold" />,
+            icon: <Airplane size={26} weight="regular" />,
+            iconActive: <Airplane size={26} weight="bold" />,
         },
         {
             value: 'settings',
             label: 'Settings',
-            icon: <Gear size={22} weight="regular" />,
-            iconActive: <Gear size={22} weight="bold" />,
+            icon: <Gear size={26} weight="regular" />,
+            iconActive: <Gear size={26} weight="bold" />,
         },
     ];
 
@@ -448,10 +427,10 @@ export default function Search() {
                 align="left"
                 leftSlot={
                     <div className="flex items-center gap-c-2">
-                        <div className="w-8 h-8 rounded-c-sm bg-c-brand-primary flex items-center justify-center">
-                            <Airplane size={18} weight="bold" className="text-c-text-inverse" />
+                        <div className="w-10 h-10 rounded-c-sm bg-c-brand-primary flex items-center justify-center">
+                            <Airplane size={22} weight="bold" className="text-c-text-inverse" />
                         </div>
-                        <span className="c-type-headline text-c-text-primary">AirBridge</span>
+                        <span className="c-type-title text-c-text-primary">AirBridge</span>
                     </div>
                 }
                 rightSlot={
@@ -460,7 +439,7 @@ export default function Search() {
                             type="button"
                             onClick={handleAvatarTap}
                             aria-label="Settings"
-                            className="w-9 h-9 rounded-c-pill bg-c-brand-primary text-c-text-inverse c-type-footnote font-bold flex items-center justify-center hover:bg-c-brand-primary-hover transition-colors"
+                            className="w-11 h-11 rounded-c-pill bg-c-brand-primary text-c-text-inverse c-type-footnote font-bold flex items-center justify-center hover:bg-c-brand-primary-hover transition-colors"
                         >
                             {avatarInitials}
                         </button>
@@ -469,7 +448,7 @@ export default function Search() {
                             type="button"
                             onClick={handleAvatarTap}
                             aria-label="Sign in"
-                            className="h-9 px-c-4 rounded-c-pill bg-c-brand-primary text-c-text-inverse c-type-footnote font-semibold hover:bg-c-brand-primary-hover transition-colors"
+                            className="h-11 px-c-4 rounded-c-pill bg-c-brand-primary text-c-text-inverse c-type-footnote font-semibold hover:bg-c-brand-primary-hover transition-colors"
                         >
                             Sign in
                         </button>
