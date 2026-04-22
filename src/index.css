@@ -92,6 +92,14 @@
     @apply border-border outline-ring/50;
   }
 
+  /* Kill iOS WebView rubber-band when content fits the viewport.
+     Pages that legitimately overflow (Results, Active Trip, Settings)
+     still scroll normally — overscroll-behavior only suppresses the
+     elastic bounce at the scroll boundaries, not the scroll itself. */
+  html, body {
+    overscroll-behavior: none;
+  }
+
   body {
     @apply bg-background text-foreground;
   }

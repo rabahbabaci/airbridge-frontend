@@ -27,7 +27,7 @@ export default function TabBar({ tabs, value, onChange, className }) {
             )}
             aria-label="Primary"
         >
-            <div className="mx-c-4 md:mx-auto md:max-w-5xl mb-c-3 c-glass border border-[color:var(--c-glass-border)] rounded-c-pill shadow-c-glass flex items-center">
+            <div className="mx-c-4 md:mx-auto md:max-w-5xl mb-c-4 c-glass border border-[color:var(--c-glass-border)] rounded-c-pill shadow-c-glass flex items-center">
                 {tabs.map((tab) => {
                     const active = tab.value === value;
                     return (
@@ -38,7 +38,7 @@ export default function TabBar({ tabs, value, onChange, className }) {
                             aria-selected={active}
                             onClick={() => onChange?.(tab.value)}
                             className={cn(
-                                'relative flex-1 h-14 flex flex-col items-center justify-center gap-0.5 rounded-c-pill transition-colors duration-c-fast',
+                                'relative flex-1 h-16 flex flex-col items-center justify-center gap-1 rounded-c-pill transition-colors duration-c-fast',
                                 active ? 'text-c-brand-primary' : 'text-c-text-secondary hover:text-c-text-primary'
                             )}
                         >
@@ -47,12 +47,12 @@ export default function TabBar({ tabs, value, onChange, className }) {
                                 {tab.badge && (
                                     <span
                                         aria-label="Unread"
-                                        className="absolute -top-0.5 -right-1 w-1.5 h-1.5 rounded-full bg-c-urgency"
+                                        className="absolute -top-0.5 -right-1 rounded-full bg-c-urgency"
                                         style={{ width: 6, height: 6 }}
                                     />
                                 )}
                             </span>
-                            <span className="c-type-caption">{tab.label}</span>
+                            <span className="c-type-footnote font-medium">{tab.label}</span>
                         </button>
                     );
                 })}
