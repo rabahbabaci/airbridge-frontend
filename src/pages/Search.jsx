@@ -230,6 +230,7 @@ function DatePills({ value, onChange }) {
     const isToday = value === today;
     const isTomorrow = value === tomorrow;
     const isCustom = !!value && !isToday && !isTomorrow;
+    const dateInputRef = useRef(null);
 
     const pillClass = (active) =>
         cn(
@@ -239,6 +240,20 @@ function DatePills({ value, onChange }) {
                 : 'bg-c-ground-sunken text-c-text-secondary hover:text-c-text-primary'
         );
 
+    // Desktop browsers don't auto-open <input type="date"> on focus — only
+    // showPicker() triggers the native UI on a user gesture. iOS Safari /
+    // WKWebView also supports showPicker(); fallback to .click() covers
+    // older browsers (Firefox <111) that still rely on focus-to-open.
+    const handlePickDate = () => {
+        const el = dateInputRef.current;
+        if (!el) return;
+        try {
+            el.showPicker();
+        } catch {
+            el.click();
+        }
+    };
+
     return (
         <div className="flex items-center gap-c-2">
             <button type="button" className={pillClass(isToday)} onClick={() => onChange(today)}>
@@ -247,27 +262,27 @@ function DatePills({ value, onChange }) {
             <button type="button" className={pillClass(isTomorrow)} onClick={() => onChange(tomorrow)}>
                 Tomorrow
             </button>
-            {/* Pick-a-date: a <label> wrapping an absolutely-positioned full-size
-               date input is the iOS-reliable way to trigger the native picker.
-               Tapping anywhere on the label forwards the tap to the input (via
-               implicit label/input association), WKWebView responds with its
-               native date UI. The previous `<button onClick={showPicker()}>`
-               pattern was broken by `pointer-events: none` on the hidden input
-               and by inconsistent `showPicker()` support in Capacitor's
-               WKWebView. */}
-            <label
-                className={cn(pillClass(isCustom), 'inline-flex items-center justify-center relative cursor-pointer')}
+            <button
+                type="button"
+                onClick={handlePickDate}
+                className={cn(pillClass(isCustom), 'inline-flex items-center justify-center')}
                 aria-label="Pick a date"
             >
                 <span>{isCustom ? formatFriendlyDate(value) : 'Pick a date'}</span>
-                <input
-                    type="date"
-                    min={today}
-                    value={isCustom ? value : ''}
-                    onChange={(e) => { if (e.target.value) onChange(e.target.value); }}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                />
-            </label>
+            </button>
+            {/* Kept in the DOM (not display:none) so showPicker() can target
+               it. sr-only hides it visually and from layout without removing
+               it from the a11y tree or disabling the native picker API. */}
+            <input
+                ref={dateInputRef}
+                type="date"
+                min={today}
+                value={isCustom ? value : ''}
+                onChange={(e) => { if (e.target.value) onChange(e.target.value); }}
+                className="sr-only"
+                tabIndex={-1}
+                aria-hidden="true"
+            />
         </div>
     );
 }
