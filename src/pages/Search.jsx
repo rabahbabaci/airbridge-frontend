@@ -260,7 +260,6 @@ function DatePills({ value, onChange }) {
     const isTomorrow = value === tomorrow;
     const isCustom = !!value && !isToday && !isTomorrow;
     const native = isNative();
-    const dateInputRef = useRef(null);      // Capacitor path only
     const pickDateBtnRef = useRef(null);    // Web path — anchor for popover
     const [webPickerOpen, setWebPickerOpen] = useState(false);
 
@@ -272,24 +271,6 @@ function DatePills({ value, onChange }) {
                 : 'bg-c-ground-sunken text-c-text-secondary hover:text-c-text-primary'
         );
 
-    // Capacitor/iOS WKWebView: native wheel picker via showPicker() on the
-    // hidden <input type="date">. DO NOT replace this path — the iOS native
-    // UI is the correct affordance for the mobile app.
-    const handleNativePick = () => {
-        const el = dateInputRef.current;
-        if (!el) return;
-        try {
-            el.showPicker();
-        } catch {
-            el.click();
-        }
-    };
-
-    const handlePickDate = () => {
-        if (native) handleNativePick();
-        else setWebPickerOpen(true);
-    };
-
     return (
         <div className="flex items-center gap-c-2">
             <button type="button" className={pillClass(isToday)} onClick={() => onChange(today)}>
@@ -298,44 +279,54 @@ function DatePills({ value, onChange }) {
             <button type="button" className={pillClass(isTomorrow)} onClick={() => onChange(tomorrow)}>
                 Tomorrow
             </button>
-            <button
-                ref={pickDateBtnRef}
-                type="button"
-                onClick={handlePickDate}
-                className={cn(pillClass(isCustom), 'inline-flex items-center justify-center')}
-                aria-label="Pick a date"
-                aria-haspopup={native ? undefined : 'dialog'}
-                aria-expanded={native ? undefined : webPickerOpen}
-            >
-                <span>{isCustom ? formatFriendlyDate(value) : 'Pick a date'}</span>
-            </button>
 
-            {/* Capacitor path — hidden input kept in the DOM (not display:none)
-               so showPicker() can target it. sr-only hides it visually and
-               from layout without disabling the native picker API. */}
-            {native && (
-                <input
-                    ref={dateInputRef}
-                    type="date"
-                    min={today}
-                    value={isCustom ? value : ''}
-                    onChange={(e) => { if (e.target.value) onChange(e.target.value); }}
-                    className="sr-only"
-                    tabIndex={-1}
-                    aria-hidden="true"
-                />
-            )}
-
-            {/* Web path — Concourse-themed popover on wide viewports,
-               centered modal on narrow viewports. Portaled to document.body. */}
-            {!native && (
-                <DatePickerWeb
-                    value={isCustom ? value : null}
-                    onChange={onChange}
-                    open={webPickerOpen}
-                    onOpenChange={setWebPickerOpen}
-                    anchorRef={pickDateBtnRef}
-                />
+            {native ? (
+                /* Capacitor/iOS: a <label> wrapping a full-pill-size
+                   <input type="date"> is the only pattern that reliably
+                   opens the iOS native wheel picker inside a WKWebView.
+                   A tap anywhere on the label delegates to the input via
+                   implicit label/input association — no JS handler needed.
+                   showPicker() is unreliable in WKWebView and can silently
+                   no-op on some iOS/WebKit versions. */
+                <label
+                    className={cn(
+                        pillClass(isCustom),
+                        'inline-flex items-center justify-center relative cursor-pointer'
+                    )}
+                    aria-label="Pick a date"
+                >
+                    <span>{isCustom ? formatFriendlyDate(value) : 'Pick a date'}</span>
+                    <input
+                        type="date"
+                        min={today}
+                        value={isCustom ? value : ''}
+                        onChange={(e) => { if (e.target.value) onChange(e.target.value); }}
+                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                    />
+                </label>
+            ) : (
+                /* Web: Concourse-themed custom popover. Portaled to body,
+                   anchored below the button, with its own open/close state. */
+                <>
+                    <button
+                        ref={pickDateBtnRef}
+                        type="button"
+                        onClick={() => setWebPickerOpen(true)}
+                        className={cn(pillClass(isCustom), 'inline-flex items-center justify-center')}
+                        aria-label="Pick a date"
+                        aria-haspopup="dialog"
+                        aria-expanded={webPickerOpen}
+                    >
+                        <span>{isCustom ? formatFriendlyDate(value) : 'Pick a date'}</span>
+                    </button>
+                    <DatePickerWeb
+                        value={isCustom ? value : null}
+                        onChange={onChange}
+                        open={webPickerOpen}
+                        onOpenChange={setWebPickerOpen}
+                        anchorRef={pickDateBtnRef}
+                    />
+                </>
             )}
         </div>
     );
