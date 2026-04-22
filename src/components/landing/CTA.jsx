@@ -1,12 +1,10 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { ArrowRight, Smartphone } from 'lucide-react';
-import WaitlistModal from './WaitlistModal';
 
 export default function CTA() {
     const navigate = useNavigate();
-    const [waitlistOpen, setWaitlistOpen] = useState(false);
 
     return (
         <section id="cta" className="py-24 lg:py-32">
@@ -63,23 +61,10 @@ export default function CTA() {
                             <span className="inline-flex items-center px-3 py-1 rounded-full bg-white/15 text-white/90 text-xs font-medium">
                                 Coming summer 2026
                             </span>
-                            {/* Secondary path: users who aren't ready to commit to install
-                               can drop their info and get an email at launch. Subordinate
-                               text-link treatment — less visual weight than the primary. */}
-                            <button
-                                type="button"
-                                onClick={() => setWaitlistOpen(true)}
-                                className="mt-2 inline-flex items-center gap-1.5 text-sm text-white/80 hover:text-white underline-offset-4 hover:underline transition-colors"
-                            >
-                                Not ready? Join the waitlist
-                                <ArrowRight className="w-3.5 h-3.5" />
-                            </button>
                         </motion.div>
                     </div>
                 </motion.div>
             </div>
-
-            <WaitlistModal open={waitlistOpen} onOpenChange={setWaitlistOpen} />
         </section>
     );
 }

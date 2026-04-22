@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { ArrowRight, Plane, Car, Shield, CheckCircle, Smartphone } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import WaitlistModal from './WaitlistModal';
 
 // Animated phone mockup — crisp rendering
 function PhoneMockup() {
@@ -134,6 +135,7 @@ function PhoneMockup() {
 
 export default function Hero() {
     const navigate = useNavigate();
+    const [waitlistOpen, setWaitlistOpen] = useState(false);
 
     return (
         <section className="relative min-h-screen flex items-center bg-c-brand-primary-surface overflow-hidden">
@@ -205,10 +207,29 @@ export default function Hero() {
                             initial={{ opacity: 0 }}
                             animate={{ opacity: 1 }}
                             transition={{ duration: 0.5, delay: 0.45 }}
-                            className="inline-flex items-center gap-2 mb-8 px-3 py-1 rounded-full bg-c-ground-elevated border border-c-border-hairline text-xs font-medium text-c-text-secondary"
+                            className="inline-flex items-center gap-2 mb-3 px-3 py-1 rounded-full bg-c-ground-elevated border border-c-border-hairline text-xs font-medium text-c-text-secondary"
                         >
                             <Smartphone className="w-3.5 h-3.5 text-c-brand-primary" />
                             <span>Coming to iOS, summer 2026</span>
+                        </motion.div>
+
+                        {/* Waitlist link — subordinate path for visitors who aren't ready
+                           to wait for the iOS app. Placed directly under the "Coming summer"
+                           pill so it reads as the next step after the launch-date reveal. */}
+                        <motion.div
+                            initial={{ opacity: 0 }}
+                            animate={{ opacity: 1 }}
+                            transition={{ duration: 0.5, delay: 0.5 }}
+                            className="mb-8 flex justify-center lg:justify-start"
+                        >
+                            <button
+                                type="button"
+                                onClick={() => setWaitlistOpen(true)}
+                                className="inline-flex items-center gap-1.5 text-sm text-c-text-secondary hover:text-c-brand-primary underline-offset-4 hover:underline transition-colors"
+                            >
+                                Join the waitlist
+                                <ArrowRight className="w-3.5 h-3.5" />
+                            </button>
                         </motion.div>
 
                         {/* Trust micro-copy */}
@@ -235,6 +256,8 @@ export default function Hero() {
                     </div>
                 </div>
             </div>
+
+            <WaitlistModal open={waitlistOpen} onOpenChange={setWaitlistOpen} />
         </section>
     );
 }
