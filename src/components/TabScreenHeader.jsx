@@ -1,5 +1,5 @@
-import { useNavigate } from 'react-router-dom';
-import { Airplane } from '@phosphor-icons/react';
+import { Link, useNavigate } from 'react-router-dom';
+import { Plane } from 'lucide-react';
 import TopBar from '@/components/design-system/TopBar';
 import { useAuth } from '@/lib/AuthContext';
 import { createPageUrl } from '@/utils';
@@ -8,11 +8,19 @@ import { createPageUrl } from '@/utils';
  * TabScreenHeader — shared identity bar for the three tab screens
  * (Search, My Trip, Settings).
  *
- * Renders the AirBridge logomark + wordmark on the left and an avatar
- * circle (authenticated) or "Sign in" pill (unauthenticated) on the right.
+ * Renders the AirBridge logomark + wordmark on the left (wrapped in a
+ * link to `/` so tapping returns to the search-first home — matches the
+ * iOS tab-bar "home" affordance on web, and collapses to the active-trip
+ * takeover rule when that fires on `/`) and an avatar circle
+ * (authenticated) or "Sign in" pill (unauthenticated) on the right.
  * Tapping the avatar when authenticated routes to Settings; tapping the
  * Sign-in pill when unauthenticated fires the caller's `onSignInClick`
  * callback so the caller owns the AuthModal state.
+ *
+ * Uses Lucide `Plane` (leaning-right paper-plane silhouette) instead of
+ * Phosphor `Airplane` (top-down, points straight up) so the in-app
+ * logomark matches the landing page, favicon, and iOS app icon. One
+ * visual family everywhere.
  *
  * Deviates from brief §2.4 / §4.14 / §4.2's per-screen top-bar specs in
  * favor of a consistent identity anchor across all three tabs. Brief to
@@ -39,12 +47,20 @@ export default function TabScreenHeader({ onSignInClick }) {
             variant="translucent"
             align="left"
             leftSlot={
-                <div className="flex items-center gap-c-2">
+                <Link
+                    to="/"
+                    aria-label="AirBridge home"
+                    className="flex items-center gap-c-2 -m-c-1 p-c-1 rounded-c-md hover:bg-c-ground-sunken/40 transition-colors"
+                >
                     <div className="w-10 h-10 rounded-c-sm bg-c-brand-primary flex items-center justify-center">
-                        <Airplane size={22} weight="bold" className="text-c-text-inverse" />
+                        <Plane
+                            className="text-c-text-inverse"
+                            style={{ width: 22, height: 22 }}
+                            strokeWidth={2.5}
+                        />
                     </div>
                     <span className="c-type-title text-c-text-primary">AirBridge</span>
-                </div>
+                </Link>
             }
             rightSlot={
                 isAuthenticated ? (

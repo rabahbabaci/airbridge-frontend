@@ -7,7 +7,9 @@ const pageTransition = {
     exit: { opacity: 0, y: -16, transition: { duration: 0.25, ease: [0.4, 0, 1, 1] } },
 };
 
-export default function LoadingView({ currentTripId }) {
+export default function LoadingView({ currentTripId, title, description }) {
+    const resolvedTitle = title ?? (currentTripId ? 'Updating your journey' : 'Calculating your journey');
+    const resolvedDescription = description ?? 'Analyzing traffic, TSA wait times,\nand airport conditions…';
     return (
         <motion.div key="loading" {...pageTransition}
             className="min-h-[calc(100vh-57px)] flex flex-col items-center justify-center text-center gap-6 px-4">
@@ -18,10 +20,10 @@ export default function LoadingView({ currentTripId }) {
             />
             <div>
                 <h2 className="text-xl font-bold text-foreground mb-2">
-                    {currentTripId ? 'Updating your journey' : 'Calculating your journey'}
+                    {resolvedTitle}
                 </h2>
-                <p className="text-muted-foreground text-sm max-w-xs mx-auto">
-                    Analyzing traffic, TSA wait times,<br />and airport conditions…
+                <p className="text-muted-foreground text-sm max-w-xs mx-auto whitespace-pre-line">
+                    {resolvedDescription}
                 </p>
             </div>
             <div className="flex gap-2">

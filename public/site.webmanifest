@@ -1,0 +1,26 @@
+{
+  "name": "AirBridge",
+  "short_name": "AirBridge",
+  "description": "Never miss a flight again.",
+  "start_url": "/",
+  "display": "standalone",
+  "theme_color": "#4F3FD3",
+  "background_color": "#FCFAF6",
+  "icons": [
+    {
+      "src": "/favicon-32.png",
+      "sizes": "32x32",
+      "type": "image/png"
+    },
+    {
+      "src": "/favicon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "180x180",
+      "type": "image/png"
+    }
+  ]
+}
