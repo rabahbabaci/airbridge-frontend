@@ -1,8 +1,11 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Plane, Mail } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import WaitlistModal from './WaitlistModal';
 
 export default function Footer() {
+    const [waitlistOpen, setWaitlistOpen] = useState(false);
+
     return (
         <footer className="bg-c-ground-sunken border-t border-c-border-hairline">
             <div className="max-w-7xl mx-auto px-6 py-16">
@@ -43,6 +46,15 @@ export default function Footer() {
                                     How It Works
                                 </a>
                             </li>
+                            <li>
+                                <button
+                                    type="button"
+                                    onClick={() => setWaitlistOpen(true)}
+                                    className="text-sm text-c-text-secondary hover:text-c-text-primary transition-colors"
+                                >
+                                    Join the Waitlist
+                                </button>
+                            </li>
                         </ul>
                     </div>
 
@@ -71,6 +83,8 @@ export default function Footer() {
                     </p>
                 </div>
             </div>
+
+            <WaitlistModal open={waitlistOpen} onOpenChange={setWaitlistOpen} />
         </footer>
     );
 }
