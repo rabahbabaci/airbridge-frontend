@@ -1,6 +1,11 @@
 #env
 .env
 .env.*
+# Production env file is committed so Vercel and TestFlight archives
+# always see the right API URLs regardless of any local .env.local
+# a contributor may have set up for dev work. .env.local remains ignored
+# via the *.local rule below.
+!.env.production
 
 # Logs
 logs
