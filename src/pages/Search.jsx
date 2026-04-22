@@ -103,7 +103,11 @@ function formatFriendlyDate(iso) {
     if (iso === tomorrowIso()) return 'Tomorrow';
     const [y, m, d] = iso.split('-').map(Number);
     const date = new Date(y, m - 1, d);
-    return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+    const showYear = y !== new Date().getFullYear();
+    const options = showYear
+        ? { month: 'short', day: 'numeric', year: 'numeric' }
+        : { month: 'short', day: 'numeric' };
+    return date.toLocaleDateString(undefined, options);
 }
 
 /* ── Airport autocomplete (local, DS-styled) ─────────────────────────────── */
