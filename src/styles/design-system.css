@@ -188,6 +188,19 @@
   --c-shadow-glass: 0 4px 24px rgba(10, 15, 28, 0.06), 0 1px 0 rgba(255, 255, 255, 0.5) inset;
 }
 
+/* ── Landing / web-only ground override ──────────────────────────────────
+   The mobile app (Capacitor WKWebView) renders the cream #FCFAF6 ground
+   as crisp and warm on iOS; desktop browser rendering of the same value
+   leaned yellowish against the cleaner feel the marketing page wants.
+   This override whitens the base ground only for the landing-page root.
+   Scoped to .landing-root so the in-app ground token stays at its
+   brief-specified value. Sunken/elevated tokens untouched — the landing
+   components that use them (Footer, Problem, Hero mockup) continue to
+   read against the slightly-warmer cream where they always did. */
+.landing-root {
+  --c-ground: #FAFAF8;
+}
+
 /* ── Tokens (dark mode, opt-in per-subtree) ─────────────────────────────── */
 [data-theme="dark"] {
   --c-brand-primary: #6855E8;

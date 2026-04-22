@@ -959,6 +959,11 @@ export default function Engine() {
             setAuthOpen(true);
             return;
         }
+        // Swap to a dedicated loading view for the duration of the actual
+        // network work (POST /track + GET /trips/active-list). Avoids the
+        // jarring Results → ActiveTripView cut. LoadingView renders for
+        // however long the real fetches take — no artificial delay.
+        setViewMode('tracking');
         try {
             const res = await fetch(`${API_BASE}/v1/trips/${currentTripId}/track`, {
                 method: 'POST',
@@ -1008,9 +1013,14 @@ export default function Engine() {
                 });
                 setActiveTripRec(recommendation);
                 setViewMode('active_trip');
+            } else {
+                // Backend non-2xx — restore Results so the user can retry.
+                console.error('Track request failed with status', res.status);
+                setViewMode('results');
             }
         } catch (err) {
             console.error('Failed to track trip:', err);
+            setViewMode('results');
         }
     };
 
@@ -1299,7 +1309,21 @@ export default function Engine() {
 
                 {/* ════════════════ LOADING VIEW ════════════════ */}
                 {viewMode === 'loading' && (
-                    <LoadingView currentTripId={currentTripId} />
+                    <LoadingView currentTripId={currentTripId} title={null} description={null} />
+                )}
+
+                {/* ════════════════ TRACKING VIEW ════════════════
+                   Bridges the Results → Active Trip transition with a
+                   proper loading state while the actual work fires:
+                   POST /v1/trips/{id}/track + GET /v1/trips/active-list.
+                   LoadingView renders for the actual fetch duration; no
+                   fake delay. */}
+                {viewMode === 'tracking' && (
+                    <LoadingView
+                        currentTripId={currentTripId}
+                        title="Activating your trip"
+                        description={'Setting up live tracking\nand notifications…'}
+                    />
                 )}
 
                 {/* ════════════════ RESULTS VIEW ════════════════ */}
@@ -1339,6 +1363,7 @@ export default function Engine() {
                 // Auto-track only if auth was triggered by the Track button
                 if (pendingTrackAfterAuth.current && currentTripId && !isTracked) {
                     pendingTrackAfterAuth.current = false;
+                    setViewMode('tracking');
                     setTimeout(async () => {
                         try {
                             const res = await fetch(`${API_BASE}/v1/trips/${currentTripId}/track`, {
@@ -1389,9 +1414,13 @@ export default function Engine() {
                                 });
                                 setActiveTripRec(recommendation);
                                 setViewMode('active_trip');
+                            } else {
+                                console.error('Auto-track request failed with status', res.status);
+                                setViewMode('results');
                             }
                         } catch (err) {
                             console.error('Failed to auto-track after auth:', err);
+                            setViewMode('results');
                         }
                     }, 500);
                 }

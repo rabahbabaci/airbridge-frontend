@@ -21,7 +21,7 @@ export default function Home() {
 
     return (
         <>
-            <div className="min-h-screen bg-c-ground font-c-sans antialiased">
+            <div className="landing-root min-h-screen bg-c-ground font-c-sans antialiased">
                 <Header />
                 <main>
                     <Hero />
