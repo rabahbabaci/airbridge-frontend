@@ -346,12 +346,11 @@ export default function StepDepartureSetup({
                             )}
                         </section>
 
-                        {/* ── Section 2: Transport (3 circular cells) ───
-                           Per brief §4.4 implementer's call between 3-card
-                           row and 2x2 grid — going with 3-in-a-row circles,
-                           icon-only cell with label below. Rideshare stays
-                           as the single option; Uber/Lyft provider split
-                           happens downstream in Results/Active Trip per §4.4. */}
+                        {/* ── Section 2: Transport (3-card row) ──────────
+                           Rectangular card per brief §4.4. Circles were
+                           a misread in the prior polish PR; the intended
+                           circle treatment was for the rideshare/nav chips
+                           in Results, not the transport-mode selector. */}
                         <section>
                             <SectionHeading icon={Car}>How are you getting there?</SectionHeading>
                             <div className="grid grid-cols-3 gap-c-3">
@@ -365,30 +364,29 @@ export default function StepDepartureSetup({
                                             onClick={() => handleCardTap(card.id)}
                                             aria-pressed={active}
                                             className={cn(
-                                                'flex flex-col items-center gap-c-2 py-c-2 rounded-c-md transition-colors',
-                                                'focus:outline-none focus-visible:ring-2 focus-visible:ring-c-brand-primary focus-visible:ring-offset-2'
+                                                'flex flex-col items-start gap-c-2 p-c-4 rounded-c-md border transition-colors text-left min-h-[104px]',
+                                                'focus:outline-none focus-visible:ring-2 focus-visible:ring-c-brand-primary focus-visible:ring-offset-2',
+                                                active
+                                                    ? 'bg-c-brand-primary-surface border-c-brand-primary'
+                                                    : 'bg-c-ground-elevated border-c-border-hairline hover:border-c-border-strong'
                                             )}
                                         >
-                                            <div
-                                                className={cn(
-                                                    'w-20 h-20 rounded-full border-2 flex items-center justify-center transition-colors',
-                                                    active
-                                                        ? 'bg-c-brand-primary-surface border-c-brand-primary'
-                                                        : 'bg-c-ground-elevated border-c-border-hairline hover:border-c-border-strong'
-                                                )}
-                                            >
-                                                <Icon
-                                                    size={28}
-                                                    weight={active ? 'fill' : 'regular'}
-                                                    className={active ? 'text-c-brand-primary' : 'text-c-text-secondary'}
-                                                />
+                                            <Icon
+                                                size={24}
+                                                weight={active ? 'fill' : 'regular'}
+                                                className={active ? 'text-c-brand-primary' : 'text-c-text-secondary'}
+                                            />
+                                            <div className="min-w-0">
+                                                <p className={cn(
+                                                    'c-type-body font-semibold',
+                                                    active ? 'text-c-brand-primary' : 'text-c-text-primary'
+                                                )}>
+                                                    {card.label}
+                                                </p>
+                                                <p className="c-type-footnote text-c-text-secondary">
+                                                    {card.subtitle}
+                                                </p>
                                             </div>
-                                            <span className={cn(
-                                                'c-type-footnote font-semibold text-center',
-                                                active ? 'text-c-brand-primary' : 'text-c-text-primary'
-                                            )}>
-                                                {card.label}
-                                            </span>
                                         </button>
                                     );
                                 })}

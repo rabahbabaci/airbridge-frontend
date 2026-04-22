@@ -8,6 +8,7 @@ import { API_BASE } from '@/config';
 import { formatCountdownText, formatLocalTime } from '@/utils/format';
 import PaywallModal from '@/components/PaywallModal';
 import TabBar from '@/components/design-system/TabBar';
+import TabScreenHeader from '@/components/TabScreenHeader';
 import AuthModal from '@/components/engine/AuthModal';
 import useAuthGatedTabs from '@/hooks/useAuthGatedTabs';
 
@@ -395,19 +396,11 @@ export default function Trips() {
         : historyAggregate.total > FREE_TIER_HISTORY_LIMIT;
 
     return (
-        <div className="min-h-screen bg-secondary/50 font-sans antialiased pb-28">
-            {/* Header — logomark only. Tab switching lives in the DS TabBar
-               at the bottom; empty state surfaces "+ New Trip" directly. */}
-            <header className="bg-card border-b border-border sticky top-0 z-50">
-                <div className="max-w-6xl mx-auto px-4 sm:px-6 py-3.5">
-                    <Link to="/search" className="inline-flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-primary flex items-center justify-center">
-                            <Plane className="w-4 h-4 text-primary-foreground" />
-                        </div>
-                        <span className="font-bold text-lg text-foreground">AirBridge</span>
-                    </Link>
-                </div>
-            </header>
+        <div className="min-h-screen bg-c-ground font-c-sans antialiased pb-28">
+            {/* Shared identity header — logo + wordmark left, avatar/Sign-in
+               right. Non-sticky (document flow), consistent with Search and
+               Settings per real-device-findings-2 alignment pass. */}
+            <TabScreenHeader onSignInClick={() => setAuthOpen(true)} />
 
             <div
                 className="max-w-2xl mx-auto px-4 py-6"

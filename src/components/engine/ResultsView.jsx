@@ -405,7 +405,7 @@ export default function ResultsView({
 
     return (
         <div className="w-full max-w-[960px] mx-auto -mx-4 pb-28">
-            <TopBar title="Results" onBack={onEditSetup} />
+            <TopBar title="Leave by" onBack={onEditSetup} />
 
             {selectedFlight && subtitleParts.length > 0 && (
                 <div className="border-b border-c-border-hairline bg-c-ground px-c-4 py-c-2">
@@ -829,7 +829,7 @@ function LauncherIcons({ transport, recommendation, selectedFlight, layout = 'he
                 rel="noopener noreferrer"
                 aria-label={label}
                 title={label}
-                className="inline-flex items-center justify-center h-11 px-c-4 rounded-c-md shadow-c-sm hover:scale-[1.04] active:scale-95 transition-transform"
+                className="inline-flex items-center justify-center w-14 h-14 rounded-full shadow-c-sm hover:scale-[1.04] active:scale-95 transition-transform"
                 style={{ backgroundColor: bg }}
             >
                 <Icon size={30} color={iconColor} />
@@ -886,11 +886,11 @@ function LauncherIcons({ transport, recommendation, selectedFlight, layout = 'he
 
     if (launchers.length === 0) return null;
 
-    // Drive / Transit launchers — icon-only, left-aligned, sized to match
-    // the rideshare Uber/Lyft chips. Brief §4.5 is silent on the precise
-    // treatment; brand marks at size 30 inside a 44-tall pill are legible
-    // without labels, and matching the rideshare silhouette gives the two
-    // transport modes a consistent "deep-link to external app" visual.
+    // Drive / Transit launchers — circular icon-only chips matching the
+    // rideshare Uber/Lyft treatment. Brief §4.5 originally described these
+    // as rectangular pills; the circle treatment came from live-device
+    // feedback (TestFlight 1.0(5)). Brand marks at size 30 in a 56px
+    // circle read as iOS home-screen app icons.
     const driveChipEls = launchers.map(({ href, Icon, label }) => (
         <a
             key={label}
@@ -899,7 +899,7 @@ function LauncherIcons({ transport, recommendation, selectedFlight, layout = 'he
             rel="noopener noreferrer"
             aria-label={label}
             title={label}
-            className="inline-flex items-center justify-center h-11 px-c-4 rounded-c-md bg-c-ground-elevated border border-c-border-hairline shadow-c-sm hover:scale-[1.04] active:scale-95 transition-transform"
+            className="inline-flex items-center justify-center w-14 h-14 rounded-full bg-c-ground-elevated border border-c-border-hairline shadow-c-sm hover:scale-[1.04] active:scale-95 transition-transform"
         >
             <Icon size={30} />
         </a>

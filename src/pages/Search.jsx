@@ -14,8 +14,8 @@ import {
     CaretRight,
     X as XIcon,
 } from '@phosphor-icons/react';
-import TopBar from '@/components/design-system/TopBar';
 import TabBar from '@/components/design-system/TabBar';
+import TabScreenHeader from '@/components/TabScreenHeader';
 import Card from '@/components/design-system/Card';
 import Button from '@/components/design-system/Button';
 import StatusPill from '@/components/design-system/StatusPill';
@@ -102,12 +102,6 @@ function formatFriendlyDate(iso) {
     const [y, m, d] = iso.split('-').map(Number);
     const date = new Date(y, m - 1, d);
     return date.toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
-}
-
-function initials(name) {
-    if (!name) return '';
-    const parts = name.trim().split(/\s+/).slice(0, 2);
-    return parts.map((p) => p[0]?.toUpperCase() ?? '').join('');
 }
 
 /* ── Airport autocomplete (local, DS-styled) ─────────────────────────────── */
@@ -281,7 +275,7 @@ function DatePills({ value, onChange }) {
 /* ── Search screen ───────────────────────────────────────────────────────── */
 export default function Search() {
     const navigate = useNavigate();
-    const { display_name, isAuthenticated, token } = useAuth();
+    const { isAuthenticated, token } = useAuth();
     const { handleTabChange, authOpen, setAuthOpen, handleAuthSuccess } = useAuthGatedTabs('search');
 
     // Hydrate from sessionStorage (set by prior interactions in this flow).
@@ -393,12 +387,6 @@ export default function Search() {
         }
     };
 
-    const handleAvatarTap = () => {
-        if (isAuthenticated) navigate(createPageUrl('Settings'));
-        else setAuthOpen(true);
-    };
-    const avatarInitials = initials(display_name) || '👤';
-
     const tabs = [
         {
             value: 'search',
@@ -421,51 +409,20 @@ export default function Search() {
     ];
 
     return (
-        <div className="min-h-screen bg-c-ground font-c-sans text-c-text-primary">
-            <TopBar
-                variant="translucent"
-                align="left"
-                leftSlot={
-                    <div className="flex items-center gap-c-2">
-                        <div className="w-10 h-10 rounded-c-sm bg-c-brand-primary flex items-center justify-center">
-                            <Airplane size={22} weight="bold" className="text-c-text-inverse" />
-                        </div>
-                        <span className="c-type-title text-c-text-primary">AirBridge</span>
-                    </div>
-                }
-                rightSlot={
-                    isAuthenticated ? (
-                        <button
-                            type="button"
-                            onClick={handleAvatarTap}
-                            aria-label="Settings"
-                            className="w-11 h-11 rounded-c-pill bg-c-brand-primary text-c-text-inverse c-type-footnote font-bold flex items-center justify-center hover:bg-c-brand-primary-hover transition-colors"
-                        >
-                            {avatarInitials}
-                        </button>
-                    ) : (
-                        <button
-                            type="button"
-                            onClick={handleAvatarTap}
-                            aria-label="Sign in"
-                            className="h-11 px-c-4 rounded-c-pill bg-c-brand-primary text-c-text-inverse c-type-footnote font-semibold hover:bg-c-brand-primary-hover transition-colors"
-                        >
-                            Sign in
-                        </button>
-                    )
-                }
-            />
+        <div className="min-h-screen bg-c-ground font-c-sans text-c-text-primary flex flex-col">
+            <TabScreenHeader onSignInClick={() => setAuthOpen(true)} />
 
-            {/* US-only badge */}
-            <div className="px-c-6 pt-c-4">
+            {/* Content — flex-grows between TopBar and TabBar so the search
+               card sits visually balanced on any viewport height. The US-only
+               pill and optional upcoming-trip banner travel with the card as
+               a centered stack. */}
+            <main className="flex-1 flex flex-col justify-center px-c-6 pb-40 max-w-2xl mx-auto w-full gap-c-3">
                 <StatusPill tone="neutral">🇺🇸 US domestic flights only</StatusPill>
-            </div>
 
-            {/* Active-trip informational banner. Always routes to /Trips so
-               the user sees everything they're working with — single or
-               many. Copy and subtitle adapt to trip count. */}
-            {upcomingTrips.length > 0 && (
-                <div className="px-c-6 pt-c-3">
+                {/* Active-trip informational banner. Always routes to /Trips so
+                   the user sees everything they're working with — single or
+                   many. Copy and subtitle adapt to trip count. */}
+                {upcomingTrips.length > 0 && (
                     <button
                         type="button"
                         onClick={() => navigate(createPageUrl('Trips'))}
@@ -490,11 +447,7 @@ export default function Search() {
                         </div>
                         <CaretRight size={16} weight="bold" className="shrink-0" />
                     </button>
-                </div>
-            )}
-
-            {/* Content */}
-            <main className="px-c-6 pt-c-8 pb-40 max-w-2xl mx-auto">
+                )}
                 <Card padding="lg">
                     <h1 className="c-type-title text-c-text-primary">Start your journey</h1>
                     <p className="c-type-body text-c-text-secondary mt-c-1">Never miss a flight again</p>
