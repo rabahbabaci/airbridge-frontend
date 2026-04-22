@@ -20,8 +20,10 @@ import Card from '@/components/design-system/Card';
 import Button from '@/components/design-system/Button';
 import StatusPill from '@/components/design-system/StatusPill';
 import AuthModal from '@/components/engine/AuthModal';
+import DatePickerWeb from '@/components/DatePickerWeb';
 import useAuthGatedTabs from '@/hooks/useAuthGatedTabs';
 import { cn } from '@/lib/utils';
+import { isNative } from '@/utils/platform';
 
 /* ── Constants ──────────────────────────────────────────────────────────── */
 const FLIGHT_NUMBER_REGEX = /^[A-Z]{2,3}\s?\d{1,4}$/;
@@ -230,7 +232,10 @@ function DatePills({ value, onChange }) {
     const isToday = value === today;
     const isTomorrow = value === tomorrow;
     const isCustom = !!value && !isToday && !isTomorrow;
-    const dateInputRef = useRef(null);
+    const native = isNative();
+    const dateInputRef = useRef(null);      // Capacitor path only
+    const pickDateBtnRef = useRef(null);    // Web path only — anchor for popover
+    const [webPickerOpen, setWebPickerOpen] = useState(false);
 
     const pillClass = (active) =>
         cn(
@@ -240,11 +245,10 @@ function DatePills({ value, onChange }) {
                 : 'bg-c-ground-sunken text-c-text-secondary hover:text-c-text-primary'
         );
 
-    // Desktop browsers don't auto-open <input type="date"> on focus — only
-    // showPicker() triggers the native UI on a user gesture. iOS Safari /
-    // WKWebView also supports showPicker(); fallback to .click() covers
-    // older browsers (Firefox <111) that still rely on focus-to-open.
-    const handlePickDate = () => {
+    // Capacitor/iOS WKWebView: native wheel picker via showPicker() on the
+    // hidden <input type="date">. DO NOT replace this path — the iOS native
+    // UI is the correct affordance for the mobile app.
+    const handleNativePick = () => {
         const el = dateInputRef.current;
         if (!el) return;
         try {
@@ -252,6 +256,11 @@ function DatePills({ value, onChange }) {
         } catch {
             el.click();
         }
+    };
+
+    const handlePickDate = () => {
+        if (native) handleNativePick();
+        else setWebPickerOpen(true);
     };
 
     return (
@@ -263,26 +272,43 @@ function DatePills({ value, onChange }) {
                 Tomorrow
             </button>
             <button
+                ref={pickDateBtnRef}
                 type="button"
                 onClick={handlePickDate}
                 className={cn(pillClass(isCustom), 'inline-flex items-center justify-center')}
                 aria-label="Pick a date"
+                aria-haspopup={native ? undefined : 'dialog'}
+                aria-expanded={native ? undefined : webPickerOpen}
             >
                 <span>{isCustom ? formatFriendlyDate(value) : 'Pick a date'}</span>
             </button>
-            {/* Kept in the DOM (not display:none) so showPicker() can target
-               it. sr-only hides it visually and from layout without removing
-               it from the a11y tree or disabling the native picker API. */}
-            <input
-                ref={dateInputRef}
-                type="date"
-                min={today}
-                value={isCustom ? value : ''}
-                onChange={(e) => { if (e.target.value) onChange(e.target.value); }}
-                className="sr-only"
-                tabIndex={-1}
-                aria-hidden="true"
-            />
+
+            {/* Capacitor path — hidden input kept in the DOM (not display:none)
+               so showPicker() can target it. sr-only hides it visually and
+               from layout without disabling the native picker API. */}
+            {native && (
+                <input
+                    ref={dateInputRef}
+                    type="date"
+                    min={today}
+                    value={isCustom ? value : ''}
+                    onChange={(e) => { if (e.target.value) onChange(e.target.value); }}
+                    className="sr-only"
+                    tabIndex={-1}
+                    aria-hidden="true"
+                />
+            )}
+
+            {/* Web path — Concourse-themed popover; portaled to document.body. */}
+            {!native && (
+                <DatePickerWeb
+                    value={isCustom ? value : null}
+                    onChange={onChange}
+                    open={webPickerOpen}
+                    onOpenChange={setWebPickerOpen}
+                    anchorRef={pickDateBtnRef}
+                />
+            )}
         </div>
     );
 }
