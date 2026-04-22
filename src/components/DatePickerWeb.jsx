@@ -158,8 +158,10 @@ export default function DatePickerWeb({
                         'c-type-body text-c-text-primary cursor-pointer ' +
                         'hover:bg-c-brand-primary-surface transition-colors duration-c-fast ' +
                         'focus:outline-none focus-visible:ring-2 focus-visible:ring-c-brand-primary',
+                    // `!` forces override of the base `day` classes — Tailwind
+                    // class ordering between concatenated slots is unreliable.
                     day_selected:
-                        'bg-c-brand-primary text-c-text-inverse hover:bg-c-brand-primary-hover',
+                        '!bg-c-brand-primary !text-white hover:!bg-c-brand-primary-hover',
                     day_today: 'ring-1 ring-inset ring-c-brand-primary',
                     day_outside: 'text-c-text-tertiary',
                     day_disabled: 'text-c-text-tertiary opacity-40 pointer-events-none hover:bg-transparent',
