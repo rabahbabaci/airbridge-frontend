@@ -517,7 +517,11 @@ function MeterSegment({ value, unit, textTone }) {
             >
                 {value}
             </span>
-            <span className="c-type-footnote text-c-text-secondary uppercase">{unit}</span>
+            {/* Unit letter: bold + bumped from c-type-footnote (13px) to
+               c-type-body (15px) for better scannability next to the
+               hero-weight number. Still subordinate (~45-55% of the
+               number's visual weight) — doesn't compete with the value. */}
+            <span className="c-type-body font-bold text-c-text-secondary uppercase">{unit}</span>
         </div>
     );
 }
@@ -628,7 +632,11 @@ function TripContextStrip({ trip, selectedFlight, boardingTime, editState = 'non
     if (segments.length === 0 && !showEditable && !showLocked) return null;
 
     return (
-        <div className="flex items-center gap-c-3 c-type-footnote text-c-text-secondary">
+        // Metadata + Edit bumped c-type-footnote (13px) → c-type-body (15px)
+        // for readability; this line is the context for the hero countdown,
+        // should read as secondary info but not caption-tiny. Wraps to 2
+        // lines on narrow viewports via flex-wrap on the segments row.
+        <div className="flex items-center gap-c-3 c-type-body text-c-text-secondary">
             <div className="flex-1 min-w-0 flex flex-wrap items-center gap-x-c-2 gap-y-c-1">
                 {segments.map((seg, i) => (
                     <React.Fragment key={i}>
@@ -646,9 +654,9 @@ function TripContextStrip({ trip, selectedFlight, boardingTime, editState = 'non
                 <button
                     type="button"
                     onClick={onEdit}
-                    className="shrink-0 inline-flex items-center gap-c-1 text-c-brand-primary c-type-footnote font-semibold hover:text-c-brand-primary-hover transition-colors"
+                    className="shrink-0 inline-flex items-center gap-c-1 text-c-brand-primary c-type-body font-semibold hover:text-c-brand-primary-hover transition-colors"
                 >
-                    <Pencil className="w-3.5 h-3.5" />
+                    <Pencil className="w-4 h-4" />
                     Edit
                 </button>
             )}
@@ -656,7 +664,7 @@ function TripContextStrip({ trip, selectedFlight, boardingTime, editState = 'non
                 <button
                     type="button"
                     onClick={onUntrack}
-                    className="shrink-0 inline-flex items-center text-c-text-tertiary c-type-footnote font-medium underline underline-offset-2 hover:text-c-text-secondary transition-colors"
+                    className="shrink-0 inline-flex items-center text-c-text-tertiary c-type-body font-medium underline underline-offset-2 hover:text-c-text-secondary transition-colors"
                 >
                     Untrack to edit
                 </button>
@@ -707,28 +715,39 @@ function TransportLauncherRow({ transport, homeCoords, airCoords, airportCode, t
 
     if (chips.length === 0) return null;
 
+    // Label telegraphs what the chip row does — same small-caps eyebrow
+    // treatment as the other Active Trip section headers ("STARTING HERE",
+    // "YOU'RE HERE" etc.) so the chip row reads as a labeled affordance
+    // rather than a bare row of icons.
+    const label = isRideshare ? 'Book a ride' : 'Open in nav app';
+
     return (
-        <div className="flex flex-wrap gap-c-3">
-            {chips.map(({ href, Icon, label, bg, iconColor }) => {
-                const rideshare = !!bg;
-                return (
-                    <a
-                        key={label}
-                        href={href}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        aria-label={label}
-                        title={label}
-                        className={cn(
-                            'inline-flex items-center justify-center w-14 h-14 rounded-full shadow-c-sm hover:scale-[1.04] active:scale-95 transition-transform',
-                            rideshare ? '' : 'bg-c-ground-elevated border border-c-border-hairline'
-                        )}
-                        style={rideshare ? { backgroundColor: bg } : undefined}
-                    >
-                        <Icon size={30} color={iconColor} />
-                    </a>
-                );
-            })}
+        <div>
+            <p className="c-type-caption font-bold uppercase text-c-text-tertiary mb-c-2" style={{ letterSpacing: '0.08em' }}>
+                {label}
+            </p>
+            <div className="flex flex-wrap gap-c-3">
+                {chips.map(({ href, Icon, label: chipLabel, bg, iconColor }) => {
+                    const rideshare = !!bg;
+                    return (
+                        <a
+                            key={chipLabel}
+                            href={href}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            aria-label={chipLabel}
+                            title={chipLabel}
+                            className={cn(
+                                'inline-flex items-center justify-center w-14 h-14 rounded-full shadow-c-sm hover:scale-[1.04] active:scale-95 transition-transform',
+                                rideshare ? '' : 'bg-c-ground-elevated border border-c-border-hairline'
+                            )}
+                            style={rideshare ? { backgroundColor: bg } : undefined}
+                        >
+                            <Icon size={30} color={iconColor} />
+                        </a>
+                    );
+                })}
+            </div>
         </div>
     );
 }
@@ -1144,7 +1163,12 @@ function ActiveTimeline({ phase, recommendation, selectedFlight, transport, home
                     <div className="flex-1 min-w-0 pt-c-2">
                         <p className="c-type-body font-semibold text-c-text-primary">{row.name}</p>
                         {row.subtitle && (
-                            <p className={cn('c-type-caption mt-0.5 inline-flex items-center gap-c-1', subtitleClass(row.subtitleTone))}>
+                            // Bumped c-type-caption (11px) → c-type-footnote (13px) + font-bold
+                            // so durations read at arm's length. Color tokens preserved
+                            // (warning amber for TSA wait, confidence green for buffer,
+                            // neutral text-tertiary otherwise). No borders or pills —
+                            // flat text matches the departure-signage aesthetic.
+                            <p className={cn('c-type-footnote font-bold uppercase mt-c-1 inline-flex items-center gap-c-1', subtitleClass(row.subtitleTone))}>
                                 {row.isLiveData && <LivePulseDot />}
                                 {row.subtitle}
                             </p>
@@ -1156,10 +1180,11 @@ function ActiveTimeline({ phase, recommendation, selectedFlight, transport, home
                             </p>
                         )}
                         {row.connectorPillAfter && (
-                            // Plain subordinate text below the subtitle — no pill/border
-                            // treatment, so "7 min walk" reads as secondary info under the
-                            // primary "18 min wait" rather than competing for attention.
-                            <p className="c-type-caption text-c-text-tertiary mt-c-1">
+                            // Subordinate duration line below the subtitle — bumped from
+                            // c-type-caption (11px) → c-type-footnote (13px) + font-bold
+                            // for consistency with the subtitle treatment, but kept at
+                            // text-tertiary color so it still reads as secondary info.
+                            <p className="c-type-footnote font-bold uppercase text-c-text-tertiary mt-c-1">
                                 {row.connectorPillAfter}
                             </p>
                         )}

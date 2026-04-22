@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Plane, User } from 'lucide-react';
+import { User } from 'lucide-react';
 import TopBar from '@/components/design-system/TopBar';
+import Logomark from '@/components/Logomark';
 import { useAuth } from '@/lib/AuthContext';
 import { createPageUrl } from '@/utils';
 
@@ -17,10 +18,11 @@ import { createPageUrl } from '@/utils';
  * Sign-in pill when unauthenticated fires the caller's `onSignInClick`
  * callback so the caller owns the AuthModal state.
  *
- * Uses Lucide `Plane` (leaning-right paper-plane silhouette) instead of
- * Phosphor `Airplane` (top-down, points straight up) so the in-app
- * logomark matches the landing page, favicon, and iOS app icon. One
- * visual family everywhere.
+ * Uses the shared <Logomark /> composition (Lucide Plane + Clock on an
+ * indigo rounded-square bg) so the in-app logomark matches the landing
+ * page, favicon, iOS app icon, and TestFlight thumbnail. One visual
+ * family everywhere. At 40px the clock reads as a small corner badge;
+ * accepted for brand consistency with the favicon/iOS-icon composition.
  *
  * Deviates from brief §2.4 / §4.14 / §4.2's per-screen top-bar specs in
  * favor of a consistent identity anchor across all three tabs. Brief to
@@ -60,13 +62,7 @@ export default function TabScreenHeader({ onSignInClick }) {
                     aria-label="AirBridge home"
                     className="flex items-center gap-c-2 -m-c-1 p-c-1 rounded-c-md hover:bg-c-ground-sunken/40 transition-colors"
                 >
-                    <div className="w-10 h-10 rounded-c-sm bg-c-brand-primary flex items-center justify-center">
-                        <Plane
-                            className="text-c-text-inverse"
-                            style={{ width: 22, height: 22 }}
-                            strokeWidth={2.5}
-                        />
-                    </div>
+                    <Logomark size={40} className="rounded-c-sm shrink-0" />
                     <span className="c-type-title text-c-text-primary">AirBridge</span>
                 </Link>
             }

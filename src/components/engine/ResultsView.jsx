@@ -770,17 +770,14 @@ function LauncherIcons({ transport, recommendation, selectedFlight, layout = 'he
         transit: isTransit,
     };
 
-    // Context label above the chip row disambiguates what tapping does —
-    // "Book your ride" for rideshare, "Navigate to airport" for driving,
-    // "Get directions" for transit. Small caps treatment on the
-    // brand-tinted hero background, right-aligned to match the chips.
+    // Context label above the chip row. Aligned with Active Trip's
+    // TransportLauncherRow labels ("Book a ride" / "Open in nav app")
+    // so the two screens read consistently. Small caps treatment.
     const contextLabel = isRideshare
-        ? 'Book your ride'
-        : isDriving
-            ? 'Navigate to airport'
-            : isTransit
-                ? 'Get directions'
-                : null;
+        ? 'Book a ride'
+        : (isDriving || isTransit)
+            ? 'Open in nav app'
+            : null;
 
     // Rideshare chips are brand-coloured containers (Uber black, Lyft pink)
     // with a white wordmark filling the chip — same silhouette you'd see
