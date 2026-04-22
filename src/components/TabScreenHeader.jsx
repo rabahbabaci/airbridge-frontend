@@ -1,5 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom';
-import { Plane } from 'lucide-react';
+import { Plane, User } from 'lucide-react';
 import TopBar from '@/components/design-system/TopBar';
 import { useAuth } from '@/lib/AuthContext';
 import { createPageUrl } from '@/utils';
@@ -35,7 +35,15 @@ function initials(name) {
 export default function TabScreenHeader({ onSignInClick }) {
     const navigate = useNavigate();
     const { display_name, isAuthenticated } = useAuth();
-    const avatarInitials = initials(display_name) || '👤';
+    // Initials when we have a display_name; null otherwise. null triggers the
+    // Lucide User icon fallback below — the prior '👤' emoji fallback rendered
+    // via iOS's default emoji font which looked like a broken placeholder on
+    // native. On Apple Sign-In specifically, display_name is often null after
+    // the first sign-in (Apple's plugin only returns fullName on initial auth;
+    // subsequent re-auth returns nil, so if the backend didn't persist the
+    // name from first sign-in, the client has nothing to render). The icon
+    // fallback is deterministic and reads as a deliberate neutral state.
+    const avatarInitials = initials(display_name);
 
     const handleAuthTap = () => {
         if (isAuthenticated) navigate(createPageUrl('Settings'));
@@ -70,7 +78,7 @@ export default function TabScreenHeader({ onSignInClick }) {
                         aria-label="Settings"
                         className="w-11 h-11 rounded-c-pill bg-c-brand-primary text-c-text-inverse c-type-footnote font-bold flex items-center justify-center hover:bg-c-brand-primary-hover transition-colors"
                     >
-                        {avatarInitials}
+                        {avatarInitials || <User className="text-c-text-inverse" style={{ width: 20, height: 20 }} strokeWidth={2.25} aria-hidden="true" />}
                     </button>
                 ) : (
                     <button
