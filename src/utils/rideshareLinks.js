@@ -1,12 +1,14 @@
 /**
- * Rideshare deep-link builders + sessionStorage for the user's chosen
- * provider. Results screen (brief §4.5) and future Active Trip rideshare
- * cards share these.
+ * Transport-mode deep-link builders + sessionStorage for the user's chosen
+ * rideshare provider. Results screen (brief §4.5) and Active Trip rideshare
+ * cards share these. Extended with nav builders (Apple Maps / Google Maps /
+ * Waze) so both screens render transport-mode-aware chip rows from one
+ * source of truth.
  *
- * Native (Capacitor) URIs target the Uber/Lyft app schemes; web URIs
- * fall back to m.uber.com and lyft.com which also open the native app
- * if installed on iOS/Android and otherwise land on the web booking
- * flow.
+ * Native (Capacitor) URIs target app schemes; web URIs fall back to
+ * m.uber.com / lyft.com / maps.apple.com / google.com/maps / waze.com
+ * which also open the native app if installed on iOS/Android and
+ * otherwise land on the web flow.
  */
 import { isNative } from './platform';
 
@@ -23,6 +25,29 @@ export function buildLyftUrl({ homeLat, homeLng, termLat, termLng }) {
         return `lyft://ridetype?id=lyft&destination[latitude]=${termLat}&destination[longitude]=${termLng}`;
     }
     return `https://lyft.com/ride?id=lyft&pickup[latitude]=${homeLat}&pickup[longitude]=${homeLng}&destination[latitude]=${termLat}&destination[longitude]=${termLng}`;
+}
+
+/* ── Navigation deep links (drivers + transit) ──────────────────────── */
+
+export function buildAppleMapsUrl({ termLat, termLng, homeLat, homeLng, transit }) {
+    const dirflg = transit ? 'r' : 'd';
+    const saddr = homeLat != null && homeLng != null ? `saddr=${homeLat},${homeLng}&` : '';
+    if (isNative()) return `maps://?${saddr}daddr=${termLat},${termLng}&dirflg=${dirflg}`;
+    return `https://maps.apple.com/?${saddr}daddr=${termLat},${termLng}&dirflg=${dirflg}`;
+}
+
+export function buildGoogleMapsUrl({ termLat, termLng, homeLat, homeLng, transit }) {
+    const travelmode = transit ? 'transit' : 'driving';
+    if (isNative()) {
+        return `comgooglemaps://?daddr=${termLat},${termLng}&directionsmode=${travelmode}`;
+    }
+    const origin = homeLat != null && homeLng != null ? `&origin=${homeLat},${homeLng}` : '';
+    return `https://www.google.com/maps/dir/?api=1${origin}&destination=${termLat},${termLng}&travelmode=${travelmode}`;
+}
+
+export function buildWazeUrl({ termLat, termLng }) {
+    if (isNative()) return `waze://?ll=${termLat},${termLng}&navigate=yes`;
+    return `https://www.waze.com/ul?ll=${termLat},${termLng}&navigate=yes`;
 }
 
 /* ── Rideshare provider sessionStorage (set by Results §4.5) ───────── */

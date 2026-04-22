@@ -16,9 +16,8 @@ import TabBar from '@/components/design-system/TabBar';
 import Button from '@/components/design-system/Button';
 import AuthModal from '@/components/engine/AuthModal';
 import useAuthGatedTabs from '@/hooks/useAuthGatedTabs';
-import { buildUberUrl, buildLyftUrl } from '@/utils/rideshareLinks';
+import { buildUberUrl, buildLyftUrl, buildAppleMapsUrl, buildGoogleMapsUrl, buildWazeUrl } from '@/utils/rideshareLinks';
 import { formatLocalTime, formatDuration } from '@/utils/format';
-import { isNative } from '@/utils/platform';
 import airports from '@/data/airports.json';
 
 /* ── Airport lookup (IATA → city name). Built once at module load. ──── */
@@ -268,27 +267,8 @@ function makeConnectorLabel(timelineSteps) {
     };
 }
 
-/* ── Navigation deep links (drivers + transit) ──────────────────────── */
-function buildAppleMapsUrl({ termLat, termLng, homeLat, homeLng, transit }) {
-    const dirflg = transit ? 'r' : 'd';
-    const saddr = homeLat != null && homeLng != null ? `saddr=${homeLat},${homeLng}&` : '';
-    if (isNative()) return `maps://?${saddr}daddr=${termLat},${termLng}&dirflg=${dirflg}`;
-    return `https://maps.apple.com/?${saddr}daddr=${termLat},${termLng}&dirflg=${dirflg}`;
-}
-
-function buildGoogleMapsUrl({ termLat, termLng, homeLat, homeLng, transit }) {
-    const travelmode = transit ? 'transit' : 'driving';
-    if (isNative()) {
-        return `comgooglemaps://?daddr=${termLat},${termLng}&directionsmode=${travelmode}`;
-    }
-    const origin = homeLat != null && homeLng != null ? `&origin=${homeLat},${homeLng}` : '';
-    return `https://www.google.com/maps/dir/?api=1${origin}&destination=${termLat},${termLng}&travelmode=${travelmode}`;
-}
-
-function buildWazeUrl({ termLat, termLng }) {
-    if (isNative()) return `waze://?ll=${termLat},${termLng}&navigate=yes`;
-    return `https://www.waze.com/ul?ll=${termLat},${termLng}&navigate=yes`;
-}
+/* Navigation deep links moved to @/utils/rideshareLinks so Active Trip
+   can render the same transport-mode-aware chip row. */
 
 /* ── Main Component ─────────────────────────────────────────────────── */
 export default function ResultsView({

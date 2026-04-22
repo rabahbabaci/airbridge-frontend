@@ -190,15 +190,20 @@
 
 /* ── Landing / web-only ground override ──────────────────────────────────
    The mobile app (Capacitor WKWebView) renders the cream #FCFAF6 ground
-   as crisp and warm on iOS; desktop browser rendering of the same value
-   leaned yellowish against the cleaner feel the marketing page wants.
-   This override whitens the base ground only for the landing-page root.
-   Scoped to .landing-root so the in-app ground token stays at its
-   brief-specified value. Sunken/elevated tokens untouched — the landing
-   components that use them (Footer, Problem, Hero mockup) continue to
-   read against the slightly-warmer cream where they always did. */
+   crisp on iOS; desktop browser rendering of the same value read
+   yellowish against the cleaner feel the marketing page wants.
+
+   First pass (PR #14) whitened --c-ground only but left --c-ground-sunken
+   at #F4F1EB — so landing sections that use bg-c-ground-sunken (Problem,
+   Comparison, Footer) still read as warm cream. This second pass extends
+   the scope to also whiten --c-ground-sunken so those sections match the
+   rest of the whitened landing.
+
+   Scoped to .landing-root so the in-app ground tokens stay at their
+   brief-specified values — Capacitor/iOS rendering is unaffected. */
 .landing-root {
   --c-ground: #FAFAF8;
+  --c-ground-sunken: #F4F4F1;
 }
 
 /* ── Tokens (dark mode, opt-in per-subtree) ─────────────────────────────── */

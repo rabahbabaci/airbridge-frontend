@@ -14,11 +14,16 @@ import { useAuth } from '@/lib/AuthContext';
 import { API_BASE, GOOGLE_MAPS_API_KEY } from '@/config';
 import { createPageUrl } from '@/utils';
 import { loadGoogleMaps } from '@/utils/geocode';
+import {
+    buildUberUrl, buildLyftUrl,
+    buildAppleMapsUrl, buildGoogleMapsUrl, buildWazeUrl,
+} from '@/utils/rideshareLinks';
 import { cn } from '@/lib/utils';
 import TabBar from '@/components/design-system/TabBar';
 import AuthModal from '@/components/engine/AuthModal';
 import useAuthGatedTabs from '@/hooks/useAuthGatedTabs';
 import UntrackConfirmModal from './UntrackConfirmModal';
+import { UberIcon, LyftIcon, AppleMapsIcon, GoogleMapsIcon, WazeIcon } from '@/components/BrandIcons';
 import airports from '@/data/airports.json';
 
 /* ── Phase model ───────────────────────────────────────────────────────
@@ -480,53 +485,22 @@ function PhaseTopBar({ theme, phase, trip, selectedFlight, onBack, onMore, origi
     );
 }
 
-/* ── Hero countdown — "Leave in 11h 47m 52s" with per-digit locked
-   slots. Each DIGIT sits in its own inline-block at `width: 1ch` with
-   tabular-nums, so the glyph for "4 → 5" or "9 → 10" never moves
-   subsequent character positions. Unit letters ("h", "m", "s") have
-   fixed horizontal margins so the gap to the next numeric group
-   doesn't jitter either. */
-function CountdownSlots({ parsed }) {
-    if (!parsed || parsed.isDate) {
-        return parsed?.text || '—';
-    }
-    const { h, m, s } = parsed;
-    const showH = h > 0;
-    const showM = showH || m > 0;
-    const pad2 = (n) => String(n).padStart(2, '0');
+/* ── Countdown meter (brief §1.2 airport-signage) ─────────────────
+   Departure-board-style segmented meter. One outer rounded-pill border
+   with hairline vertical dividers between h/m/s cells. Each cell
+   contains a tabular-nums number + small unit letter.
 
-    const digitStyle = { display: 'inline-block', width: '1ch', textAlign: 'center' };
-    const unitStyle = { display: 'inline-block', marginRight: '0.25em', marginLeft: '0.05em' };
+   React reconciliation: only the numeric text nodes change per tick.
+   Outer border, dividers, unit spans, padding — all static JSX — get
+   a no-op diff every second. No visual jitter, no layout shifts.
 
-    const renderDigits = (valStr) => valStr.split('').map((d, i) => (
-        <span key={i} style={digitStyle} className="tabular-nums">{d}</span>
-    ));
-
-    return (
-        <span className="whitespace-nowrap">
-            {showH && (
-                <>
-                    {renderDigits(String(h))}
-                    <span style={unitStyle}>h</span>
-                </>
-            )}
-            {showM && (
-                <>
-                    {renderDigits(showH ? pad2(m) : String(m))}
-                    <span style={unitStyle}>m</span>
-                </>
-            )}
-            {renderDigits(showM ? pad2(s) : String(s))}
-            <span style={{ display: 'inline-block', marginLeft: '0.05em' }}>s</span>
-        </span>
-    );
-}
-
-// Hero countdown sizing. Desktop uses the DS --c-type-hero (56px);
-// the countdown can swell slightly on very-wide viewports via clamp
-// without exceeding --c-type-hero-xl (72px). Mobile drops to
-// --c-type-display (36px) so the ticking digits still dominate
-// without wrapping.
+   IMPORTANT — Tailwind tree-shaking: do not use dynamic template
+   literals for class names (e.g. `border-${tone}-500`) or Tailwind's
+   JIT scanner won't see them and the classes never ship in the bundle.
+   Use full static class names in the ternary so each variant string
+   appears literally in source. This was the root cause of the meter
+   not rendering on TestFlight 1.0(7) in an earlier local-only branch
+   that was never merged. */
 const COUNTDOWN_FONT_STYLE = {
     fontSize: 'clamp(var(--c-type-display-size), 9vw, var(--c-type-hero-xl-size))',
     lineHeight: 1,
@@ -534,10 +508,56 @@ const COUNTDOWN_FONT_STYLE = {
     letterSpacing: '-0.02em',
 };
 
-// "Leave in" label. Desktop sits co-equal with the countdown — same
-// hero-scale, differentiated by colour (text-primary vs brand). Mobile
-// steps down to --c-type-title (22px) so the label reads as label-ish
-// and leaves room for the countdown to read as the value.
+function MeterSegment({ value, unit, textTone }) {
+    return (
+        <div className="flex items-baseline gap-[0.15em] px-c-4 py-c-2">
+            <span
+                className={cn('tabular-nums', textTone)}
+                style={COUNTDOWN_FONT_STYLE}
+            >
+                {value}
+            </span>
+            <span className="c-type-footnote text-c-text-secondary uppercase">{unit}</span>
+        </div>
+    );
+}
+
+function CountdownMeter({ parsed, tone = 'brand' }) {
+    // Static class names per variant — Tailwind JIT can see them all
+    // literally. Do NOT collapse into a template literal.
+    const isUrgent = tone === 'urgent';
+    const containerClass = isUrgent
+        ? 'inline-flex items-center rounded-c-lg border-2 divide-x-2 border-c-urgency divide-c-urgency'
+        : 'inline-flex items-center rounded-c-lg border-2 divide-x-2 border-c-brand-primary divide-c-brand-primary';
+    const textTone = isUrgent ? 'text-c-urgency' : 'text-c-brand-primary';
+
+    if (!parsed || parsed.isDate) {
+        return (
+            <span
+                className={cn('tabular-nums', textTone)}
+                style={COUNTDOWN_FONT_STYLE}
+            >
+                {parsed?.text || '—'}
+            </span>
+        );
+    }
+    const { h, m, s } = parsed;
+    const showH = h > 0;
+    const showM = showH || m > 0;
+    const pad2 = (n) => String(n).padStart(2, '0');
+
+    return (
+        <div className={containerClass}>
+            {showH && <MeterSegment value={pad2(h)} unit="h" textTone={textTone} />}
+            {showM && <MeterSegment value={showH ? pad2(m) : String(m)} unit="m" textTone={textTone} />}
+            <MeterSegment value={showM ? pad2(s) : String(s)} unit="s" textTone={textTone} />
+        </div>
+    );
+}
+
+// "Leave in" label at display scale on mobile, hero-xl scale on desktop.
+// Larger + bolder than prior c-type-title (22px) treatment per real-
+// device feedback — reads as the hero anchor, pitch-screenshot-ready.
 const LABEL_DESKTOP_STYLE = {
     fontSize: 'clamp(var(--c-type-display-size), 9vw, var(--c-type-hero-xl-size))',
     lineHeight: 1,
@@ -546,28 +566,19 @@ const LABEL_DESKTOP_STYLE = {
 };
 
 function LeaveInHero({ parsed, tone = 'brand' }) {
-    // tone 'brand' → light-theme purple countdown. tone 'urgent' → red
-    // in the time-to-go variant.
-    const valueColor = tone === 'urgent' ? 'text-c-urgency' : 'text-c-brand-primary';
     return (
         <>
-            {/* Mobile (<md): label left, countdown right-filling & centred
-               visually in the remaining space. Label steps down to
-               --c-type-title so hierarchy reads; countdown stays at the
-               clamp'd hero size. */}
-            <div className="md:hidden flex items-baseline gap-c-3">
-                <span className="c-type-title text-c-text-primary shrink-0">Leave in</span>
-                <span
-                    className={cn('tabular-nums flex-1 text-center', valueColor)}
-                    style={COUNTDOWN_FONT_STYLE}
-                >
-                    <CountdownSlots parsed={parsed} />
-                </span>
+            {/* Mobile (<md): vertical stack — label above, meter below
+               full-width. Label steps up to c-type-display (36px) so
+               it reads as a hero element; meter reads as a discrete
+               piece of information, framed. */}
+            <div className="md:hidden flex flex-col items-center gap-c-4">
+                <span className="c-type-display text-c-text-primary">Leave in</span>
+                <CountdownMeter parsed={parsed} tone={tone} />
             </div>
-            {/* Desktop (md:+): both at hero scale, inline, comfortable
-               c-8 gap between the label and the digits. Baseline-
-               aligned so the descenders in "Leave in" line up with the
-               digit baselines. */}
+            {/* Desktop (md:+): both at hero scale, inline baseline-
+               aligned. The meter becomes the value anchor on the right
+               of the label. */}
             <div className="hidden md:flex items-baseline gap-c-8">
                 <span
                     className="text-c-text-primary shrink-0"
@@ -575,12 +586,7 @@ function LeaveInHero({ parsed, tone = 'brand' }) {
                 >
                     Leave in
                 </span>
-                <span
-                    className={cn('tabular-nums', valueColor)}
-                    style={COUNTDOWN_FONT_STYLE}
-                >
-                    <CountdownSlots parsed={parsed} />
-                </span>
+                <CountdownMeter parsed={parsed} tone={tone} />
             </div>
         </>
     );
@@ -659,11 +665,80 @@ function TripContextStrip({ trip, selectedFlight, boardingTime, editState = 'non
     );
 }
 
+/* ── Transport launcher row — mode-aware chip pair mirroring the
+   Results screen. Rideshare → Uber + Lyft circles. Driving → Apple
+   Maps + Google Maps + Waze circles. Transit → Apple Maps + Google
+   Maps circles (transit mode). Chip visual matches ResultsView's
+   w-14 h-14 rounded-full icon-only treatment. Coordinates flow in
+   from the PhaseContent caller. Returns null when the trip's
+   transport mode doesn't map to any launcher, or when coords are
+   missing. */
+function TransportLauncherRow({ transport, homeCoords, airCoords, airportCode, terminal }) {
+    if (!airCoords) return null;
+    const coords = {
+        termLat: airCoords.lat,
+        termLng: airCoords.lng,
+        homeLat: homeCoords?.lat,
+        homeLng: homeCoords?.lng,
+        transit: false,
+    };
+    const isRideshare = transport === 'rideshare';
+    const isDriving = transport === 'driving';
+    const isTransit = transport === 'train' || transport === 'bus';
+
+    let chips = [];
+    if (isRideshare && homeCoords) {
+        chips = [
+            { href: buildUberUrl({ ...coords, airportCode, terminal }), Icon: UberIcon, label: 'Open in Uber', bg: '#000000', iconColor: '#FFFFFF' },
+            { href: buildLyftUrl(coords), Icon: LyftIcon, label: 'Open in Lyft', bg: '#FF00BF', iconColor: '#FFFFFF' },
+        ];
+    } else if (isDriving) {
+        chips = [
+            { href: buildAppleMapsUrl(coords), Icon: AppleMapsIcon, label: 'Open in Apple Maps' },
+            { href: buildGoogleMapsUrl(coords), Icon: GoogleMapsIcon, label: 'Open in Google Maps' },
+            { href: buildWazeUrl(coords), Icon: WazeIcon, label: 'Open in Waze' },
+        ];
+    } else if (isTransit) {
+        chips = [
+            { href: buildAppleMapsUrl({ ...coords, transit: true }), Icon: AppleMapsIcon, label: 'Open in Apple Maps' },
+            { href: buildGoogleMapsUrl({ ...coords, transit: true }), Icon: GoogleMapsIcon, label: 'Open in Google Maps' },
+        ];
+    }
+
+    if (chips.length === 0) return null;
+
+    return (
+        <div className="flex flex-wrap gap-c-3">
+            {chips.map(({ href, Icon, label, bg, iconColor }) => {
+                const rideshare = !!bg;
+                return (
+                    <a
+                        key={label}
+                        href={href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={label}
+                        title={label}
+                        className={cn(
+                            'inline-flex items-center justify-center w-14 h-14 rounded-full shadow-c-sm hover:scale-[1.04] active:scale-95 transition-transform',
+                            rideshare ? '' : 'bg-c-ground-elevated border border-c-border-hairline'
+                        )}
+                        style={rideshare ? { backgroundColor: bg } : undefined}
+                    >
+                        <Icon size={30} color={iconColor} />
+                    </a>
+                );
+            })}
+        </div>
+    );
+}
+
 /* ── Phase content — per-phase hero + body. Kept as one component with
    a switch so the state-to-screen mapping is all visible in one place. */
 function PhaseContent({
     phase, trip, recommendation, selectedFlight, transport, homeAddress,
     countdownParsed, bufferMinutes, boardingTime, destinationCity,
+    homeCoords, airCoords,
     onBook, onEditPrefs, onEditTrip, onUntrack, onOpenFeedback,
 }) {
     const terminal = selectedFlight?.departure_terminal;
@@ -705,13 +780,13 @@ function PhaseContent({
                     />
                 </div>
                 <div className="mt-c-8">
-                    <button
-                        type="button"
-                        onClick={onBook}
-                        className="w-full h-12 rounded-c-md bg-c-brand-primary text-white c-type-footnote font-semibold hover:bg-c-brand-primary-hover transition-colors"
-                    >
-                        {transport === 'driving' ? 'Start navigation' : 'Book your ride'}
-                    </button>
+                    <TransportLauncherRow
+                        transport={transport}
+                        homeCoords={homeCoords}
+                        airCoords={airCoords}
+                        airportCode={selectedFlight?.origin_code}
+                        terminal={terminal}
+                    />
                 </div>
             </>
         );
@@ -749,14 +824,14 @@ function PhaseContent({
                         Head to Terminal {terminal}{gate ? ` · Gate ${gate}` : ''}
                     </p>
                 )}
-                <div className="mt-c-5 flex flex-wrap gap-c-2">
-                    <button
-                        type="button"
-                        onClick={onBook}
-                        className="flex-1 min-w-[180px] h-12 rounded-c-md bg-c-urgency text-white c-type-footnote font-semibold hover:opacity-90 active:scale-95 transition-all"
-                    >
-                        {transport === 'driving' ? 'Start navigation' : 'Book your ride'}
-                    </button>
+                <div className="mt-c-5">
+                    <TransportLauncherRow
+                        transport={transport}
+                        homeCoords={homeCoords}
+                        airCoords={airCoords}
+                        airportCode={selectedFlight?.origin_code}
+                        terminal={terminal}
+                    />
                 </div>
             </>
         );
@@ -1081,9 +1156,12 @@ function ActiveTimeline({ phase, recommendation, selectedFlight, transport, home
                             </p>
                         )}
                         {row.connectorPillAfter && (
-                            <span className="inline-flex items-center mt-c-1 px-c-2 py-0.5 rounded-c-pill bg-c-ground-elevated border border-c-brand-primary/30 c-type-caption text-c-text-primary font-bold whitespace-nowrap">
+                            // Plain subordinate text below the subtitle — no pill/border
+                            // treatment, so "7 min walk" reads as secondary info under the
+                            // primary "18 min wait" rather than competing for attention.
+                            <p className="c-type-caption text-c-text-tertiary mt-c-1">
                                 {row.connectorPillAfter}
-                            </span>
+                            </p>
                         )}
                     </div>
                 </div>
@@ -1481,6 +1559,8 @@ export default function ActiveTripView({
                     bufferMinutes={bufferMinutes}
                     boardingTime={boardingTime}
                     destinationCity={destinationCity}
+                    homeCoords={homeCoords}
+                    airCoords={airCoords}
                     onBook={openMapsNavigation}
                     onEditPrefs={onEdit}
                     onEditTrip={handleEditTrip}
