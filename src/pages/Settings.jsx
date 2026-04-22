@@ -6,8 +6,8 @@ import { API_BASE } from '@/config';
 import PaywallModal from '@/components/PaywallModal';
 import AuthModal from '@/components/engine/AuthModal';
 import useAuthGatedTabs from '@/hooks/useAuthGatedTabs';
-import TopBar from '@/components/design-system/TopBar';
 import TabBar from '@/components/design-system/TabBar';
+import TabScreenHeader from '@/components/TabScreenHeader';
 import Card from '@/components/design-system/Card';
 import ListRow from '@/components/design-system/ListRow';
 import StatusPill from '@/components/design-system/StatusPill';
@@ -428,15 +428,17 @@ export default function Settings() {
 
     return (
         <div className="min-h-screen bg-c-ground font-c-sans text-c-text-primary pb-28">
-            {/* Brief §2.4 puts the page title in the TopBar; Rab's preference
-                is to keep it inline in the content area so sub-routes can
-                reclaim the TopBar's left/right slots for back/action chevrons
-                later. TopBar stays mounted (empty) to preserve layout. */}
-            <TopBar align="left" />
+            {/* Shared identity header — consistent with Search and My Trip
+               tabs per real-device-findings-2 alignment pass. Brief §4.14's
+               "Settings title left, no right icon" is superseded by this
+               identity treatment; brief to be updated post-pitch. */}
+            <TabScreenHeader onSignInClick={() => setAuthOpen(true)} />
 
-            {/* Inline save-status toast — confidence tone, fades via state timeout */}
+            {/* Inline save-status toast — confidence tone, fades via state
+               timeout. Top offset = safe-area + 56px TopBar height + 12px
+               breathing room; matches TopBar's own pt-[calc(...)] formula. */}
             <div
-                className={`sticky top-14 z-30 px-c-4 pt-c-3 transition-opacity duration-c-normal ${
+                className={`sticky top-[calc(env(safe-area-inset-top)_+_68px)] z-30 px-c-4 pt-c-3 transition-opacity duration-c-normal ${
                     saveStatus ? 'opacity-100' : 'opacity-0 pointer-events-none'
                 }`}
                 aria-live="polite"
@@ -455,17 +457,11 @@ export default function Settings() {
             </div>
 
             <main className="max-w-3xl mx-auto px-c-4 pt-c-4 pb-c-10">
-                {/* Inline page title (Rab preference — see TopBar note above).
-                    Semibold (600), not the token's default bold (700), to
-                    feel less heavy at scale. Inline style wins over the
-                    c-type-title-xl class's font-weight without mutating the
-                    token. */}
-                <h1
-                    className="c-type-title-xl text-c-text-primary px-c-1"
-                    style={{ fontWeight: 600 }}
-                >
-                    Settings
-                </h1>
+                {/* Visible "Settings" page title removed per
+                   real-device-findings-2 — the shared TabScreenHeader +
+                   active tab in the TabBar convey location. Preserving as
+                   sr-only so screen readers still announce the screen. */}
+                <h1 className="sr-only">Settings</h1>
 
                 {loadingProfile ? (
                     <div className="flex items-center justify-center py-c-16">

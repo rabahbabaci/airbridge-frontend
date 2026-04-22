@@ -26,7 +26,7 @@ export default function TopBar({
     return (
         <header
             className={cn(
-                'relative flex items-center h-14 px-c-4 pt-[env(safe-area-inset-top)]',
+                'relative flex items-center h-14 px-c-4 pt-[calc(env(safe-area-inset-top)_+_12px)]',
                 translucent ? 'c-glass' : 'bg-c-ground border-b border-c-border-hairline',
                 className
             )}
