@@ -20,7 +20,7 @@ import { cn } from '@/lib/utils';
    need to import the library's default CSS. */
 
 const NARROW_VIEWPORT_PX = 400;
-const POPOVER_ESTIMATED_WIDTH = 320; // used before panel is measured
+const POPOVER_ESTIMATED_WIDTH = 280; // used before panel is measured
 
 function toIsoDate(d) {
     const y = d.getFullYear();
@@ -117,7 +117,7 @@ export default function DatePickerWeb({
             aria-label="Pick a date"
             className={cn(
                 'fixed z-[99] bg-c-ground-elevated border border-c-border-hairline',
-                'rounded-c-lg shadow-c-lg p-c-4 font-c-sans text-c-text-primary',
+                'rounded-c-lg shadow-c-lg p-c-3 font-c-sans text-c-text-primary',
                 isNarrow && 'left-c-4 right-c-4 top-1/2 -translate-y-1/2 max-w-sm mx-auto'
             )}
             style={isNarrow ? undefined : { top: position.top, left: position.left }}
@@ -139,23 +139,23 @@ export default function DatePickerWeb({
                     IconRight: (p) => <ChevronRight size={20} strokeWidth={2} {...p} />,
                 }}
                 classNames={{
-                    months: 'flex flex-col gap-c-4',
-                    month: 'space-y-c-3',
-                    caption: 'relative flex items-center justify-center h-10',
+                    months: 'flex flex-col gap-c-3',
+                    month: 'space-y-c-2',
+                    caption: 'relative flex items-center justify-center h-8',
                     caption_label: 'c-type-headline text-c-text-primary',
                     nav: 'absolute inset-x-0 top-1/2 -translate-y-1/2 flex justify-between pointer-events-none',
                     nav_button:
-                        'pointer-events-auto w-9 h-9 rounded-c-pill inline-flex items-center justify-center ' +
+                        'pointer-events-auto w-8 h-8 rounded-c-pill inline-flex items-center justify-center ' +
                         'text-c-brand-primary hover:bg-c-brand-primary-surface transition-colors duration-c-fast',
                     table: 'w-full border-collapse',
                     head_row: 'flex',
                     head_cell:
-                        'w-10 h-8 flex items-center justify-center c-type-caption text-c-text-secondary',
+                        'w-9 h-7 flex items-center justify-center c-type-caption text-c-text-secondary',
                     row: 'flex w-full mt-c-1',
-                    cell: 'w-10 h-10 p-0 text-center relative focus-within:z-10',
+                    cell: 'w-9 h-9 p-0 text-center relative focus-within:z-10',
                     day:
-                        'w-10 h-10 inline-flex items-center justify-center rounded-c-pill ' +
-                        'c-type-body text-c-text-primary cursor-pointer ' +
+                        'w-9 h-9 inline-flex items-center justify-center rounded-c-pill ' +
+                        'c-type-footnote text-c-text-primary cursor-pointer ' +
                         'hover:bg-c-brand-primary-surface transition-colors duration-c-fast ' +
                         'focus:outline-none focus-visible:ring-2 focus-visible:ring-c-brand-primary',
                     // `!` forces override of the base `day` classes — Tailwind
