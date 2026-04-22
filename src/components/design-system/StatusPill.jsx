@@ -35,7 +35,12 @@ export default function StatusPill({
     return (
         <span
             className={cn(
-                'c-type-caption inline-flex items-center gap-c-2 px-c-3 py-c-1 rounded-c-pill',
+                // w-fit forces the span to hug its text content even in
+                // contexts where a parent flex-column or table-cell would
+                // otherwise stretch it full-width. Without w-fit, the pill
+                // can end up as a wide banner when dropped into a
+                // stretch-by-default flex container.
+                'c-type-caption inline-flex w-fit items-center gap-c-2 px-c-3 py-c-1 rounded-c-pill',
                 tones[tone],
                 className
             )}

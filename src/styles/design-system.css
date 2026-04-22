@@ -202,8 +202,8 @@
    Scoped to .landing-root so the in-app ground tokens stay at their
    brief-specified values — Capacitor/iOS rendering is unaffected. */
 .landing-root {
-  --c-ground: #FAFAF8;
-  --c-ground-sunken: #F4F4F1;
+  --c-ground: #FCFCFA;
+  --c-ground-sunken: #F7F7F4;
 }
 
 /* ── Tokens (dark mode, opt-in per-subtree) ─────────────────────────────── */
