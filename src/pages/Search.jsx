@@ -226,6 +226,11 @@ function AirportField({ label, placeholder, value, onChange }) {
 }
 
 /* ── Date pill group ─────────────────────────────────────────────────────── */
+// Below this viewport width on web, the Concourse-themed popover would get
+// cramped — fall through to the browser's native <input type="date"> picker
+// (iOS Safari bottom-sheet wheel / Chrome Android modal) via showPicker().
+const NARROW_WEB_PX = 480;
+
 function DatePills({ value, onChange }) {
     const today = todayIso();
     const tomorrow = tomorrowIso();
@@ -233,8 +238,8 @@ function DatePills({ value, onChange }) {
     const isTomorrow = value === tomorrow;
     const isCustom = !!value && !isToday && !isTomorrow;
     const native = isNative();
-    const dateInputRef = useRef(null);      // Capacitor path only
-    const pickDateBtnRef = useRef(null);    // Web path only — anchor for popover
+    const dateInputRef = useRef(null);      // Capacitor + narrow-web path
+    const pickDateBtnRef = useRef(null);    // Wide-web path — anchor for popover
     const [webPickerOpen, setWebPickerOpen] = useState(false);
 
     const pillClass = (active) =>
@@ -245,10 +250,10 @@ function DatePills({ value, onChange }) {
                 : 'bg-c-ground-sunken text-c-text-secondary hover:text-c-text-primary'
         );
 
-    // Capacitor/iOS WKWebView: native wheel picker via showPicker() on the
-    // hidden <input type="date">. DO NOT replace this path — the iOS native
-    // UI is the correct affordance for the mobile app.
-    const handleNativePick = () => {
+    // Open the browser/OS native picker on the hidden <input type="date">.
+    // Used by both the Capacitor path (iOS wheel) and narrow-web (mobile
+    // Safari bottom-sheet / Chrome Android modal).
+    const openNativePicker = () => {
         const el = dateInputRef.current;
         if (!el) return;
         try {
@@ -259,7 +264,9 @@ function DatePills({ value, onChange }) {
     };
 
     const handlePickDate = () => {
-        if (native) handleNativePick();
+        const narrowWeb =
+            !native && typeof window !== 'undefined' && window.innerWidth < NARROW_WEB_PX;
+        if (native || narrowWeb) openNativePicker();
         else setWebPickerOpen(true);
     };
 
@@ -283,23 +290,24 @@ function DatePills({ value, onChange }) {
                 <span>{isCustom ? formatFriendlyDate(value) : 'Pick a date'}</span>
             </button>
 
-            {/* Capacitor path — hidden input kept in the DOM (not display:none)
-               so showPicker() can target it. sr-only hides it visually and
-               from layout without disabling the native picker API. */}
-            {native && (
-                <input
-                    ref={dateInputRef}
-                    type="date"
-                    min={today}
-                    value={isCustom ? value : ''}
-                    onChange={(e) => { if (e.target.value) onChange(e.target.value); }}
-                    className="sr-only"
-                    tabIndex={-1}
-                    aria-hidden="true"
-                />
-            )}
+            {/* Hidden native input — always rendered. sr-only (not display:none)
+               keeps it in the DOM so showPicker() can target it; used by the
+               Capacitor path and the narrow-web fallback. On wide web it's
+               harmless dead weight. */}
+            <input
+                ref={dateInputRef}
+                type="date"
+                min={today}
+                value={isCustom ? value : ''}
+                onChange={(e) => { if (e.target.value) onChange(e.target.value); }}
+                className="sr-only"
+                tabIndex={-1}
+                aria-hidden="true"
+            />
 
-            {/* Web path — Concourse-themed popover; portaled to document.body. */}
+            {/* Wide-web path — Concourse-themed popover; portaled to document.body.
+               Gated by viewport width at click time, so on narrow web this never
+               opens. */}
             {!native && (
                 <DatePickerWeb
                     value={isCustom ? value : null}

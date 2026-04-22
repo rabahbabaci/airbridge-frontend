@@ -5,21 +5,19 @@ import { addMonths, parseISO } from 'date-fns';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { cn } from '@/lib/utils';
 
-/* ── Custom-styled date picker for WEB ONLY ──────────────────────────────
-   Capacitor/iOS keeps using the native wheel picker via showPicker() — this
-   component is gated behind !isNative() in the call site (Search.jsx).
+/* ── Custom-styled date picker for WEB (wide viewports) ──────────────────
+   Gated behind !isNative() AND window.innerWidth ≥ NARROW_WEB_PX at the
+   call site (Search.jsx). Phone-width web falls through to the browser's
+   native <input type="date"> picker via showPicker(); this component is
+   only for desktop and tablet-size web.
 
-   Positioning: portaled to document.body so we escape Card/main overflow
-   constraints. On wide viewports (≥ 400px) we anchor below and horizontally
-   center on the triggering button. On narrow viewports we fall back to a
-   centered modal with a dimmed backdrop — avoids the popover getting clipped
-   by the viewport edge on small screens.
+   Portaled to document.body so we escape Card/main overflow constraints,
+   anchored below and horizontally centered on the trigger button.
 
-   Styling: all colors come from Concourse tokens (src/styles/design-system.css,
-   §3.1). `classNames` overrides every react-day-picker v8 slot so we don't
+   Styling: Concourse tokens (src/styles/design-system.css §3.1). The
+   `classNames` prop overrides every react-day-picker v8 slot so we don't
    need to import the library's default CSS. */
 
-const NARROW_VIEWPORT_PX = 400;
 const POPOVER_ESTIMATED_WIDTH = 280; // used before panel is measured
 
 function toIsoDate(d) {
@@ -55,20 +53,15 @@ export default function DatePickerWeb({
             const anchor = anchorRef?.current;
             if (!anchor) return;
 
-            const vw = window.innerWidth;
-            if (vw < NARROW_VIEWPORT_PX) {
-                setPosition({ narrow: true });
-                return;
-            }
-
             const rect = anchor.getBoundingClientRect();
+            const vw = window.innerWidth;
             const panelW = panelRef.current?.offsetWidth || POPOVER_ESTIMATED_WIDTH;
             let left = rect.left + rect.width / 2 - panelW / 2;
             // Clamp horizontally into viewport with an 8px margin so the
             // panel never touches or overflows the edge.
             left = Math.max(8, Math.min(left, vw - panelW - 8));
             const top = rect.bottom + 8;
-            setPosition({ narrow: false, top, left });
+            setPosition({ top, left });
         }
 
         computePosition();
@@ -108,23 +101,25 @@ export default function DatePickerWeb({
 
     if (!open || !position) return null;
 
-    const isNarrow = position.narrow;
-
-    const panel = (
+    return createPortal(
         <div
             ref={panelRef}
             role="dialog"
             aria-label="Pick a date"
             className={cn(
                 'fixed z-[99] bg-c-ground-elevated border border-c-border-hairline',
-                'rounded-c-lg shadow-c-lg p-c-3 font-c-sans text-c-text-primary',
-                isNarrow && 'left-c-4 right-c-4 top-1/2 -translate-y-1/2 max-w-sm mx-auto'
+                'rounded-c-lg shadow-c-lg p-c-3 font-c-sans text-c-text-primary'
             )}
-            style={isNarrow ? undefined : { top: position.top, left: position.left }}
+            style={{ top: position.top, left: position.left }}
         >
             <DayPicker
                 mode="single"
                 selected={selectedDate}
+                // Reopen on the selected date's month instead of today's —
+                // important when the selection is in a future month the user
+                // navigated to last time. Component unmounts on close, so
+                // defaultMonth takes fresh effect every open.
+                defaultMonth={selectedDate || new Date()}
                 onSelect={(d) => {
                     if (!d) return;
                     onChange(toIsoDate(d));
@@ -168,20 +163,7 @@ export default function DatePickerWeb({
                     day_hidden: 'invisible',
                 }}
             />
-        </div>
-    );
-
-    return createPortal(
-        <>
-            {isNarrow && (
-                <div
-                    onClick={() => onOpenChange(false)}
-                    className="fixed inset-0 z-[98] bg-c-text-primary/20"
-                    aria-hidden="true"
-                />
-            )}
-            {panel}
-        </>,
+        </div>,
         document.body,
     );
 }
