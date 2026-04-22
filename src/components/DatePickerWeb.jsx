@@ -118,7 +118,7 @@ export default function DatePickerWeb({
             className={cn(
                 'fixed z-[99] bg-c-ground-elevated border border-c-border-hairline',
                 'rounded-c-lg shadow-c-lg p-c-3 font-c-sans text-c-text-primary',
-                isNarrow && 'left-c-4 right-c-4 top-1/2 -translate-y-1/2 max-w-sm mx-auto'
+                isNarrow && 'left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2'
             )}
             style={isNarrow ? undefined : { top: position.top, left: position.left }}
         >
