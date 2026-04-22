@@ -126,14 +126,37 @@ function AirportField({ label, placeholder, value, onChange }) {
     const results = useMemo(() => {
         if (!query.trim()) return [];
         const q = query.trim().toLowerCase();
-        return airports
-            .filter(
-                (a) =>
-                    a.iata.toLowerCase().startsWith(q) ||
-                    a.city.toLowerCase().includes(q) ||
-                    a.name.toLowerCase().includes(q)
-            )
-            .slice(0, 8);
+        const scored = [];
+        for (const a of airports) {
+            // Product is 🇺🇸 US domestic flights only (per CLAUDE.md and
+            // the Search/Settings badge). Filter out non-US airports so
+            // e.g. "San F" doesn't surface Perugia (IT) or San Fernando
+            // de Apure (VE).
+            if (a.country !== 'US') continue;
+
+            const iata = a.iata.toLowerCase();
+            const city = a.city.toLowerCase();
+            const name = a.name.toLowerCase();
+
+            let s = 0;
+            if (iata === q) s = 100;
+            else if (iata.startsWith(q)) s = 90;
+            else if (city.startsWith(q)) s = 80;
+            else if (city.split(' ').some((w) => w.startsWith(q))) s = 70;
+            else if (name.startsWith(q)) s = 60;
+            else if (city.includes(q)) s = 50;
+            else if (name.includes(q)) s = 40;
+            else continue;
+
+            // Bay Area beta boost (SFO/OAK/SJC) — breaks ties toward the
+            // airports this release actually supports. Remove when beta
+            // scope expands beyond Bay Area.
+            if (a.iata === 'SFO' || a.iata === 'OAK' || a.iata === 'SJC') s += 5;
+
+            scored.push({ airport: a, score: s });
+        }
+        scored.sort((a, b) => b.score - a.score);
+        return scored.slice(0, 8).map((x) => x.airport);
     }, [query]);
 
     useEffect(() => {
