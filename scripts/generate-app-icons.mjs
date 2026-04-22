@@ -56,12 +56,26 @@ const WEB_ICONS = [
     { name: 'apple-touch-icon.png', px: 180 },
 ];
 
+// Apple rejects iOS app icons (especially Icon-1024.png for App Store)
+// that contain an alpha channel — submission rule 90717. The master
+// favicon.svg has a transparent corner outside the 18% rounded-rect
+// mask, so rasterization preserves alpha by default. Flatten against
+// the indigo brand background so the PNG is fully opaque; iOS applies
+// its own corner mask at runtime, so the flattened background is
+// invisible on the home screen. Web favicons keep alpha — they're not
+// subject to this rule and transparency reads better in browser tabs.
+const IOS_BACKGROUND = '#4F3FD3';
+
 const generated = [];
 
 await Promise.all([
     ...IOS_ICONS.map(async ({ name, px }) => {
-        await sharp(svg).resize(px, px).png().toFile(join(IOS_ICON_DIR, name));
-        generated.push(`ios/…/${name} (${px}×${px})`);
+        await sharp(svg)
+            .resize(px, px)
+            .flatten({ background: IOS_BACKGROUND })
+            .png()
+            .toFile(join(IOS_ICON_DIR, name));
+        generated.push(`ios/…/${name} (${px}×${px}, flattened)`);
     }),
     ...WEB_ICONS.map(async ({ name, px }) => {
         await sharp(svg).resize(px, px).png().toFile(join(PUBLIC_DIR, name));
