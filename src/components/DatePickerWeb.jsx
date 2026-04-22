@@ -10,16 +10,14 @@ import { cn } from '@/lib/utils';
    keeps using its native wheel picker via showPicker().
 
    Portaled to document.body so we escape Card/main overflow constraints.
-   Wide viewports (≥ NARROW_VIEWPORT_PX) anchor below and horizontally
-   center on the triggering button. Narrow viewports (phones in web
-   browsers) render as a centered modal with a dimmed backdrop — prevents
-   the popover from being clipped by the viewport edge.
+   Anchored below the trigger, horizontally centered on it, clamped 8px
+   from each viewport edge — the compact ~280px panel fits on phone-size
+   viewports without a separate modal layout.
 
    Styling: Concourse tokens (src/styles/design-system.css §3.1). The
    `classNames` prop overrides every react-day-picker v8 slot so we don't
    need to import the library's default CSS. */
 
-const NARROW_VIEWPORT_PX = 480;
 const POPOVER_ESTIMATED_WIDTH = 280; // used before panel is measured
 
 function toIsoDate(d) {
@@ -55,20 +53,15 @@ export default function DatePickerWeb({
             const anchor = anchorRef?.current;
             if (!anchor) return;
 
-            const vw = window.innerWidth;
-            if (vw < NARROW_VIEWPORT_PX) {
-                setPosition({ narrow: true });
-                return;
-            }
-
             const rect = anchor.getBoundingClientRect();
+            const vw = window.innerWidth;
             const panelW = panelRef.current?.offsetWidth || POPOVER_ESTIMATED_WIDTH;
             let left = rect.left + rect.width / 2 - panelW / 2;
             // Clamp horizontally into viewport with an 8px margin so the
             // panel never touches or overflows the edge.
             left = Math.max(8, Math.min(left, vw - panelW - 8));
             const top = rect.bottom + 8;
-            setPosition({ narrow: false, top, left });
+            setPosition({ top, left });
         }
 
         computePosition();
@@ -108,8 +101,6 @@ export default function DatePickerWeb({
 
     if (!open || !position) return null;
 
-    const isNarrow = position.narrow;
-
     const panel = (
         <div
             ref={panelRef}
@@ -117,10 +108,9 @@ export default function DatePickerWeb({
             aria-label="Pick a date"
             className={cn(
                 'fixed z-[99] bg-c-ground-elevated border border-c-border-hairline',
-                'rounded-c-lg shadow-c-lg p-c-3 font-c-sans text-c-text-primary',
-                isNarrow && 'left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2'
+                'rounded-c-lg shadow-c-lg p-c-3 font-c-sans text-c-text-primary'
             )}
-            style={isNarrow ? undefined : { top: position.top, left: position.left }}
+            style={{ top: position.top, left: position.left }}
         >
             <DayPicker
                 mode="single"
@@ -176,17 +166,5 @@ export default function DatePickerWeb({
         </div>
     );
 
-    return createPortal(
-        <>
-            {isNarrow && (
-                <div
-                    onClick={() => onOpenChange(false)}
-                    className="fixed inset-0 z-[98] bg-c-text-primary/20"
-                    aria-hidden="true"
-                />
-            )}
-            {panel}
-        </>,
-        document.body,
-    );
+    return createPortal(panel, document.body);
 }
